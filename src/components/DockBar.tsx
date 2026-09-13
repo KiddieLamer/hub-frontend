@@ -5,6 +5,7 @@ interface DockItem {
   icon: string
   href?: string
   onClick?: () => void
+  isActive?: boolean
 }
 
 interface DockBarProps {
@@ -21,53 +22,47 @@ function DockIcon({ item }: { item: DockItem }) {
 
   return (
     <div style={{ position: 'relative' }}>
+      {/* Tooltip */}
       <div
         style={{
           position: 'absolute',
-          bottom: 'calc(100% + 12px)',
+          bottom: 'calc(100% + 10px)',
           left: '50%',
           transform: 'translateX(-50%)',
           opacity: hovered ? 1 : 0,
-          transition: 'opacity 0.15s ease',
+          transition: 'opacity 0.12s ease',
           pointerEvents: 'none',
           zIndex: 10,
         }}
       >
         <div
           style={{
-            padding: '6px 12px',
-            borderRadius: 64,
-            background: 'white',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-            fontFamily: "'Inter', sans-serif",
+            padding: '4px 10px',
+            borderRadius: 4,
+            background: 'rgba(30,30,30,0.85)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
             fontWeight: 500,
-            fontSize: 12,
-            letterSpacing: '-0.04em',
-            color: 'black',
+            fontSize: 11,
+            letterSpacing: '-0.01em',
+            color: 'white',
             whiteSpace: 'nowrap',
           }}
         >
           {item.label}
         </div>
-        <div
-          style={{
-            width: 0,
-            height: 0,
-            borderLeft: '8px solid transparent',
-            borderRight: '8px solid transparent',
-            borderTop: '8px solid white',
-            margin: '0 auto',
-          }}
-        />
       </div>
+
+      {/* Icon */}
       <Wrapper
         {...wrapperProps}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          width: 48,
-          height: 48,
-          borderRadius: '28%',
+          width: 44,
+          height: 44,
+          borderRadius: 10,
           overflow: 'hidden',
           border: 'none',
           padding: 0,
@@ -81,9 +76,25 @@ function DockIcon({ item }: { item: DockItem }) {
         <img
           src={item.icon}
           alt={item.label}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 10 }}
         />
       </Wrapper>
+
+      {/* Active indicator dot */}
+      {item.isActive && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: -5,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 4,
+            height: 4,
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.9)',
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -93,20 +104,24 @@ export function DockBar({ items }: DockBarProps) {
     <div
       style={{
         position: 'absolute',
-        bottom: 64,
+        bottom: 10,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 4,
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
-        padding: 12,
-        borderRadius: 24,
-        background: 'rgba(255,255,255,0.1)',
-        border: '1px solid rgba(255,255,255,0.2)',
-        backdropFilter: 'blur(5px)',
-        WebkitBackdropFilter: 'blur(5px)',
+        gap: 4,
+        padding: '6px 10px',
+        borderRadius: 16,
+        background: 'rgba(255,255,255,0.15)',
+        borderTop: '0.5px solid rgba(255,255,255,0.3)',
+        borderLeft: '0.5px solid rgba(255,255,255,0.15)',
+        borderRight: '0.5px solid rgba(255,255,255,0.15)',
+        borderBottom: '0.5px solid rgba(255,255,255,0.2)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
       }}
     >
       {items.map((item, i) => {
@@ -115,10 +130,10 @@ export function DockBar({ items }: DockBarProps) {
             <div
               key={`divider-${i}`}
               style={{
-                width: 1,
-                height: 48,
+                width: 0.5,
+                height: 32,
                 background: 'rgba(255,255,255,0.2)',
-                borderRadius: 64,
+                margin: '0 4px',
               }}
             />
           )
