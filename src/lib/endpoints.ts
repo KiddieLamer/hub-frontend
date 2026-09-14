@@ -141,28 +141,64 @@ export const membersApi = {
 // ============ FINANCE - EXPENSE CATEGORIES ============
 export const expenseCategoriesApi = {
   list: () => apiFetch('/api/finance/expense-categories').then(r => r.json()),
+  get: (id: string) => apiFetch(`/api/finance/expense-categories/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/finance/expense-categories', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/finance/expense-categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+  delete: (id: string) => apiFetch(`/api/finance/expense-categories/${id}`, { method: 'DELETE' }).then(r => r.json()),
 }
 
 // ============ FINANCE - EXPENSE CLAIMS ============
 export const expenseClaimsApi = {
-  list: (userId?: string) => apiFetch(`/api/finance/expense-claims${userId ? `?userId=${userId}` : ''}`).then(r => r.json()),
+  list: (params?: { search?: string; status?: string; category?: string; department?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.search) q.set('search', params.search)
+    if (params?.status) q.set('status', params.status)
+    if (params?.category) q.set('category', params.category)
+    if (params?.department) q.set('department', params.department)
+    const qs = q.toString()
+    return apiFetch(`/api/finance/expense-claims${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
+  stats: () => apiFetch('/api/finance/expense-claims/stats').then(r => r.json()),
+  get: (id: string) => apiFetch(`/api/finance/expense-claims/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/finance/expense-claims', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/finance/expense-claims/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+  approve: (id: string, data: { approved: boolean; rejectionReason?: string }) => apiFetch(`/api/finance/expense-claims/${id}/approve`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  pay: (id: string, paymentDate: string) => apiFetch(`/api/finance/expense-claims/${id}/pay`, { method: 'POST', body: JSON.stringify({ paymentDate }) }).then(r => r.json()),
+  delete: (id: string) => apiFetch(`/api/finance/expense-claims/${id}`, { method: 'DELETE' }).then(r => r.json()),
 }
 
 // ============ FINANCE - DEPARTMENT BUDGETS ============
 export const departmentBudgetsApi = {
-  list: () => apiFetch('/api/finance/department-budgets').then(r => r.json()),
+  list: (params?: { month?: number; year?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.month) q.set('month', String(params.month))
+    if (params?.year) q.set('year', String(params.year))
+    const qs = q.toString()
+    return apiFetch(`/api/finance/department-budgets${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
+  get: (id: string) => apiFetch(`/api/finance/department-budgets/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/finance/department-budgets', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/finance/department-budgets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+  delete: (id: string) => apiFetch(`/api/finance/department-budgets/${id}`, { method: 'DELETE' }).then(r => r.json()),
 }
 
 // ============ FINANCE - INVOICES ============
 export const invoicesApi = {
-  list: () => apiFetch('/api/finance/invoices').then(r => r.json()),
+  list: (params?: { search?: string; status?: string; clientId?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.search) q.set('search', params.search)
+    if (params?.status) q.set('status', params.status)
+    if (params?.clientId) q.set('clientId', params.clientId)
+    const qs = q.toString()
+    return apiFetch(`/api/finance/invoices${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
+  stats: () => apiFetch('/api/finance/invoices/stats').then(r => r.json()),
   get: (id: string) => apiFetch(`/api/finance/invoices/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/finance/invoices', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/finance/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+  delete: (id: string) => apiFetch(`/api/finance/invoices/${id}`, { method: 'DELETE' }).then(r => r.json()),
+  recordPayment: (id: string, data: Record<string, unknown>) => apiFetch(`/api/finance/invoices/${id}/payments`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  updateStatus: (id: string, status: string) => apiFetch(`/api/finance/invoices/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }).then(r => r.json()),
 }
 
 // ============ COMPLIANCE - AUDIT LOGS ============

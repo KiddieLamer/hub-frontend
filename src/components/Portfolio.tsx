@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Search, User, ShieldCheck, Sliders, Wifi, Bluetooth,
   Globe, Battery, Settings, Palette, Sparkles, Monitor, Sun, Bell,
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { ProjectCard } from './ProjectCard'
 import { DockBar } from './DockBar'
-import { usersApi } from '../lib/endpoints'
+import { usersApi, invoicesApi, expenseClaimsApi, expenseCategoriesApi, departmentBudgetsApi, clientsApi } from '../lib/endpoints'
 import { WindowShell } from './WindowShell'
 import { ClientsContent } from './ClientsContent'
 import { ProjectsContent } from './ProjectsContent'
@@ -816,11 +816,35 @@ function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () => void;
   )
 }
 
-function FinanceContent({ onClose, onMinimize, onMaximize, onGreenMouseEnter, onGreenMouseLeave }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void; onGreenMouseEnter?: () => void; onGreenMouseLeave?: () => void }) {
+function FinanceContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
   const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'expenses' | 'budgets' | 'payments'>('dashboard')
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Dashboard state
+  const [invoiceStats, setInvoiceStats] = useState<any>(null)
+  const [recentInvoices, setRecentInvoices] = useState<any[]>([])
+
+  // Invoices state
+  const [invoicesList, setInvoicesList] = useState<any[]>([])
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false)
+  const [invoiceValues, setInvoiceValues] = useState<Record<string, string>>({})
+  const [invoiceItems, setInvoiceItems] = useState<{ itemName: string; description: string; quantity: string; unitPrice: string }[]>([{ itemName: '', description: '', quantity: '1', unitPrice: '' }])
+  const [previewInvoice, setPreviewInvoice] = useState<any>(null)
+  const [clientsList, setClientsList] = useState<any[]>([])
+
+  // Expenses state
+  const [expensesList, setExpensesList] = useState<any[]>([])
+  const [showExpenseForm, setShowExpenseForm] = useState(false)
+  const [expenseValues, setExpenseValues] = useState<Record<string, string>>({})
+  const [categoriesList, setCategoriesList] = useState<any[]>([])
+
+  // Budgets state
+  const [budgetsList, setBudgetsList] = useState<any[]>([])
+
+  // Payments state (derived from invoices)
+  const [paymentsList, setPaymentsList] = useState<any[]>([])
 
   const iconBg: Record<string, string> = {
     dashboard: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
@@ -862,21 +886,192 @@ function FinanceContent({ onClose, onMinimize, onMaximize, onGreenMouseEnter, on
   const allFinTabs = sidebarGroups.flatMap(g => g.items)
   const filteredGroups = sidebarGroups.map(g => ({ ...g, items: g.items.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(g => g.items.length > 0)
 
+  const formatRupiah = (n: number) => `Rp ${Number(n || 0).toLocaleString('id-ID')}`
+
+  const STATUS_COLORS: Record<string, string> = {
+    draft: '#6b7280', sent: '#2563eb', partially_paid: '#f59e0b', paid: '#16a34a', overdue: '#dc2626', cancelled: '#9ca3af',
+    submitted: '#f59e0b', approved: '#16a34a', rejected: '#dc2626', reimbursed: '#16a34a',
+  }
+
+  // ============ DATA LOADING ============
+  const loadDashboard = useCallback(async () => {
+    try {
+      const [statsRes, invRes] = await Promise.allSettled([invoicesApi.stats(), invoicesApi.list()])
+      if (statsRes.status === 'fulfilled') setInvoiceStats(statsRes.value?.stats || statsRes.value || null)
+      if (invRes.status === 'fulfilled') {
+        const inv = invRes.value?.invoices || invRes.value || []
+        setRecentInvoices(Array.isArray(inv) ? inv.slice(0, 5) : [])
+      }
+    } catch {}
+  }, [])
+
+  const loadInvoices = useCallback(async () => {
+    try {
+      const [invRes, cliRes] = await Promise.allSettled([invoicesApi.list(), clientsApi.list()])
+      if (invRes.status === 'fulfilled') {
+        const inv = invRes.value?.invoices || invRes.value || []
+        setInvoicesList(Array.isArray(inv) ? inv : [])
+      }
+      if (cliRes.status === 'fulfilled') {
+        const cli = cliRes.value?.clients || cliRes.value || []
+        setClientsList(Array.isArray(cli) ? cli : [])
+      }
+    } catch {}
+  }, [])
+
+  const loadExpenses = useCallback(async () => {
+    try {
+      const [expRes, catRes] = await Promise.allSettled([expenseClaimsApi.list(), expenseCategoriesApi.list()])
+      if (expRes.status === 'fulfilled') {
+        const exp = expRes.value?.expenseClaims || expRes.value || []
+        setExpensesList(Array.isArray(exp) ? exp : [])
+      }
+      if (catRes.status === 'fulfilled') {
+        const cat = catRes.value?.categories || catRes.value || []
+        setCategoriesList(Array.isArray(cat) ? cat : [])
+      }
+    } catch {}
+  }, [])
+
+  const loadBudgets = useCallback(async () => {
+    try {
+      const now = new Date()
+      const res = await departmentBudgetsApi.list({ month: now.getMonth() + 1, year: now.getFullYear() })
+      const bd = res?.budgets || res || []
+      setBudgetsList(Array.isArray(bd) ? bd : [])
+    } catch {}
+  }, [])
+
+  const loadPayments = useCallback(async () => {
+    try {
+      const res = await invoicesApi.list({ status: 'paid' })
+      const inv = res?.invoices || res || []
+      const payments: any[] = []
+      ;(Array.isArray(inv) ? inv : []).forEach((invoice: any) => {
+        if (invoice.payments) {
+          invoice.payments.forEach((p: any) => {
+            payments.push({ ...p, invoiceNumber: invoice.invoiceNumber, clientName: invoice.clientName || invoice.clientId })
+          })
+        }
+      })
+      setPaymentsList(payments)
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'dashboard') loadDashboard()
+    if (activeTab === 'invoices') loadInvoices()
+    if (activeTab === 'expenses') loadExpenses()
+    if (activeTab === 'budgets') loadBudgets()
+    if (activeTab === 'payments') loadPayments()
+  }, [activeTab, loadDashboard, loadInvoices, loadExpenses, loadBudgets, loadPayments])
+
+  // ============ ACTIONS ============
+  const handleCreateInvoice = async () => {
+    const items = invoiceItems.filter(it => it.itemName && it.unitPrice)
+    if (!invoiceValues.invoiceNumber || !invoiceValues.clientId || !invoiceValues.issueDate || !invoiceValues.dueDate || items.length === 0) return
+    try {
+      await invoicesApi.create({
+        ...invoiceValues,
+        taxRate: Number(invoiceValues.taxRate || '11'),
+        discountAmount: Number(invoiceValues.discountAmount || '0'),
+        items: items.map(it => ({ itemName: it.itemName, description: it.description, quantity: Number(it.quantity || '1'), unitPrice: Number(it.unitPrice) })),
+      })
+      setShowInvoiceForm(false); setInvoiceValues({}); setInvoiceItems([{ itemName: '', description: '', quantity: '1', unitPrice: '' }])
+      loadInvoices(); loadDashboard()
+    } catch {}
+  }
+
+  const handleCreateExpense = async () => {
+    if (!expenseValues.title || !expenseValues.amount) return
+    try {
+      await expenseClaimsApi.create({
+        ...expenseValues,
+        amount: Number(expenseValues.amount),
+      })
+      setShowExpenseForm(false); setExpenseValues({})
+      loadExpenses()
+    } catch {}
+  }
+
+  const handleCreateBudget = async () => {
+    if (!expenseValues.department || !expenseValues.allocatedBudget) return
+    try {
+      const now = new Date()
+      await departmentBudgetsApi.create({
+        department: expenseValues.department,
+        periodMonth: now.getMonth() + 1,
+        periodYear: now.getFullYear(),
+        allocatedBudget: Number(expenseValues.allocatedBudget),
+      })
+      setExpenseValues({})
+      loadBudgets()
+    } catch {}
+  }
+
+  // ============ INVOICE PRINT ============
+  const handlePrintInvoice = (invoice: any) => {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+    const items = invoice.items || []
+    const subtotal = items.reduce((s: number, it: any) => s + (it.quantity * it.unitPrice), 0)
+    const taxRate = invoice.taxRate || 11
+    const tax = subtotal * (taxRate / 100)
+    const discount = invoice.discountAmount || 0
+    const total = subtotal + tax - discount
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Invoice ${invoice.invoiceNumber}</title><style>
+      @media print { @page { margin: 15mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; color: #1d1d1f; padding: 40px; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; border-bottom: 2px solid #007aff; padding-bottom: 16px; }
+      .company { font-size: 20px; font-weight: 700; color: #007aff; }
+      .invoice-title { font-size: 28px; font-weight: 700; color: #1d1d1f; }
+      .invoice-num { font-size: 14px; color: #8e8e93; margin-top: 4px; }
+      .meta { display: flex; gap: 40px; margin-bottom: 24px; }
+      .meta-block label { font-size: 11px; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.05em; }
+      .meta-block div { font-size: 13px; color: #1d1d1f; margin-top: 2px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+      th { background: #f5f5f7; padding: 8px 12px; text-align: left; font-size: 11px; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e5ea; }
+      td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+      .text-right { text-align: right; }
+      .totals { display: flex; justify-content: flex-end; }
+      .totals-box { width: 260px; }
+      .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+      .totals-row.total { border-top: 2px solid #1d1d1f; padding-top: 8px; margin-top: 4px; font-weight: 700; font-size: 15px; }
+      .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e5ea; font-size: 11px; color: #8e8e93; text-align: center; }
+      .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    </style></head><body>
+      <div class="header">
+        <div><div class="company">HUB Platform</div><div style="font-size:12px;color:#8e8e93;margin-top:4px">Multi-Tenant SaaS</div></div>
+        <div style="text-align:right"><div class="invoice-title">INVOICE</div><div class="invoice-num">${invoice.invoiceNumber}</div><div style="margin-top:8px"><span class="status" style="background:${(STATUS_COLORS[invoice.status] || '#6b7280')}22;color:${STATUS_COLORS[invoice.status] || '#6b7280'}">${(invoice.status || 'draft').replace(/_/g, ' ').toUpperCase()}</span></div></div>
+      </div>
+      <div class="meta">
+        <div class="meta-block"><label>Bill To</label><div>${invoice.clientName || invoice.clientId || '-'}</div></div>
+        <div class="meta-block"><label>Issue Date</label><div>${invoice.issueDate || '-'}</div></div>
+        <div class="meta-block"><label>Due Date</label><div>${invoice.dueDate || '-'}</div></div>
+      </div>
+      <table><thead><tr><th>Item</th><th>Description</th><th class="text-right">Qty</th><th class="text-right">Unit Price</th><th class="text-right">Amount</th></tr></thead><tbody>
+      ${items.map((it: any) => `<tr><td>${it.itemName}</td><td>${it.description || '-'}</td><td class="text-right">${it.quantity}</td><td class="text-right">${formatRupiah(it.unitPrice)}</td><td class="text-right">${formatRupiah(it.quantity * it.unitPrice)}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="totals"><div class="totals-box">
+        <div class="totals-row"><span>Subtotal</span><span>${formatRupiah(subtotal)}</span></div>
+        <div class="totals-row"><span>PPN (${taxRate}%)</span><span>${formatRupiah(tax)}</span></div>
+        ${discount > 0 ? `<div class="totals-row"><span>Discount</span><span>-${formatRupiah(discount)}</span></div>` : ''}
+        <div class="totals-row total"><span>Total</span><span>${formatRupiah(total)}</span></div>
+      </div></div>
+      ${invoice.notes ? `<div style="margin-top:24px;padding:12px;background:#f5f5f7;border-radius:8px;font-size:12px;color:#6b7280"><strong>Catatan:</strong> ${invoice.notes}</div>` : ''}
+      <div class="footer">Invoice generated by Hub Platform · ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    </body></html>`)
+    printWindow.document.close()
+    printWindow.focus()
+    setTimeout(() => { printWindow.print() }, 300)
+  }
+
+  // ============ RENDER ============
   return (
     <div style={{ display: 'flex', height: '100%', fontFamily: SF, padding: 10, gap: 10 }}>
       {/* Sidebar */}
-      <div style={{
-        width: 220, flexShrink: 0,
-        background: 'rgba(255,255,255,0.7)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-        borderRadius: 12,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
-        display: 'flex', flexDirection: 'column',
-        padding: '6px',
-        overflowY: 'auto',
-      }}>
-        {/* Traffic lights */}
+      <div style={{ width: 220, flexShrink: 0, background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', padding: '6px', overflowY: 'auto' }}>
         <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
@@ -884,19 +1079,16 @@ function FinanceContent({ onClose, onMinimize, onMaximize, onGreenMouseEnter, on
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
           </div>
-          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => { setHoveredBtn('maximize'); onGreenMouseEnter?.() }} onMouseLeave={() => { setHoveredBtn(null); onGreenMouseLeave?.() }}>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
         </div>
-
-        {/* Search */}
         <div style={{ padding: '0 6px 8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
             <Search size={13} color="#8e8e93" />
             <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
           </div>
         </div>
-
         {filteredGroups.map((group) => (
           <div key={group.label}>
             <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>{group.label}</div>
@@ -929,8 +1121,6 @@ function FinanceContent({ onClose, onMinimize, onMaximize, onGreenMouseEnter, on
             </button>
           </div>
         </div>
-
-        {/* Section header */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
           <div style={{ width: 58, height: 58, borderRadius: 14, background: iconBg[activeTab], display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginBottom: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)' }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[activeTab]} fill="white" strokeWidth={0} /></svg>
@@ -945,170 +1135,301 @@ function FinanceContent({ onClose, onMinimize, onMaximize, onGreenMouseEnter, on
 
         <div style={{ padding: '0 24px 28px', maxWidth: 540, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-            {/* Dashboard */}
-            {activeTab === 'dashboard' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ padding: 14, borderRadius: 10, background: '#f0fdf4', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  <div style={{ fontSize: 10, color: '#16a34a', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>Financials</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8 }}>
-                    <DonutChart
-                      segs={[
-                        { frac: 185 / 322, color: '#16a34a' },
-                        { frac: 92 / 322, color: '#dc2626' },
-                        { frac: 45 / 322, color: '#2563eb' },
-                      ]}
-                      centerTop={(v) => `Rp ${Math.round(v * 322)}jt`}
-                      centerSub="total"
-                    />
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {[
-                        { dot: '#16a34a', label: 'Revenue', value: 'Rp 185jt', color: '#15803d' },
-                        { dot: '#dc2626', label: 'Expenses', value: 'Rp 92jt', color: '#b91c1c' },
-                        { dot: '#2563eb', label: 'Outstanding', value: 'Rp 45jt', color: '#1d4ed8' },
-                      ].map((row) => (
-                        <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: row.dot, flexShrink: 0 }} />
-                          <span style={{ fontSize: 12, color: '#6b7280', fontFamily: SF, letterSpacing: '-0.01em' }}>{row.label}</span>
-                          <div style={{ flex: 1 }} />
-                          <span style={{ fontSize: 12, fontWeight: 700, color: row.color, fontFamily: SF }}>{row.value}</span>
+          {/* ============ DASHBOARD ============ */}
+          {activeTab === 'dashboard' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ padding: 14, borderRadius: 10, background: '#f0fdf4', border: '0.5px solid rgba(0,0,0,0.08)' }}>
+                <div style={{ fontSize: 10, color: '#16a34a', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>Financials</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8 }}>
+                  <DonutChart
+                    segs={[
+                      { frac: (invoiceStats?.totalPaid || 0) / Math.max(invoiceStats?.totalRevenue || 1, 1), color: '#16a34a' },
+                      { frac: (invoiceStats?.totalOutstanding || 0) / Math.max(invoiceStats?.totalRevenue || 1, 1), color: '#dc2626' },
+                      { frac: (invoiceStats?.totalDraft || 0) / Math.max(invoiceStats?.totalRevenue || 1, 1), color: '#2563eb' },
+                    ]}
+                    centerTop={(v) => formatRupiah(v * (invoiceStats?.totalRevenue || 0))}
+                    centerSub="total"
+                  />
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {[
+                      { dot: '#16a34a', label: 'Paid', value: formatRupiah(invoiceStats?.totalPaid || 0), color: '#15803d' },
+                      { dot: '#dc2626', label: 'Outstanding', value: formatRupiah(invoiceStats?.totalOutstanding || 0), color: '#b91c1c' },
+                      { dot: '#2563eb', label: 'Draft', value: formatRupiah(invoiceStats?.totalDraft || 0), color: '#1d4ed8' },
+                    ].map((row) => (
+                      <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: row.dot, flexShrink: 0 }} />
+                        <span style={{ fontSize: 12, color: '#6b7280', fontFamily: SF, letterSpacing: '-0.01em' }}>{row.label}</span>
+                        <div style={{ flex: 1 }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: row.color, fontFamily: SF }}>{row.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={{ padding: 14, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8, fontFamily: SF, letterSpacing: '-0.01em' }}>Recent Invoices</div>
+                {recentInvoices.length === 0 ? (
+                  <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, textAlign: 'center', padding: 12 }}>Belum ada invoice</div>
+                ) : recentInvoices.map((inv: any, i: number) => (
+                  <div key={inv.id || i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < recentInvoices.length - 1 ? '0.5px solid rgba(0,0,0,0.06)' : 'none' }}>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontFamily: SF, letterSpacing: '-0.01em' }}>{inv.invoiceNumber} - {inv.clientName || inv.clientId}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: STATUS_COLORS[inv.status] || '#6b7280', fontFamily: SF }}>{formatRupiah(inv.totalAmount || inv.grandTotal || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ============ INVOICES ============ */}
+          {activeTab === 'invoices' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Invoices</h3>
+                <button onClick={() => setShowInvoiceForm(true)} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, letterSpacing: '-0.01em' }}>+ Invoice</button>
+              </div>
+              {invoicesList.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Belum ada invoice</div>
+              ) : invoicesList.map((inv: any) => (
+                <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f0f0f0'} onMouseLeave={(e) => e.currentTarget.style.background = '#f9fafb'}>
+                  <div style={{ flex: 1 }} onClick={() => setPreviewInvoice(inv)}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF, letterSpacing: '-0.01em' }}>{inv.invoiceNumber}</div>
+                    <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{inv.clientName || inv.clientId}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }} onClick={() => setPreviewInvoice(inv)}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF }}>{formatRupiah(inv.totalAmount || inv.grandTotal || 0)}</div>
+                    <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{inv.issueDate}</div>
+                  </div>
+                  <span style={{ padding: '2px 8px', borderRadius: 10, background: (STATUS_COLORS[inv.status] || '#6b7280') + '18', color: STATUS_COLORS[inv.status] || '#6b7280', fontSize: 10, fontWeight: 600, flexShrink: 0, fontFamily: SF, letterSpacing: '-0.01em' }}>{(inv.status || 'draft').replace(/_/g, ' ')}</span>
+                  <button onClick={() => handlePrintInvoice(inv)} style={{ padding: '4px 8px', borderRadius: 5, border: '0.5px solid rgba(0,0,0,0.12)', background: 'white', cursor: 'pointer', fontSize: 10, color: '#007aff', fontFamily: SF, flexShrink: 0 }}>Print</button>
+                </div>
+              ))}
+
+              {/* Invoice Form Modal */}
+              {showInvoiceForm && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowInvoiceForm(false)}>
+                  <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 460, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f' }}>Buat Invoice</div>
+                      <button onClick={() => setShowInvoiceForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={16} color="#8e8e93" /></button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <div style={{ flex: 1 }}><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>No. Invoice<span style={{ color: '#ff3b30' }}> *</span></label><input type="text" value={invoiceValues.invoiceNumber || ''} onChange={(e) => setInvoiceValues({ ...invoiceValues, invoiceNumber: e.target.value })} placeholder="INV-2026-001" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                        <div style={{ flex: 1 }}><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Klien<span style={{ color: '#ff3b30' }}> *</span></label><select value={invoiceValues.clientId || ''} onChange={(e) => setInvoiceValues({ ...invoiceValues, clientId: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', background: 'white' }}><option value="">Pilih...</option>{clientsList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <div style={{ flex: 1 }}><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Tanggal Terbit<span style={{ color: '#ff3b30' }}> *</span></label><input type="date" value={invoiceValues.issueDate || ''} onChange={(e) => setInvoiceValues({ ...invoiceValues, issueDate: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                        <div style={{ flex: 1 }}><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Jatuh Tempo<span style={{ color: '#ff3b30' }}> *</span></label><input type="date" value={invoiceValues.dueDate || ''} onChange={(e) => setInvoiceValues({ ...invoiceValues, dueDate: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <div style={{ flex: 1 }}><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>PPN (%)</label><input type="number" min="0" max="100" value={invoiceValues.taxRate || '11'} onChange={(e) => setInvoiceValues({ ...invoiceValues, taxRate: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                        <div style={{ flex: 1 }}><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Diskon</label><input type="number" min="0" value={invoiceValues.discountAmount || '0'} onChange={(e) => setInvoiceValues({ ...invoiceValues, discountAmount: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                      </div>
+                      <div><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Catatan</label><textarea rows={2} value={invoiceValues.notes || ''} onChange={(e) => setInvoiceValues({ ...invoiceValues, notes: e.target.value })} placeholder="Catatan invoice..." style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} /></div>
+
+                      {/* Line Items */}
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <label style={{ fontSize: 12, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Item</label>
+                          <button onClick={() => setInvoiceItems([...invoiceItems, { itemName: '', description: '', quantity: '1', unitPrice: '' }])} style={{ fontSize: 11, color: '#007aff', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SF }}>+ Tambah Item</button>
                         </div>
-                      ))}
+                        {invoiceItems.map((item, idx) => (
+                          <div key={idx} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+                            <input type="text" placeholder="Nama item" value={item.itemName} onChange={(e) => { const ni = [...invoiceItems]; ni[idx].itemName = e.target.value; setInvoiceItems(ni) }} style={{ flex: 2, padding: '6px 8px', borderRadius: 5, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 12, fontFamily: SF, outline: 'none' }} />
+                            <input type="number" min="1" placeholder="Qty" value={item.quantity} onChange={(e) => { const ni = [...invoiceItems]; ni[idx].quantity = e.target.value; setInvoiceItems(ni) }} style={{ flex: 0.5, padding: '6px 8px', borderRadius: 5, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 12, fontFamily: SF, outline: 'none' }} />
+                            <input type="number" min="0" placeholder="Harga" value={item.unitPrice} onChange={(e) => { const ni = [...invoiceItems]; ni[idx].unitPrice = e.target.value; setInvoiceItems(ni) }} style={{ flex: 1, padding: '6px 8px', borderRadius: 5, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 12, fontFamily: SF, outline: 'none' }} />
+                            {invoiceItems.length > 1 && <button onClick={() => setInvoiceItems(invoiceItems.filter((_, i) => i !== idx))} style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}><X size={12} color="#ff3b30" /></button>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                      <button onClick={() => { setShowInvoiceForm(false); setInvoiceValues({}); setInvoiceItems([{ itemName: '', description: '', quantity: '1', unitPrice: '' }]) }} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+                      <button onClick={handleCreateInvoice} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Simpan</button>
                     </div>
                   </div>
                 </div>
-                <div style={{ padding: 14, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8, fontFamily: SF, letterSpacing: '-0.01em' }}>Recent Transactions</div>
-                  {[
-                    { desc: 'Invoice #INV-001 - CV Berkah', amount: '+ Rp 12.500.000', color: '#16a34a' },
-                    { desc: 'Material - Alderon Corp', amount: '- Rp 3.200.000', color: '#dc2626' },
-                    { desc: 'Invoice #INV-002 - PT Maju', amount: '+ Rp 8.750.000', color: '#16a34a' },
-                  ].map((tx, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < 2 ? '0.5px solid rgba(0,0,0,0.06)' : 'none' }}>
-                      <span style={{ fontSize: 12, color: '#6b7280', fontFamily: SF, letterSpacing: '-0.01em' }}>{tx.desc}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: tx.color, fontFamily: SF }}>{tx.amount}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
 
-            {/* Invoices */}
-            {activeTab === 'invoices' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Invoices</h3>
-                  <button style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, letterSpacing: '-0.01em' }}>+ Invoice</button>
-                </div>
-                {[
-                  { id: 'INV-001', client: 'CV Berkah Jaya', amount: 'Rp 12.500.000', status: 'Paid', date: '1 Sep 2026', statusColor: '#16a34a' },
-                  { id: 'INV-002', client: 'PT Maju Bersama', amount: 'Rp 8.750.000', status: 'Pending', date: '5 Sep 2026', statusColor: '#f59e0b' },
-                  { id: 'INV-003', client: 'CV Sinar Terang', amount: 'Rp 5.200.000', status: 'Overdue', date: '20 Aug 2026', statusColor: '#dc2626' },
-                  { id: 'INV-004', client: 'PT Berkah Sejahtera', amount: 'Rp 18.000.000', status: 'Draft', date: '10 Sep 2026', statusColor: '#6b7280' },
-                ].map((inv) => (
-                  <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)', cursor: 'pointer' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f0f0f0'} onMouseLeave={(e) => e.currentTarget.style.background = '#f9fafb'}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF, letterSpacing: '-0.01em' }}>{inv.id}</div>
-                      <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{inv.client}</div>
+              {/* Invoice Preview Modal */}
+              {previewInvoice && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={() => setPreviewInvoice(null)}>
+                  <div style={{ background: 'white', borderRadius: 12, padding: 24, width: 600, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f' }}>Preview Invoice</div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => handlePrintInvoice(previewInvoice)} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Print / Save PDF</button>
+                        <button onClick={() => setPreviewInvoice(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={16} color="#8e8e93" /></button>
+                      </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF }}>{inv.amount}</div>
-                      <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{inv.date}</div>
-                    </div>
-                    <span style={{ padding: '2px 8px', borderRadius: 10, background: inv.statusColor + '18', color: inv.statusColor, fontSize: 10, fontWeight: 600, flexShrink: 0, fontFamily: SF, letterSpacing: '-0.01em' }}>{inv.status}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Expenses */}
-            {activeTab === 'expenses' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Expense Claims</h3>
-                  <button style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, letterSpacing: '-0.01em' }}>+ Expense</button>
-                </div>
-                {[
-                  { title: 'Material Bahan Bangunan', amount: 'Rp 3.200.000', category: 'Material', status: 'Approved', statusColor: '#16a34a' },
-                  { title: 'Transport Proyek', amount: 'Rp 450.000', category: 'Transport', status: 'Pending', statusColor: '#f59e0b' },
-                  { title: 'Makan Tim Lapangan', amount: 'Rp 280.000', category: 'Meals', status: 'Approved', statusColor: '#16a34a' },
-                  { title: 'Sewa Alat Berat', amount: 'Rp 2.500.000', category: 'Equipment', status: 'Rejected', statusColor: '#dc2626' },
-                ].map((exp, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 6, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#8e8e93', flexShrink: 0, fontFamily: SF }}>
-                      {exp.category === 'Material' ? 'M' : exp.category === 'Transport' ? 'T' : exp.category === 'Meals' ? 'F' : 'E'}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF, letterSpacing: '-0.01em' }}>{exp.title}</div>
-                      <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{exp.category}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF }}>{exp.amount}</div>
-                      <span style={{ padding: '2px 6px', borderRadius: 8, background: exp.statusColor + '18', color: exp.statusColor, fontSize: 10, fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{exp.status}</span>
+                    {/* Invoice Preview Content */}
+                    <div style={{ border: '1px solid #e5e5ea', borderRadius: 8, padding: 24, fontSize: 13, fontFamily: SF }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #007aff', paddingBottom: 16, marginBottom: 16 }}>
+                        <div><div style={{ fontSize: 18, fontWeight: 700, color: '#007aff' }}>HUB Platform</div><div style={{ fontSize: 11, color: '#8e8e93', marginTop: 2 }}>Multi-Tenant SaaS</div></div>
+                        <div style={{ textAlign: 'right' }}><div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f' }}>INVOICE</div><div style={{ fontSize: 12, color: '#8e8e93', marginTop: 2 }}>{previewInvoice.invoiceNumber}</div><div style={{ marginTop: 6 }}><span style={{ padding: '2px 8px', borderRadius: 4, background: (STATUS_COLORS[previewInvoice.status] || '#6b7280') + '22', color: STATUS_COLORS[previewInvoice.status] || '#6b7280', fontSize: 10, fontWeight: 600 }}>{(previewInvoice.status || 'draft').replace(/_/g, ' ').toUpperCase()}</span></div></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 40, marginBottom: 20 }}>
+                        <div><div style={{ fontSize: 10, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bill To</div><div style={{ marginTop: 2, fontWeight: 500 }}>{previewInvoice.clientName || previewInvoice.clientId}</div></div>
+                        <div><div style={{ fontSize: 10, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Issue Date</div><div style={{ marginTop: 2 }}>{previewInvoice.issueDate}</div></div>
+                        <div><div style={{ fontSize: 10, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Due Date</div><div style={{ marginTop: 2 }}>{previewInvoice.dueDate}</div></div>
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
+                        <thead><tr style={{ background: '#f5f5f7' }}><th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: '#8e8e93', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Item</th><th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, color: '#8e8e93', textTransform: 'uppercase' }}>Qty</th><th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, color: '#8e8e93', textTransform: 'uppercase' }}>Harga</th><th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, color: '#8e8e93', textTransform: 'uppercase' }}>Amount</th></tr></thead>
+                        <tbody>
+                          {(previewInvoice.items || []).map((it: any, i: number) => (
+                            <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}><td style={{ padding: '8px 10px', fontSize: 12 }}>{it.itemName}</td><td style={{ padding: '8px 10px', fontSize: 12 }}>{it.quantity}</td><td style={{ padding: '8px 10px', fontSize: 12, textAlign: 'right' }}>{formatRupiah(it.unitPrice)}</td><td style={{ padding: '8px 10px', fontSize: 12, textAlign: 'right', fontWeight: 500 }}>{formatRupiah(it.quantity * it.unitPrice)}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <div style={{ width: 240 }}>
+                          {(() => { const items = previewInvoice.items || []; const sub = items.reduce((s: number, it: any) => s + (it.quantity * it.unitPrice), 0); const tax = sub * ((previewInvoice.taxRate || 11) / 100); const disc = previewInvoice.discountAmount || 0; return (<>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}><span style={{ color: '#6b7280' }}>Subtotal</span><span>{formatRupiah(sub)}</span></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}><span style={{ color: '#6b7280' }}>PPN ({previewInvoice.taxRate || 11}%)</span><span>{formatRupiah(tax)}</span></div>
+                            {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12 }}><span style={{ color: '#6b7280' }}>Diskon</span><span>-{formatRupiah(disc)}</span></div>}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 0', fontSize: 14, fontWeight: 700, borderTop: '2px solid #1d1d1f', marginTop: 4 }}><span>Total</span><span>{formatRupiah(sub + tax - disc)}</span></div>
+                          </>) })()}
+                        </div>
+                      </div>
+                      {previewInvoice.notes && <div style={{ marginTop: 16, padding: 10, background: '#f5f5f7', borderRadius: 6, fontSize: 11, color: '#6b7280' }}><strong>Catatan:</strong> {previewInvoice.notes}</div>}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+          )}
 
-            {/* Budgets */}
-            {activeTab === 'budgets' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* ============ EXPENSES ============ */}
+          {activeTab === 'expenses' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Expense Claims</h3>
+                <button onClick={() => setShowExpenseForm(true)} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, letterSpacing: '-0.01em' }}>+ Expense</button>
+              </div>
+              {expensesList.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Belum ada expense claim</div>
+              ) : expensesList.map((exp: any) => (
+                <div key={exp.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 6, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#8e8e93', flexShrink: 0, fontFamily: SF }}>
+                    {(exp.title || 'E').charAt(0)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF, letterSpacing: '-0.01em' }}>{exp.title}</div>
+                    <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{exp.expenseDate} · {exp.department || '-'}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF }}>{formatRupiah(exp.amount)}</div>
+                    <span style={{ padding: '2px 6px', borderRadius: 8, background: (STATUS_COLORS[exp.status] || '#6b7280') + '18', color: STATUS_COLORS[exp.status] || '#6b7280', fontSize: 10, fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{exp.status || 'draft'}</span>
+                  </div>
+                </div>
+              ))}
+
+              {/* Expense Form Modal */}
+              {showExpenseForm && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowExpenseForm(false)}>
+                  <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 400, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f' }}>Tambah Expense</div>
+                      <button onClick={() => setShowExpenseForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={16} color="#8e8e93" /></button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Judul<span style={{ color: '#ff3b30' }}> *</span></label><input type="text" value={expenseValues.title || ''} onChange={(e) => setExpenseValues({ ...expenseValues, title: e.target.value })} placeholder="Material Bahan Bangunan" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <div style={{ flex: 1 }}><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Nominal<span style={{ color: '#ff3b30' }}> *</span></label><input type="number" min="0" value={expenseValues.amount || ''} onChange={(e) => setExpenseValues({ ...expenseValues, amount: e.target.value })} placeholder="3200000" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                        <div style={{ flex: 1 }}><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Tanggal</label><input type="date" value={expenseValues.expenseDate || ''} onChange={(e) => setExpenseValues({ ...expenseValues, expenseDate: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                      </div>
+                      <div><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Kategori</label><select value={expenseValues.categoryId || ''} onChange={(e) => setExpenseValues({ ...expenseValues, categoryId: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', background: 'white' }}><option value="">Pilih...</option>{categoriesList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                      <div><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Catatan</label><textarea rows={2} value={expenseValues.notes || ''} onChange={(e) => setExpenseValues({ ...expenseValues, notes: e.target.value })} placeholder="Catatan..." style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} /></div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                      <button onClick={() => { setShowExpenseForm(false); setExpenseValues({}) }} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+                      <button onClick={handleCreateExpense} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Simpan</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ============ BUDGETS ============ */}
+          {activeTab === 'budgets' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Department Budgets</h3>
-                {[
-                  { dept: 'Operations', budget: 50000000, used: 32000000 },
-                  { dept: 'HR & Admin', budget: 25000000, used: 18500000 },
-                  { dept: 'Project', budget: 120000000, used: 89000000 },
-                  { dept: 'Marketing', budget: 15000000, used: 12500000 },
-                ].map((b) => {
-                  const pct = Math.round((b.used / b.budget) * 100)
-                  return (
-                    <div key={b.dept} style={{ padding: 12, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF, letterSpacing: '-0.01em' }}>{b.dept}</span>
-                        <span style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{pct}% used</span>
-                      </div>
-                      <div style={{ width: '100%', height: 4, borderRadius: 2, background: '#e5e7eb', overflow: 'hidden' }}>
-                        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 2, background: pct > 80 ? '#dc2626' : pct > 60 ? '#f59e0b' : '#007aff' }} />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>
-                        <span>Rp {(b.used / 1000000).toFixed(0)}jt used</span>
-                        <span>Rp {(b.budget / 1000000).toFixed(0)}jt total</span>
-                      </div>
-                    </div>
-                  )
-                })}
+                <button onClick={() => setShowExpenseForm(true)} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, letterSpacing: '-0.01em' }}>+ Budget</button>
               </div>
-            )}
-
-            {/* Payments */}
-            {activeTab === 'payments' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Payments Received</h3>
-                {[
-                  { from: 'CV Berkah Jaya', invoice: 'INV-001', amount: 'Rp 12.500.000', date: '2 Sep 2026', method: 'Transfer' },
-                  { from: 'PT Maju Bersama', invoice: 'INV-005', amount: 'Rp 6.300.000', date: '28 Aug 2026', method: 'Cash' },
-                  { from: 'CV Sinar Terang', invoice: 'INV-003', amount: 'Rp 5.200.000', date: '1 Sep 2026', method: 'Transfer' },
-                ].map((p, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 8, background: '#f0fdf4', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 6, background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              {budgetsList.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Belum ada budget</div>
+              ) : budgetsList.map((b: any) => {
+                const allocated = b.allocatedBudget || 0
+                const used = b.usedBudget || 0
+                const pct = allocated > 0 ? Math.round((used / allocated) * 100) : 0
+                return (
+                  <div key={b.id} style={{ padding: 12, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF, letterSpacing: '-0.01em' }}>{b.department}</span>
+                      <span style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{pct}% used</span>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF, letterSpacing: '-0.01em' }}>{p.from}</div>
-                      <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{p.invoice} · {p.method}</div>
+                    <div style={{ width: '100%', height: 4, borderRadius: 2, background: '#e5e7eb', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 2, background: pct > 80 ? '#dc2626' : pct > 60 ? '#f59e0b' : '#007aff' }} />
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 600, fontSize: 12, color: '#16a34a', fontFamily: SF }}>{p.amount}</div>
-                      <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{p.date}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>
+                      <span>{formatRupiah(used)} used</span>
+                      <span>{formatRupiah(allocated)} total</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                )
+              })}
 
-          </div>
+              {/* Budget Form Modal */}
+              {showExpenseForm && activeTab === 'budgets' && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowExpenseForm(false)}>
+                  <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f' }}>Tambah Budget</div>
+                      <button onClick={() => setShowExpenseForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={16} color="#8e8e93" /></button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Departemen<span style={{ color: '#ff3b30' }}> *</span></label><input type="text" value={expenseValues.department || ''} onChange={(e) => setExpenseValues({ ...expenseValues, department: e.target.value })} placeholder="Operations" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                      <div><label style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>Budget (Rp)<span style={{ color: '#ff3b30' }}> *</span></label><input type="number" min="0" value={expenseValues.allocatedBudget || ''} onChange={(e) => setExpenseValues({ ...expenseValues, allocatedBudget: e.target.value })} placeholder="50000000" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box' }} /></div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                      <button onClick={() => { setShowExpenseForm(false); setExpenseValues({}) }} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+                      <button onClick={handleCreateBudget} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Simpan</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ============ PAYMENTS ============ */}
+          {activeTab === 'payments' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Payments Received</h3>
+              {paymentsList.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Belum ada pembayaran</div>
+              ) : paymentsList.map((p: any, i: number) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 8, background: '#f0fdf4', border: '0.5px solid rgba(0,0,0,0.08)' }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 6, background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF, letterSpacing: '-0.01em' }}>{p.clientName || p.clientId || '-'}</div>
+                    <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{p.invoiceNumber} · {p.paymentMethod || 'Transfer'}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: '#16a34a', fontFamily: SF }}>{formatRupiah(p.amount)}</div>
+                    <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{p.paymentDate || '-'}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
         </div>
       </div>
+    </div>
   )
 }
 
