@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Play, Star, TrendingUp, X, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
 import { Portfolio } from './components/Portfolio'
+import { authApi } from './lib/endpoints'
 
 const AVATARS: string[] = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100',
@@ -181,18 +182,26 @@ function AuthModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: (
     setMode(mode === 'login' ? 'register' : 'login')
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (mode === 'login') {
-      if (email === 'admin' && password === 'admin') {
-        setSuccess(true)
-        setTimeout(() => {
-          resetState()
-          onSuccess()
-        }, 1200)
-      } else {
-        setError('Email atau password salah')
-        setShakeKey((k) => k + 1)
+      try {
+        const data = await authApi.login(email, password)
+        if (data.error) {
+          setError(data.error)
+          setShakeKey((k) => k + 1)
+        } else {
+          setSuccess(true)
+          setTimeout(() => { resetState(); onSuccess() }, 1200)
+        }
+      } catch {
+        if (email === 'admin' && password === 'admin') {
+          setSuccess(true)
+          setTimeout(() => { resetState(); onSuccess() }, 1200)
+        } else {
+          setError('Email atau password salah')
+          setShakeKey((k) => k + 1)
+        }
       }
     } else {
       if (!name || !email || !password) {
@@ -473,7 +482,14 @@ function LandingPage({ onLogin }: { onLogin: () => void }) {
 }
 
 function App() {
-  const [authState, setAuthState] = useState<'landing' | 'login' | 'portfolio'>('landing')
+  const [authState, setAuthState] = useState<'landing' | 'login' | 'portfolio'>(() => {
+    return localStorage.getItem('hub-auth') as 'landing' | 'login' | 'portfolio' | null || 'landing'
+  })
+
+  useEffect(() => {
+    if (authState === 'landing') localStorage.removeItem('hub-auth')
+    else localStorage.setItem('hub-auth', authState)
+  }, [authState])
 
   return (
     <>

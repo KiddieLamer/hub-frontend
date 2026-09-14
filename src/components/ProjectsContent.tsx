@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Search } from 'lucide-react'
 
 interface Task {
   id: string
@@ -14,6 +15,31 @@ interface Column {
   title: string
   color: string
   tasks: Task[]
+}
+
+interface Project {
+  id: string
+  name: string
+  client: string
+  scope: 'project' | 'task'
+  status: 'planning' | 'active' | 'on_hold' | 'done'
+  progress: number
+  tasksCount: number
+  dueDate: string
+}
+
+const MOCK_PROJECTS: Project[] = [
+  { id: 'PRJ-001', name: 'Kanopi Alderon PT Maju Jaya', client: 'PT Maju Jaya', scope: 'project', status: 'active', progress: 65, tasksCount: 3, dueDate: '2026-09-20' },
+  { id: 'PRJ-002', name: 'Railing Tangga SS Sarah', client: 'Sarah Johnson', scope: 'project', status: 'active', progress: 40, tasksCount: 2, dueDate: '2026-09-25' },
+  { id: 'PRJ-003', name: 'Renovasi Atap Gudang CV Berkah', client: 'CV Berkah Jaya', scope: 'project', status: 'planning', progress: 10, tasksCount: 2, dueDate: '2026-10-05' },
+  { id: 'PRJ-004', name: 'Maintenance Rutin Q3', client: 'Internal', scope: 'task', status: 'on_hold', progress: 20, tasksCount: 1, dueDate: '2026-09-30' },
+]
+
+const PROJECT_STATUS: Record<string, { bg: string; text: string; label: string }> = {
+  planning: { bg: 'rgba(142,142,147,0.12)', text: '#8e8e93', label: 'Planning' },
+  active: { bg: 'rgba(0,122,255,0.12)', text: '#007aff', label: 'Active' },
+  on_hold: { bg: 'rgba(255,149,0,0.12)', text: '#ff9500', label: 'On Hold' },
+  done: { bg: 'rgba(52,199,89,0.12)', text: '#34c759', label: 'Done' },
 }
 
 const MOCK_COLUMNS: Column[] = [
@@ -128,9 +154,23 @@ function TaskCard({ task }: { task: Task }) {
   )
 }
 
-export function ProjectsContent({ onClose: _onClose, onMinimize: _onMinimize }: { onClose: () => void; onMinimize: () => void }) {
+export function ProjectsContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
   const [columns, setColumns] = useState(MOCK_COLUMNS)
   const [draggedTask, setDraggedTask] = useState<{ taskId: string; fromColumn: string } | null>(null)
+  const [selectedProject, setSelectedProject] = useState<string>('PRJ-001')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+
+  const btnSize = 12
+  const btnGap = 8
+
+  const filteredProjects = MOCK_PROJECTS.filter(p =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.client.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.id.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const activeProject = MOCK_PROJECTS.find(p => p.id === selectedProject) || MOCK_PROJECTS[0]
 
   const handleDragStart = (taskId: string, columnId: string) => {
     setDraggedTask({ taskId, fromColumn: columnId })
@@ -163,34 +203,102 @@ export function ProjectsContent({ onClose: _onClose, onMinimize: _onMinimize }: 
     setDraggedTask(null)
   }
 
+  const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
+
+  const activeStatus = PROJECT_STATUS[activeProject.status]
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 10, gap: 10 }}>
-      {/* Floating back/forward + header */}
-      <div style={{ background: 'white', borderRadius: 12, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', gap: 1, padding: '10px 14px 0', alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 1 }}>
-            <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
+    <div style={{ display: 'flex', height: '100%', padding: 10, gap: 10, fontFamily: SF }}>
+      {/* Sidebar — project list */}
+      <div style={{
+        width: 220, flexShrink: 0,
+        background: 'rgba(255,255,255,0.7)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRadius: 12,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
+        display: 'flex', flexDirection: 'column',
+        padding: '6px',
+        overflowY: 'auto',
+      }}>
+        {/* Traffic lights */}
+        <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+          </div>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+          </div>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
         </div>
 
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 20px 12px' }}>
-          <div>
-            <h3 style={{ fontFamily: "'Inter', -apple-system, sans-serif", fontWeight: 600, fontSize: 18, margin: 0, color: '#1d1d1f', letterSpacing: '-0.02em' }}>
-              Projects
-            </h3>
-            <p style={{ fontSize: 12, color: '#86868b', margin: '2px 0 0' }}>
-              {columns.reduce((sum, col) => sum + col.tasks.length, 0)} tasks
-            </p>
+        {/* Search */}
+        <div style={{ padding: '0 6px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
+            <Search size={13} color="#8e8e93" />
+            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
           </div>
-          <button style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#007AFF', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'Inter', -apple-system, sans-serif" }}>
+        </div>
+
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>PROJECTS</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {filteredProjects.map((p) => {
+            const active = selectedProject === p.id
+            const st = PROJECT_STATUS[p.status]
+            return (
+              <button key={p.id} onClick={() => setSelectedProject(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 8px', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', cursor: 'pointer', transition: 'background 0.12s', textAlign: 'left', width: '100%', fontFamily: SF }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)', fontSize: 11, fontWeight: 700, color: 'white' }}>
+                  {p.name.charAt(0)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: active ? 500 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: active ? 'rgba(255,255,255,0.8)' : '#8e8e93', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.client}</div>
+                </div>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: active ? 'white' : st.text, flexShrink: 0, opacity: active ? 0.9 : 1 }} />
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Main panel — full project detail */}
+      <div style={{ flex: 1, minWidth: 0, background: '#ffffff', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+          <div style={{ flex: 1 }} />
+          <button style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>
             + New Task
           </button>
+        </div>
+
+        {/* Section header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
+          <div style={{ width: 58, height: 58, borderRadius: 14, background: 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginBottom: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)', fontSize: 24, fontWeight: 700, fontFamily: SF }}>
+            {activeProject.name.charAt(0)}
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
+            {activeProject.name}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: activeProject.scope === 'project' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: activeProject.scope === 'project' ? '#007aff' : '#8e8e93', fontFamily: SF, textTransform: 'capitalize' }}>
+              {activeProject.scope}
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 500, padding: '1px 6px', borderRadius: 4, background: activeStatus.bg, color: activeStatus.text, fontFamily: SF }}>
+              {activeStatus.label}
+            </span>
+            <span style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF }}>
+              {activeProject.client} · due {activeProject.dueDate}
+            </span>
+          </div>
         </div>
 
         {/* Kanban Board */}

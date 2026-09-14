@@ -1,0 +1,90 @@
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
+interface Tokens {
+  accessToken: string
+  refreshToken: string
+}
+
+let tokens: Tokens = {
+  accessToken: localStorage.getItem('hub-access-token') || '',
+  refreshToken: localStorage.getItem('hub-refresh-token') || '',
+}
+
+let refreshPromise: Promise<string> | null = null
+
+function saveTokens(t: Tokens) {
+  tokens = t
+  localStorage.setItem('hub-access-token', t.accessToken)
+  localStorage.setItem('hub-refresh-token', t.refreshToken)
+}
+
+export function clearTokens() {
+  tokens = { accessToken: '', refreshToken: '' }
+  localStorage.removeItem('hub-access-token')
+  localStorage.removeItem('hub-refresh-token')
+}
+
+export function getAccessToken() {
+  return tokens.accessToken
+}
+
+export function setTokens(accessToken: string, refreshToken: string) {
+  saveTokens({ accessToken, refreshToken })
+}
+
+async function refreshAccessToken(): Promise<string> {
+  if (refreshPromise) return refreshPromise
+
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: tokens.refreshToken }),
+      })
+
+      if (!res.ok) {
+        clearTokens()
+        throw new Error('Refresh failed')
+      }
+
+      const data = await res.json()
+      saveTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken })
+      return data.accessToken
+    } catch {
+      clearTokens()
+      throw new Error('Refresh failed')
+    } finally {
+      refreshPromise = null
+    }
+  })()
+
+  return refreshPromise
+}
+
+export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const url = `${API_URL}${path}`
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  }
+
+  if (tokens.accessToken) {
+    headers['Authorization'] = `Bearer ${tokens.accessToken}`
+  }
+
+  let res = await fetch(url, { ...options, headers })
+
+  if (res.status === 401 && tokens.refreshToken) {
+    try {
+      const newToken = await refreshAccessToken()
+      headers['Authorization'] = `Bearer ${newToken}`
+      res = await fetch(url, { ...options, headers })
+    } catch {
+      clearTokens()
+      window.location.reload()
+    }
+  }
+
+  return res
+}

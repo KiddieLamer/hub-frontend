@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, isValidElement, cloneElement } from 'react'
 
 export type SnapMode = 'left-half' | 'right-half' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'maximized' | null
 
@@ -613,9 +613,87 @@ export function WindowShell({
               display: 'flex',
               flexDirection: 'column',
               gap: fill ? 0 : 12,
+              position: 'relative',
+              background: 'rgba(242,242,247,0.55)',
+              borderRadius: 8,
             }}
           >
-            {children}
+            {/* macOS Tile Menu Dropdown for noToolbar windows */}
+            {noToolbar && showTileMenu && (
+              <div
+                onMouseEnter={() => setShowTileMenu(true)}
+                onMouseLeave={() => setShowTileMenu(false)}
+                style={{
+                  position: 'absolute',
+                  top: 36,
+                  left: 12,
+                  zIndex: 999,
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  borderRadius: 8,
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.12)',
+                  padding: '6px',
+                  width: 170,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '2px 6px', textTransform: 'uppercase' }}>
+                  Window Tile Options
+                </div>
+
+                <button
+                  onClick={() => applySnap('maximized')}
+                  style={tileBtnStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#007aff')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                  Full Screen
+                </button>
+
+                <div style={{ height: 0.5, background: 'rgba(0,0,0,0.08)', margin: '3px 0' }} />
+
+                <button
+                  onClick={() => applySnap('left-half')}
+                  style={tileBtnStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#007aff')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="9" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1" strokeDasharray="2 2"/></svg>
+                  Tile to Left Half
+                </button>
+
+                <button
+                  onClick={() => applySnap('right-half')}
+                  style={tileBtnStyle}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#007aff')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1" strokeDasharray="2 2"/><rect x="12" y="3" width="9" height="18" rx="1"/></svg>
+                  Tile to Right Half
+                </button>
+
+                <div style={{ height: 0.5, background: 'rgba(0,0,0,0.08)', margin: '3px 0' }} />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <button onClick={() => applySnap('top-left')} style={quadBtnStyle} title="Top Left Quadrant">↖️ Top L</button>
+                  <button onClick={() => applySnap('top-right')} style={quadBtnStyle} title="Top Right Quadrant">↗️ Top R</button>
+                  <button onClick={() => applySnap('bottom-left')} style={quadBtnStyle} title="Bottom Left Quadrant">↙️ Bot L</button>
+                  <button onClick={() => applySnap('bottom-right')} style={quadBtnStyle} title="Bottom Right Quadrant">↘️ Bot R</button>
+                </div>
+              </div>
+            )}
+
+            {isValidElement(children)
+              ? cloneElement(children as React.ReactElement<any>, {
+                  onMaximize: (children as any).props.onMaximize || handleMaximizeToggle,
+                  onGreenMouseEnter: handleGreenMouseEnter,
+                  onGreenMouseLeave: handleGreenMouseLeave,
+                })
+              : children}
           </div>
 
           {/* Resize handles */}

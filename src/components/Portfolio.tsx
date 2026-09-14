@@ -4,16 +4,18 @@ import {
   Globe, Battery, Settings, Palette, Sparkles, Monitor, Sun, Bell,
   Volume2, Moon, Hourglass, Lock, Key, Laptop, RefreshCw, HardDrive,
   Airplay, Clock, Calendar, Shield, CreditCard, Cloud, Users, ShoppingBag,
-  Smartphone
+  Smartphone, Camera, X
 } from 'lucide-react'
 import { ProjectCard } from './ProjectCard'
 import { DockBar } from './DockBar'
+import { usersApi } from '../lib/endpoints'
 import { WindowShell } from './WindowShell'
 import { ClientsContent } from './ClientsContent'
 import { ProjectsContent } from './ProjectsContent'
 import { DashboardWidgets } from './DashboardWidget'
 import { RanpoAIContent } from './RanpoAIContent'
 import { POSContent } from './POSContent'
+import { BrowserContent } from './BrowserContent'
 
 const PROJECTS = [
   { title: 'HRIS', anchorX: 6, anchorY: 10, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/swiftly-business-workspace-2025-04-26.png?rf=1024', isHRIS: true },
@@ -24,6 +26,11 @@ const PROJECTS = [
   { title: 'Ranpo AI', anchorX: 16, anchorY: 26, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/gapplin-2025-04-04.png?rf=1024', isRanpoAI: true },
   { title: 'POS', anchorX: 16, anchorY: 42, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/expenses-spending-tracker-2025-04-26.png?rf=1024', isPOS: true },
   { title: 'Settings', anchorX: 16, anchorY: 58, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/system-settings-2025-11-14.png?rf=1024', isSettings: true },
+  { title: 'Support', anchorX: 16, anchorY: 10, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/ip-address-monitor-2025-11-26.png?rf=1024', isSupport: true },
+  { title: 'Assets', anchorX: 16, anchorY: 74, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/scapple-2026-05-18.png?rf=1024', isAssets: true },
+  { title: 'Audit', anchorX: 26, anchorY: 10, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/daily-hours-time-tracker-2023-10-09.png?rf=1024', isAudit: true },
+  { title: 'Catalog', anchorX: 26, anchorY: 26, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/pricetag-app-pricing-manager-2024-05-20.png?rf=1024', isCatalog: true },
+  { title: 'Browser', anchorX: 26, anchorY: 42, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/safari-2025-11-14.png?rf=1024', isBrowser: true },
 ]
 
 const BG_IMAGE = 'https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260624_151236_784929aa-a992-4292-9938-1dd9b5296a29.png&w=1920&q=85'
@@ -67,6 +74,26 @@ const DOCK_ITEMS = [
   {
     label: 'Support',
     icon: 'https://cdn.jim-nielsen.com/macos/1024/ip-address-monitor-2025-11-26.png?rf=1024',
+    isApp: true,
+  },
+  {
+    label: 'Assets',
+    icon: 'https://cdn.jim-nielsen.com/macos/1024/scapple-2026-05-18.png?rf=1024',
+    isApp: true,
+  },
+  {
+    label: 'Audit',
+    icon: 'https://cdn.jim-nielsen.com/macos/1024/daily-hours-time-tracker-2023-10-09.png?rf=1024',
+    isApp: true,
+  },
+  {
+    label: 'Catalog',
+    icon: 'https://cdn.jim-nielsen.com/macos/1024/pricetag-app-pricing-manager-2024-05-20.png?rf=1024',
+    isApp: true,
+  },
+  {
+    label: 'Browser',
+    icon: 'https://cdn.jim-nielsen.com/macos/1024/safari-2025-11-14.png?rf=1024',
     isApp: true,
   },
   { label: 'divider', icon: '' },
@@ -114,10 +141,33 @@ function NotesContent() {
   )
 }
 
-function HRISContent({ onClose, onMinimize }: { onClose: () => void; onMinimize: () => void }) {
+function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
   const [activeTab, setActiveTab] = useState<'dashboard' | 'attendance' | 'leaves' | 'overtime' | 'payroll' | 'shifts' | 'profile'>('dashboard')
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false)
+  const [employeeValues, setEmployeeValues] = useState<Record<string, string>>({})
+
+  const iconBg: Record<string, string> = {
+    dashboard: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+    attendance: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)',
+    leaves: 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)',
+    overtime: 'linear-gradient(135deg, #af52de 0%, #892ab8 100%)',
+    payroll: 'linear-gradient(135deg, #30b0c7 0%, #00778a 100%)',
+    shifts: 'linear-gradient(135deg, #5856d6 0%, #3634a3 100%)',
+    profile: 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)',
+  }
+
+  const tabDesc: Record<string, string> = {
+    dashboard: 'Overview kehadiran, sisa cuti, dan lembur bulan ini.',
+    attendance: 'Catat dan pantau check-in / check-out harian.',
+    leaves: 'Ajukan dan pantau status pengajuan cuti.',
+    overtime: 'Catat dan pantau lembur karyawan.',
+    payroll: 'Ringkasan gaji dan slip pembayaran.',
+    shifts: 'Jadwal shift dan rotasi tim.',
+    profile: 'Data profil karyawan.',
+  }
 
   const mainTabs = [
     { id: 'dashboard' as const, label: 'Dashboard' },
@@ -145,246 +195,426 @@ function HRISContent({ onClose, onMinimize }: { onClose: () => void; onMinimize:
   const btnSize = 12
   const btnGap = 8
 
+  const renderHrisItem = (tab: { id: string; label: string }) => {
+    const active = activeTab === tab.id
+    return (
+      <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 8px', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 13, fontWeight: active ? 500 : 400, fontFamily: SF, letterSpacing: '-0.01em', cursor: 'pointer', transition: 'background 0.12s', textAlign: 'left', width: '100%' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+        <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : iconBg[tab.id], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)' }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={iconPaths[tab.id]} /></svg>
+        </div>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.label}</span>
+      </button>
+    )
+  }
+
+  const filteredMainTabs = mainTabs.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredEmpTabs = empTabs.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase()))
+
   return (
     <div style={{ display: 'flex', height: '100%', fontFamily: SF, padding: 10, gap: 10 }}>
       {/* Sidebar */}
       <div style={{
-        width: 170, flexShrink: 0,
+        width: 220, flexShrink: 0,
         background: 'rgba(255,255,255,0.7)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         borderRadius: 12,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
         display: 'flex', flexDirection: 'column',
-        padding: '6px 6px',
+        padding: '6px',
         overflowY: 'auto',
       }}>
         {/* Traffic lights */}
-        <div style={{ display: 'flex', gap: btnGap, padding: '16px 0 12px 16px' }}>
+        <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
           </div>
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
           </div>
-          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
         </div>
 
-        <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '3px 8px', marginBottom: 1, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>MAIN</div>
-        {mainTabs.map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 8px', borderRadius: 6, border: 'none', background: activeTab === tab.id ? '#007aff' : 'transparent', color: activeTab === tab.id ? 'white' : '#1d1d1f', fontSize: 12, fontWeight: activeTab === tab.id ? 500 : 400, fontFamily: SF, letterSpacing: '-0.01em', cursor: 'pointer', transition: 'all 0.1s', textAlign: 'left', width: '100%' }} onMouseEnter={(e) => { if (activeTab !== tab.id) e.currentTarget.style.background = 'rgba(0,0,0,0.05)' }} onMouseLeave={(e) => { if (activeTab !== tab.id) e.currentTarget.style.background = 'transparent' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill={activeTab === tab.id ? 'white' : 'none'} stroke={activeTab === tab.id ? 'white' : '#8e8e93'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d={iconPaths[tab.id]} /></svg>
-            {tab.label}
-          </button>
-        ))}
-        <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '3px 8px', marginTop: 8, marginBottom: 1, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>EMPLOYEE</div>
-        {empTabs.map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 8px', borderRadius: 6, border: 'none', background: activeTab === tab.id ? '#007aff' : 'transparent', color: activeTab === tab.id ? 'white' : '#1d1d1f', fontSize: 12, fontWeight: activeTab === tab.id ? 500 : 400, fontFamily: SF, letterSpacing: '-0.01em', cursor: 'pointer', transition: 'all 0.1s', textAlign: 'left', width: '100%' }} onMouseEnter={(e) => { if (activeTab !== tab.id) e.currentTarget.style.background = 'rgba(0,0,0,0.05)' }} onMouseLeave={(e) => { if (activeTab !== tab.id) e.currentTarget.style.background = 'transparent' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill={activeTab === tab.id ? 'white' : 'none'} stroke={activeTab === tab.id ? 'white' : '#8e8e93'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d={iconPaths[tab.id]} /></svg>
-            {tab.label}
-          </button>
-        ))}
+        {/* Search */}
+        <div style={{ padding: '0 6px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
+            <Search size={13} color="#8e8e93" />
+            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
+          </div>
+        </div>
+
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>MAIN</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {filteredMainTabs.map((tab) => renderHrisItem(tab))}
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', marginTop: 8, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>EMPLOYEE</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {filteredEmpTabs.map((tab) => renderHrisItem(tab))}
+        </div>
       </div>
 
       {/* Content area */}
-      <div style={{ flex: 1, overflow: 'auto', background: 'white', borderRadius: 12 }}>
+      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: '#ffffff', borderRadius: 12 }}>
         {/* Floating back/forward */}
-        <div style={{ display: 'flex', gap: 1, padding: '10px 14px 0' }}>
-          <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
+        <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
         </div>
 
-        <div style={{ padding: '8px 20px 20px', fontFamily: SF }}>
+        {/* Section header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
+          <div style={{ width: 58, height: 58, borderRadius: 14, background: iconBg[activeTab], display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginBottom: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d={iconPaths[activeTab]} /></svg>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
+            {[...mainTabs, ...empTabs].find(t => t.id === activeTab)?.label}
+          </div>
+          <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
+            {tabDesc[activeTab]}
+          </div>
+        </div>
+
+        <div style={{ padding: '0 24px 28px', maxWidth: 540, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14, fontFamily: SF }}>
 
           {/* Dashboard */}
           {activeTab === 'dashboard' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Selamat Datang, Admin</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                <div style={{ padding: 12, borderRadius: 8, background: '#f0fdf4', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  <div style={{ fontSize: 10, color: '#8e8e93', fontWeight: 500, fontFamily: SF, letterSpacing: '-0.01em' }}>Hadir</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#15803d', marginTop: 2, fontFamily: SF }}>8:00</div>
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0 2px', textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em' }}>
+                  Selamat Datang, Admin
                 </div>
-                <div style={{ padding: 12, borderRadius: 8, background: '#eff6ff', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  <div style={{ fontSize: 10, color: '#8e8e93', fontWeight: 500, fontFamily: SF, letterSpacing: '-0.01em' }}>Sisa Cuti</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#1d4ed8', marginTop: 2, fontFamily: SF }}>7</div>
-                </div>
-                <div style={{ padding: 12, borderRadius: 8, background: '#fef3c7', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  <div style={{ fontSize: 10, color: '#8e8e93', fontWeight: 500, fontFamily: SF, letterSpacing: '-0.01em' }}>Lembur Bulan Ini</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: '#78350f', marginTop: 2, fontFamily: SF }}>12h</div>
+                <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, marginTop: 2 }}>
+                  Sabtu, 13 September 2026
                 </div>
               </div>
-            </div>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                <GroupedRow icon={<Clock size={14} />} iconBg="#34c759" label="Hadir Hari Ini" value="08:00" />
+                <GroupedRow icon={<Calendar size={14} />} iconBg="#007aff" label="Sisa Cuti" value="7 hari" />
+                <GroupedRow icon={<Hourglass size={14} />} iconBg="#ff9500" label="Lembur Bulan Ini" value="12 jam" isLast />
+              </div>
+
+              {/* Monthly attendance heatmap */}
+              {(() => {
+                const year = 2026
+                const month = 8
+                const today = 13
+                const daysInMonth = new Date(year, month + 1, 0).getDate()
+                const firstDow = (new Date(year, month, 1).getDay() + 6) % 7
+                const greens = ['#9be9a8', '#40c463', '#216e39']
+                const dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+                const statusOf = (d: number) => {
+                  if (d > today) return 'future'
+                  const dow = (firstDow + d - 1) % 7
+                  if (dow >= 5) return 'off'
+                  if (d === 9) return 'late'
+                  if (d === 4) return 'leave'
+                  return 'present'
+                }
+                const colorOf = (d: number) => {
+                  const s = statusOf(d)
+                  if (s === 'present') return greens[d % 3]
+                  if (s === 'late') return '#ff9500'
+                  if (s === 'leave') return '#30b0c7'
+                  return '#e5e5ea'
+                }
+                const labelOf = (d: number) => {
+                  const s = statusOf(d)
+                  const base = `${d} Sep 2026`
+                  if (s === 'present') return `${base} — Hadir 08:00`
+                  if (s === 'late') return `${base} — Terlambat 08:47`
+                  if (s === 'leave') return `${base} — Cuti`
+                  if (s === 'off') return `${base} — Libur`
+                  return `${base}`
+                }
+                const weeks: (number | null)[][] = []
+                let cur: (number | null)[] = Array(firstDow).fill(null)
+                for (let d = 1; d <= daysInMonth; d++) {
+                  cur.push(d)
+                  if (cur.length === 7) { weeks.push(cur); cur = [] }
+                }
+                if (cur.length) { while (cur.length < 7) cur.push(null); weeks.push(cur) }
+                const cell = 11
+                const gap = 3
+                return (
+                  <div style={{ padding: 12, borderRadius: 10, background: 'rgb(242, 242, 247)', border: '0.5px solid rgba(0,0,0,0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.01em' }}>Kehadiran September 2026</div>
+                      <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF }}>9 hadir · 1 terlambat · 1 cuti</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 5 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap }}>
+                        {['', 'Sen', '', 'Rab', '', 'Jum', ''].map((l, i) => (
+                          <div key={i} style={{ width: 18, height: cell, display: 'flex', alignItems: 'center', fontSize: 8, color: '#8e8e93', fontFamily: SF }}>{l}</div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap }}>
+                        {weeks.map((week, wi) => (
+                          <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap }}>
+                            {week.map((d, di) => (
+                              <div
+                                key={di}
+                                title={d ? `${dayNames[di]}, ${labelOf(d)}` : ''}
+                                style={{
+                                  width: cell, height: cell, borderRadius: 2.5,
+                                  background: d ? colorOf(d) : 'transparent',
+                                }}
+                              />
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                      <div style={{ flex: 1 }} />
+                      {[
+                        { c: '#216e39', l: 'Hadir' },
+                        { c: '#ff9500', l: 'Terlambat' },
+                        { c: '#30b0c7', l: 'Cuti' },
+                        { c: '#e5e5ea', l: 'Libur' },
+                      ].map((x) => (
+                        <div key={x.l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: x.c }} />
+                          <span style={{ fontSize: 9, color: '#8e8e93', fontFamily: SF }}>{x.l}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+            </>
           )}
 
           {/* Attendance */}
           {activeTab === 'attendance' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Absensi</h3>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div style={{ flex: 1, padding: 12, borderRadius: 8, background: '#f0fdf4', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  <div style={{ fontSize: 10, color: '#8e8e93', fontWeight: 500, fontFamily: SF, letterSpacing: '-0.01em' }}>Check In</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#15803d', marginTop: 2, fontFamily: SF }}>08:00</div>
+            <>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                <GroupedRow icon={<Clock size={14} />} iconBg="#34c759" label="Check In" value="08:00" />
+                <GroupedRow icon={<Clock size={14} />} iconBg="#ff3b30" label="Check Out" value="--:--" isLast />
+              </div>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                <button
+                  style={{
+                    width: '100%', padding: '11px 14px', border: 'none', background: 'transparent',
+                    color: '#34c759', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                    fontFamily: SF, textAlign: 'center',
+                  }}
+                >
+                  Check Out Sekarang
+                </button>
+              </div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 6, paddingLeft: 4 }}>
+                  Riwayat Minggu Ini
                 </div>
-                <div style={{ flex: 1, padding: 12, borderRadius: 8, background: '#fef2f2', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  <div style={{ fontSize: 10, color: '#8e8e93', fontWeight: 500, fontFamily: SF, letterSpacing: '-0.01em' }}>Check Out</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#b91c1c', marginTop: 2, fontFamily: SF }}>--:--</div>
+                <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                  {[
+                    { day: 'Senin', time: '08:00–17:00' },
+                    { day: 'Selasa', time: '08:00–17:00' },
+                    { day: 'Rabu', time: '08:00–17:00' },
+                    { day: 'Kamis', time: '08:00–17:00' },
+                    { day: 'Jumat', time: '08:00–16:00' },
+                  ].map((d, i, arr) => (
+                    <GroupedRow key={d.day} icon={<Clock size={14} />} iconBg="#8e8e93" label={d.day} value={d.time} isLast={i === arr.length - 1} />
+                  ))}
                 </div>
               </div>
-              <button style={{ width: '100%', padding: '8px 0', borderRadius: 6, border: 'none', background: '#16a34a', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, letterSpacing: '-0.01em' }}>
-                Check Out Sekarang
-              </button>
-              <div style={{ padding: 12, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#1d1d1f', marginBottom: 6, fontFamily: SF, letterSpacing: '-0.01em' }}>Riwayat Minggu Ini</div>
-                {['Senin 08:00-17:00', 'Selasa 08:00-17:00', 'Rabu 08:00-17:00', 'Kamis 08:00-17:00', 'Jumat 08:00-16:00'].map((d, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '0.5px solid rgba(0,0,0,0.06)', fontSize: 12, color: '#6b7280', fontFamily: SF, letterSpacing: '-0.01em' }}>
-                    <span>{d.split(' ')[0]}</span>
-                    <span style={{ color: '#16a34a', fontWeight: 500 }}>{d.split(' ')[1]}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </>
           )}
 
           {/* Leaves */}
           {activeTab === 'leaves' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Cuti</h3>
-              {[
-                { type: 'Tahunan', total: 12, used: 5 },
-                { type: 'Sakit', total: 12, used: 2 },
-                { type: 'Besar', total: 3, used: 0 },
-              ].map((leave) => (
-                <div key={leave.type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  <div>
-                    <div style={{ fontWeight: 500, fontSize: 12, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.01em' }}>Cuti {leave.type}</div>
-                    <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>Terpakai: {leave.used} hari</div>
-                  </div>
-                  <span style={{ padding: '2px 8px', borderRadius: 10, background: leave.total - leave.used > 0 ? '#dcfce7' : '#fee2e2', color: leave.total - leave.used > 0 ? '#166534' : '#991b1b', fontSize: 10, fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>
-                    Sisa: {leave.total - leave.used}
-                  </span>
-                </div>
-              ))}
-              <button style={{ width: '100%', padding: '8px 0', borderRadius: 6, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, letterSpacing: '-0.01em' }}>
-                Ajukan Cuti
-              </button>
-            </div>
+            <>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                {[
+                  { type: 'Tahunan', total: 12, used: 5 },
+                  { type: 'Sakit', total: 12, used: 2 },
+                  { type: 'Besar', total: 3, used: 0 },
+                ].map((leave, i, arr) => (
+                  <GroupedRow
+                    key={leave.type}
+                    icon={<Calendar size={14} />}
+                    iconBg="#007aff"
+                    label={`Cuti ${leave.type}`}
+                    value={`Sisa ${leave.total - leave.used} dari ${leave.total}`}
+                    isLast={i === arr.length - 1}
+                  />
+                ))}
+              </div>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                <button
+                  style={{
+                    width: '100%', padding: '11px 14px', border: 'none', background: 'transparent',
+                    color: '#007aff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                    fontFamily: SF, textAlign: 'center',
+                  }}
+                >
+                  Ajukan Cuti
+                </button>
+              </div>
+            </>
           )}
 
           {/* Overtime */}
           {activeTab === 'overtime' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Lembur</h3>
-              <div style={{ padding: 12, borderRadius: 8, background: '#fef3c7', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                <div style={{ fontSize: 10, color: '#8e8e93', fontWeight: 500, fontFamily: SF, letterSpacing: '-0.01em' }}>Total Lembur Bulan Ini</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: '#78350f', marginTop: 2, fontFamily: SF }}>12 jam</div>
+            <>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                <GroupedRow icon={<Hourglass size={14} />} iconBg="#ff9500" label="Total Bulan Ini" value="12 jam" isLast />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 500, color: '#8e8e93', marginBottom: 3, display: 'block', fontFamily: SF, letterSpacing: '-0.01em' }}>Tanggal</label>
-                  <input type="date" style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 12, outline: 'none', fontFamily: SF }} />
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden', padding: '6px 14px 12px' }}>
+                <div style={{ padding: '8px 0' }}>
+                  <label style={{ fontSize: 12, color: '#1d1d1f', marginBottom: 4, display: 'block', fontFamily: SF }}>Tanggal</label>
+                  <input type="date" style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, outline: 'none', fontFamily: SF, background: '#ffffff', boxSizing: 'border-box' }} />
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 10 }}>
                   <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 10, fontWeight: 500, color: '#8e8e93', marginBottom: 3, display: 'block', fontFamily: SF, letterSpacing: '-0.01em' }}>Mulai</label>
-                    <input type="time" defaultValue="18:00" style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 12, outline: 'none', fontFamily: SF }} />
+                    <label style={{ fontSize: 12, color: '#1d1d1f', marginBottom: 4, display: 'block', fontFamily: SF }}>Mulai</label>
+                    <input type="time" defaultValue="18:00" style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, outline: 'none', fontFamily: SF, background: '#ffffff', boxSizing: 'border-box' }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 10, fontWeight: 500, color: '#8e8e93', marginBottom: 3, display: 'block', fontFamily: SF, letterSpacing: '-0.01em' }}>Selesai</label>
-                    <input type="time" defaultValue="21:00" style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 12, outline: 'none', fontFamily: SF }} />
+                    <label style={{ fontSize: 12, color: '#1d1d1f', marginBottom: 4, display: 'block', fontFamily: SF }}>Selesai</label>
+                    <input type="time" defaultValue="21:00" style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, outline: 'none', fontFamily: SF, background: '#ffffff', boxSizing: 'border-box' }} />
                   </div>
                 </div>
-                <div>
-                  <label style={{ fontSize: 10, fontWeight: 500, color: '#8e8e93', marginBottom: 3, display: 'block', fontFamily: SF, letterSpacing: '-0.01em' }}>Alasan</label>
-                  <textarea rows={2} placeholder="Alasan lembur..." style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 12, outline: 'none', resize: 'vertical', fontFamily: SF }} />
+                <div style={{ padding: '8px 0 2px' }}>
+                  <label style={{ fontSize: 12, color: '#1d1d1f', marginBottom: 4, display: 'block', fontFamily: SF }}>Alasan</label>
+                  <textarea rows={2} placeholder="Alasan lembur..." style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: SF, background: '#ffffff', boxSizing: 'border-box' }} />
                 </div>
               </div>
-              <button style={{ width: '100%', padding: '8px 0', borderRadius: 6, border: 'none', background: '#F59E0B', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, letterSpacing: '-0.01em' }}>
-                Ajukan Lembur
-              </button>
-            </div>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                <button
+                  style={{
+                    width: '100%', padding: '11px 14px', border: 'none', background: 'transparent',
+                    color: '#007aff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                    fontFamily: SF, textAlign: 'center',
+                  }}
+                >
+                  Ajukan Lembur
+                </button>
+              </div>
+            </>
           )}
 
           {/* Payroll */}
           {activeTab === 'payroll' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Slip Gaji</h3>
-              <div style={{ padding: 16, borderRadius: 8, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-                <div style={{ fontSize: 10, opacity: 0.7, fontFamily: SF, letterSpacing: '-0.01em' }}>Gaji Bersih</div>
-                <div style={{ fontSize: 24, fontWeight: 700, marginTop: 2, fontFamily: SF }}>Rp 8.500.000</div>
-                <div style={{ fontSize: 10, opacity: 0.7, marginTop: 2, fontFamily: SF, letterSpacing: '-0.01em' }}>September 2026</div>
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0 2px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Gaji Bersih · September 2026</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginTop: 2 }}>Rp 8.500.000</div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {[
-                  { label: 'Gaji Pokok', value: 'Rp 7.500.000', color: '#1d1d1f' },
-                  { label: 'Tunjangan', value: '+ Rp 1.500.000', color: '#16a34a' },
-                  { label: 'BPJS', value: '- Rp 300.000', color: '#dc2626' },
-                  { label: 'PPh 21', value: '- Rp 200.000', color: '#dc2626' },
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
-                    <span style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{item.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: item.color, fontFamily: SF }}>{item.value}</span>
-                  </div>
-                ))}
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                <GroupedRow icon={<CreditCard size={14} />} iconBg="#8e8e93" label="Gaji Pokok" value="Rp 7.500.000" />
+                <GroupedRow icon={<CreditCard size={14} />} iconBg="#34c759" label="Tunjangan" value="+ Rp 1.500.000" />
+                <GroupedRow icon={<Shield size={14} />} iconBg="#ff9500" label="BPJS" value="- Rp 300.000" />
+                <GroupedRow icon={<Shield size={14} />} iconBg="#007aff" label="PPh 21" value="- Rp 200.000" isLast />
               </div>
-            </div>
+            </>
           )}
 
           {/* Shifts */}
           {activeTab === 'shifts' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Jadwal Shift</h3>
+            <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
               {[
-                { name: 'Pagi', time: '07:00 - 15:00', color: '#f59e0b', active: true },
-                { name: 'Siang', time: '13:00 - 21:00', color: '#3b82f6', active: false },
-                { name: 'Malam', time: '21:00 - 07:00', color: '#8b5cf6', active: false },
-              ].map((shift) => (
-                <div key={shift.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                  <div style={{ width: 3, height: 32, borderRadius: 2, background: shift.color }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500, fontSize: 12, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.01em' }}>Shift {shift.name}</div>
-                    <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{shift.time}</div>
-                  </div>
-                  <span style={{ padding: '2px 8px', borderRadius: 10, background: shift.active ? '#dcfce7' : '#f3f4f6', color: shift.active ? '#166534' : '#8e8e93', fontSize: 10, fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>
-                    {shift.active ? 'Aktif' : '-'}
-                  </span>
-                </div>
+                { name: 'Pagi', time: '07:00 – 15:00', bg: '#ff9500', active: true },
+                { name: 'Siang', time: '13:00 – 21:00', bg: '#007aff', active: false },
+                { name: 'Malam', time: '21:00 – 07:00', bg: '#5856d6', active: false },
+              ].map((shift, i, arr) => (
+                <GroupedRow
+                  key={shift.name}
+                  icon={<Clock size={14} />}
+                  iconBg={shift.bg}
+                  label={`Shift ${shift.name}`}
+                  value={`${shift.time}${shift.active ? ' · Aktif' : ''}`}
+                  isLast={i === arr.length - 1}
+                />
               ))}
             </div>
           )}
 
           {/* Profile */}
           {activeTab === 'profile' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Profil</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 16, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: 'white', fontFamily: SF }}>AD</div>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.01em' }}>Admin User</div>
-                  <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>admin@hub.com</div>
-                  <div style={{ fontSize: 10, color: '#007aff', fontWeight: 500, marginTop: 1, fontFamily: SF, letterSpacing: '-0.01em' }}>HR Manager</div>
-                </div>
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0 2px', textAlign: 'center' }}>
+                <div style={{
+                  width: 64, height: 64, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 22, fontWeight: 700, color: 'white', flexShrink: 0,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.08)',
+                  marginBottom: 10,
+                }}>AD</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em' }}>Admin User</div>
+                <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, marginTop: 2 }}>admin@hub.com · HR Manager</div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {[
-                  { label: 'NIK', value: '1234567890' },
-                  { label: 'Departemen', value: 'Human Resources' },
-                  { label: 'Masuk', value: '1 Jan 2024' },
-                  { label: 'Telepon', value: '+62 812-3456-7890' },
-                ].map((item) => (
-                  <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
-                    <span style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{item.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 500, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.01em' }}>{item.value}</span>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="NIK" value="1234567890" />
+                <GroupedRow icon={<Users size={14} />} iconBg="#007aff" label="Departemen" value="Human Resources" />
+                <GroupedRow icon={<Calendar size={14} />} iconBg="#34c759" label="Masuk" value="1 Jan 2024" />
+                <GroupedRow icon={<Smartphone size={14} />} iconBg="#ff9500" label="Telepon" value="+62 812-3456-7890" isLast />
+              </div>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                <button onClick={() => setShowEmployeeForm(true)} style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'transparent', color: '#007aff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center' }}>Tambah Karyawan</button>
+              </div>
+              {showEmployeeForm && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowEmployeeForm(false)}>
+                  <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 380, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f' }}>Tambah Karyawan</div>
+                      <button onClick={() => setShowEmployeeForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={16} color="#8e8e93" /></button>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {[
+                        { key: 'fullName', label: 'Nama Lengkap', type: 'text', required: true, placeholder: 'Budi Santoso' },
+                        { key: 'email', label: 'Email', type: 'email', required: true, placeholder: 'budi@hub.com' },
+                        { key: 'password', label: 'Password', type: 'password', required: true, placeholder: 'Min 6 karakter' },
+                        { key: 'phoneNumber', label: 'Telepon', type: 'tel', placeholder: '+62 812-3456-7890' },
+                        { key: 'dateOfBirth', label: 'Tanggal Lahir', type: 'date' },
+                        { key: 'ktpNumber', label: 'No. KTP', type: 'text', placeholder: '3201234567890001' },
+                        { key: 'address', label: 'Alamat Rumah', type: 'textarea', placeholder: 'Alamat lengkap...' },
+                        { key: 'employeeId', label: 'NIP / ID Karyawan', type: 'text', placeholder: 'EMP-001' },
+                        { key: 'jobTitle', label: 'Jabatan', type: 'text', placeholder: 'Staff HR' },
+                        { key: 'department', label: 'Departemen', type: 'text', placeholder: 'Human Resources' },
+                        { key: 'role', label: 'Role', type: 'select', options: [{ value: 'admin', label: 'Admin' }, { value: 'user', label: 'User' }, { value: 'viewer', label: 'Viewer' }] },
+                        { key: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }] },
+                      ].map((f) => (
+                        <div key={f.key}>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 4 }}>
+                            {f.label}{f.required && <span style={{ color: '#ff3b30' }}> *</span>}
+                          </label>
+                          {f.type === 'select' ? (
+                            <select value={employeeValues[f.key] || ''} onChange={(e) => setEmployeeValues({ ...employeeValues, [f.key]: e.target.value })} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: 'white' }}>
+                              <option value="">Pilih...</option>
+                              {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                          ) : f.type === 'textarea' ? (
+                            <textarea rows={3} value={employeeValues[f.key] || ''} onChange={(e) => setEmployeeValues({ ...employeeValues, [f.key]: e.target.value })} placeholder={f.placeholder} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', resize: 'vertical' }} />
+                          ) : (
+                            <input type={f.type} value={employeeValues[f.key] || ''} onChange={(e) => setEmployeeValues({ ...employeeValues, [f.key]: e.target.value })} placeholder={f.placeholder} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                      <button onClick={() => { setShowEmployeeForm(false); setEmployeeValues({}) }} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+                      <button onClick={async () => {
+                        try {
+                          await usersApi.create(employeeValues)
+                          setShowEmployeeForm(false)
+                          setEmployeeValues({})
+                        } catch {}
+                      }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Simpan</button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              )}
+            </>
           )}
 
         </div>
@@ -393,12 +623,29 @@ function HRISContent({ onClose, onMinimize }: { onClose: () => void; onMinimize:
   )
 }
 
-function FinanceContent({ onClose, onMinimize }: { onClose: () => void; onMinimize: () => void }) {
+function FinanceContent({ onClose, onMinimize, onMaximize, onGreenMouseEnter, onGreenMouseLeave }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void; onGreenMouseEnter?: () => void; onGreenMouseLeave?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
   const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'expenses' | 'budgets' | 'payments'>('dashboard')
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const sidebarGroups = [
+  const iconBg: Record<string, string> = {
+    dashboard: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+    invoices: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)',
+    expenses: 'linear-gradient(135deg, #ff3b30 0%, #d70015 100%)',
+    payments: 'linear-gradient(135deg, #30b0c7 0%, #00778a 100%)',
+    budgets: 'linear-gradient(135deg, #af52de 0%, #892ab8 100%)',
+  }
+
+  const tabDesc: Record<string, string> = {
+    dashboard: 'Ringkasan revenue, expenses, dan transaksi terbaru.',
+    invoices: 'Kelola dan pantau semua invoice klien.',
+    expenses: 'Catat dan pantau pengeluaran operasional.',
+    payments: 'Pantau pembayaran yang sudah diterima.',
+    budgets: 'Rencana dan realisasi budget departemen.',
+  }
+
+  const sidebarGroups: { label: string; items: { id: string; label: string }[] }[] = [
     { label: 'OVERVIEW', items: [{ id: 'dashboard' as const, label: 'Dashboard' }] },
     { label: 'TRANSACTIONS', items: [
       { id: 'invoices' as const, label: 'Invoices' },
@@ -419,43 +666,56 @@ function FinanceContent({ onClose, onMinimize }: { onClose: () => void; onMinimi
   const btnSize = 12
   const btnGap = 8
 
+  const allFinTabs = sidebarGroups.flatMap(g => g.items)
+  const filteredGroups = sidebarGroups.map(g => ({ ...g, items: g.items.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(g => g.items.length > 0)
+
   return (
     <div style={{ display: 'flex', height: '100%', fontFamily: SF, padding: 10, gap: 10 }}>
       {/* Sidebar */}
       <div style={{
-        width: 170, flexShrink: 0,
+        width: 220, flexShrink: 0,
         background: 'rgba(255,255,255,0.7)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         borderRadius: 12,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
         display: 'flex', flexDirection: 'column',
-        padding: '6px 6px',
+        padding: '6px',
         overflowY: 'auto',
       }}>
         {/* Traffic lights */}
-        <div style={{ display: 'flex', gap: btnGap, padding: '16px 0 12px 16px' }}>
+        <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
           </div>
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
           </div>
-          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => { setHoveredBtn('maximize'); onGreenMouseEnter?.() }} onMouseLeave={() => { setHoveredBtn(null); onGreenMouseLeave?.() }}>
             {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
         </div>
 
-        {sidebarGroups.map((group) => (
+        {/* Search */}
+        <div style={{ padding: '0 6px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
+            <Search size={13} color="#8e8e93" />
+            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
+          </div>
+        </div>
+
+        {filteredGroups.map((group) => (
           <div key={group.label}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '0 8px', marginBottom: 4, marginTop: 8, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: SF }}>{group.label}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>{group.label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {group.items.map((tab) => {
                 const active = activeTab === tab.id
                 return (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', borderRadius: 6, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 12, fontWeight: active ? 500 : 400, cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left', width: '100%', gap: 7, fontFamily: SF, letterSpacing: '-0.01em' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[tab.id]} fill={active ? 'white' : '#8e8e93'} strokeWidth={0} /></svg>
-                    {tab.label}
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 13, fontWeight: active ? 500 : 400, cursor: 'pointer', transition: 'background 0.12s', textAlign: 'left', width: '100%', gap: 9, fontFamily: SF, letterSpacing: '-0.01em' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                    <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : iconBg[tab.id], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[tab.id]} fill="white" strokeWidth={0} /></svg>
+                    </div>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.label}</span>
                   </button>
                 )
               })}
@@ -465,33 +725,62 @@ function FinanceContent({ onClose, onMinimize }: { onClose: () => void; onMinimi
       </div>
 
       {/* Content area */}
-      <div style={{ flex: 1, overflow: 'auto', background: 'white', borderRadius: 12 }}>
-        <div style={{ display: 'flex', gap: 1, padding: '10px 14px 0' }}>
-          <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
+      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: '#ffffff', borderRadius: 12 }}>
+        <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
         </div>
 
-        <div style={{ padding: '8px 20px 20px' }}>
+        {/* Section header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
+          <div style={{ width: 58, height: 58, borderRadius: 14, background: iconBg[activeTab], display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginBottom: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[activeTab]} fill="white" strokeWidth={0} /></svg>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
+            {(allFinTabs.find(t => t.id === activeTab) as { id: string; label: string } | undefined)?.label}
+          </div>
+          <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
+            {tabDesc[activeTab]}
+          </div>
+        </div>
+
+        <div style={{ padding: '0 24px 28px', maxWidth: 540, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
             {/* Dashboard */}
             {activeTab === 'dashboard' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                  <div style={{ padding: 14, borderRadius: 8, background: '#f0fdf4', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                    <div style={{ fontSize: 10, color: '#16a34a', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>Revenue</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: '#15803d', fontFamily: SF, marginTop: 2 }}>Rp 185jt</div>
-                  </div>
-                  <div style={{ padding: 14, borderRadius: 8, background: '#fef2f2', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                    <div style={{ fontSize: 10, color: '#dc2626', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>Expenses</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: '#b91c1c', fontFamily: SF, marginTop: 2 }}>Rp 92jt</div>
-                  </div>
-                  <div style={{ padding: 14, borderRadius: 8, background: '#eff6ff', border: '0.5px solid rgba(0,0,0,0.08)' }}>
-                    <div style={{ fontSize: 10, color: '#2563eb', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>Outstanding</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: '#1d4ed8', fontFamily: SF, marginTop: 2 }}>Rp 45jt</div>
+                <div style={{ padding: 14, borderRadius: 10, background: '#f0fdf4', border: '0.5px solid rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontSize: 10, color: '#16a34a', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>Financials</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8 }}>
+                    <DonutChart
+                      segs={[
+                        { frac: 185 / 322, color: '#16a34a' },
+                        { frac: 92 / 322, color: '#dc2626' },
+                        { frac: 45 / 322, color: '#2563eb' },
+                      ]}
+                      centerTop={(v) => `Rp ${Math.round(v * 322)}jt`}
+                      centerSub="total"
+                    />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {[
+                        { dot: '#16a34a', label: 'Revenue', value: 'Rp 185jt', color: '#15803d' },
+                        { dot: '#dc2626', label: 'Expenses', value: 'Rp 92jt', color: '#b91c1c' },
+                        { dot: '#2563eb', label: 'Outstanding', value: 'Rp 45jt', color: '#1d4ed8' },
+                      ].map((row) => (
+                        <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: row.dot, flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, color: '#6b7280', fontFamily: SF, letterSpacing: '-0.01em' }}>{row.label}</span>
+                          <div style={{ flex: 1 }} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: row.color, fontFamily: SF }}>{row.value}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <div style={{ padding: 14, borderRadius: 8, background: '#f9fafb', border: '0.5px solid rgba(0,0,0,0.08)' }}>
@@ -630,10 +919,25 @@ function FinanceContent({ onClose, onMinimize }: { onClose: () => void; onMinimi
   )
 }
 
-function ProcurementContent({ onClose, onMinimize }: { onClose: () => void; onMinimize: () => void }) {
+function ProcurementContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
   const [activeTab, setActiveTab] = useState<'dashboard' | 'suppliers' | 'purchase-orders' | 'stock'>('dashboard')
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const iconBg: Record<string, string> = {
+    dashboard: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+    suppliers: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)',
+    'purchase-orders': 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)',
+    stock: 'linear-gradient(135deg, #5856d6 0%, #3634a3 100%)',
+  }
+
+  const tabDesc: Record<string, string> = {
+    dashboard: 'Ringkasan supplier aktif, PO pending, dan stok.',
+    suppliers: 'Kelola daftar supplier dan kontak pengadaan.',
+    'purchase-orders': 'Buat dan pantau purchase orders.',
+    stock: 'Pantau stok barang dan pergerakannya.',
+  }
 
   const tabMeta: Record<string, { label: string; group: string; labelAbove?: string }> = {
     'dashboard':        { label: 'Dashboard',       group: 'OVERVIEW' },
@@ -662,61 +966,90 @@ function ProcurementContent({ onClose, onMinimize }: { onClose: () => void; onMi
   const btnSize = 12
   const btnGap = 8
 
+  const filteredGroupedTabs = groupedTabs.map(g => ({ ...g, items: g.items.filter(id => tabMeta[id].label.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(g => g.items.length > 0)
+
   return (
     <div style={{ display: 'flex', height: '100%', fontFamily: SF, padding: 10, gap: 10 }}>
       {/* Sidebar */}
       <div style={{
-        width: 170, flexShrink: 0,
+        width: 220, flexShrink: 0,
         background: 'rgba(255,255,255,0.7)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         borderRadius: 12,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
         display: 'flex', flexDirection: 'column',
-        padding: '6px 6px',
+        padding: '6px',
         overflowY: 'auto',
       }}>
         {/* Traffic lights */}
-        <div style={{ display: 'flex', gap: btnGap, padding: '16px 0 12px 16px' }}>
+        <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
           </div>
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
           </div>
-          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
         </div>
 
-        {groupedTabs.map((group, gi) => (
-          <div key={group.group} style={{ marginBottom: gi < groupedTabs.length - 1 ? 4 : 0 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 16px', marginTop: gi === 0 ? 0 : 8, letterSpacing: '0.04em', textTransform: 'uppercase', fontFamily: SF }}>{group.group}</div>
-            {group.items.map((id) => {
-              const active = activeTab === id
-              return (
-                <button key={id} onClick={() => setActiveTab(id as any)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 8px', marginLeft: 6, marginRight: 6, width: 'calc(100% - 12px)', borderRadius: 6, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 12, fontWeight: active ? 500 : 400, cursor: 'pointer', textAlign: 'left', transition: 'all 0.1s', fontFamily: SF }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
-                  {iconFor(id, active)}
-                  {tabMeta[id].label}
-                </button>
-              )
-            })}
+        {/* Search */}
+        <div style={{ padding: '0 6px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
+            <Search size={13} color="#8e8e93" />
+            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
+          </div>
+        </div>
+
+        {filteredGroupedTabs.map((group) => (
+          <div key={group.group}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', letterSpacing: '0.04em', textTransform: 'uppercase', fontFamily: SF }}>{group.group}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {group.items.map((id) => {
+                const active = activeTab === id
+                return (
+                  <button key={id} onClick={() => setActiveTab(id as any)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 8px', width: '100%', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 13, fontWeight: active ? 500 : 400, cursor: 'pointer', textAlign: 'left', transition: 'background 0.12s', fontFamily: SF, letterSpacing: '-0.01em' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                    <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : iconBg[id], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)' }}>
+                      {iconFor(id, true)}
+                    </div>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tabMeta[id].label}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         ))}
       </div>
 
       {/* Content area */}
-      <div style={{ flex: 1, overflow: 'auto', background: 'white', borderRadius: 12 }}>
-        <div style={{ display: 'flex', gap: 1, padding: '10px 14px 0' }}>
-          <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
+      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: '#ffffff', borderRadius: 12 }}>
+        <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
         </div>
 
-        <div style={{ padding: '8px 20px 20px' }}>
+        {/* Section header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
+          <div style={{ width: 58, height: 58, borderRadius: 14, background: iconBg[activeTab], display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginBottom: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)' }}>
+            {iconFor(activeTab, true)}
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
+            {tabMeta[activeTab].label}
+          </div>
+          <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
+            {tabDesc[activeTab]}
+          </div>
+        </div>
+
+        <div style={{ padding: '0 24px 28px', maxWidth: 540, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
             {/* Dashboard */}
             {activeTab === 'dashboard' && (
@@ -852,13 +1185,38 @@ function ProcurementContent({ onClose, onMinimize }: { onClose: () => void; onMi
   )
 }
 
-function SupportContent({ onClose, onMinimize }: { onClose: () => void; onMinimize: () => void }) {
+function SupportContent({ onClose, onMinimize, onMaximize, onGreenMouseEnter, onGreenMouseLeave }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void; onGreenMouseEnter?: () => void; onGreenMouseLeave?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
   const [activeTab, setActiveTab] = useState<string>('all')
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const sidebarGroups = [
+  const iconBg: Record<string, string> = {
+    all: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+    open: 'linear-gradient(135deg, #ff3b30 0%, #d70015 100%)',
+    in_progress: 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)',
+    resolved: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)',
+    closed: 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)',
+    bug: 'linear-gradient(135deg, #ff3b30 0%, #d70015 100%)',
+    complaint: 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)',
+    feature_request: 'linear-gradient(135deg, #af52de 0%, #892ab8 100%)',
+    billing_issue: 'linear-gradient(135deg, #30b0c7 0%, #00778a 100%)',
+  }
+
+  const tabDesc: Record<string, string> = {
+    all: 'Semua tiket support dari klien.',
+    open: 'Tiket yang baru masuk dan belum ditangani.',
+    in_progress: 'Tiket yang sedang dikerjakan tim.',
+    resolved: 'Tiket yang sudah diselesaikan.',
+    closed: 'Tiket yang sudah ditutup.',
+    bug: 'Laporan bug dan error aplikasi.',
+    complaint: 'Keluhan dan komplain klien.',
+    feature_request: 'Permintaan fitur baru.',
+    billing_issue: 'Masalah tagihan dan pembayaran.',
+  }
+
+  const sidebarGroups: { label: string; items: { id: string; label: string; count?: number }[] }[] = [
     { label: 'TICKETS', items: [
       { id: 'all' as const, label: 'All Tickets', count: 24 },
       { id: 'open' as const, label: 'Open', count: 8 },
@@ -920,44 +1278,57 @@ function SupportContent({ onClose, onMinimize }: { onClose: () => void; onMinimi
   const btnSize = 12
   const btnGap = 8
 
+  const filteredSidebarGroups = sidebarGroups.map(g => ({ ...g, items: g.items.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(g => g.items.length > 0)
+  const allSupTabs = sidebarGroups.flatMap(g => g.items)
+
   return (
     <div style={{ display: 'flex', height: '100%', fontFamily: SF, padding: 10, gap: 10 }}>
       {/* Sidebar */}
       <div style={{
-        width: 170, flexShrink: 0,
+        width: 220, flexShrink: 0,
         background: 'rgba(255,255,255,0.7)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         borderRadius: 12,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
         display: 'flex', flexDirection: 'column',
-        padding: '6px 6px',
+        padding: '6px',
         overflowY: 'auto',
       }}>
         {/* Traffic lights */}
-        <div style={{ display: 'flex', gap: btnGap, padding: '16px 0 12px 16px' }}>
+        <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
           </div>
           <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
             {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
           </div>
-          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => { setHoveredBtn('maximize'); onGreenMouseEnter?.() }} onMouseLeave={() => { setHoveredBtn(null); onGreenMouseLeave?.() }}>
             {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
         </div>
 
-        {sidebarGroups.map((group) => (
+        {/* Search */}
+        <div style={{ padding: '0 6px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
+            <Search size={13} color="#8e8e93" />
+            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
+          </div>
+        </div>
+
+        {filteredSidebarGroups.map((group) => (
           <div key={group.label}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '0 8px', marginBottom: 4, marginTop: 8, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: SF }}>{group.label}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>{group.label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {group.items.map((item) => {
                 const active = activeTab === item.id
                 return (
-                  <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', borderRadius: 6, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 12, fontWeight: active ? 500 : 400, cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left', width: '100%', gap: 7, fontFamily: SF, letterSpacing: '-0.01em' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[item.id]} fill={active ? 'white' : '#8e8e93'} strokeWidth={0} /></svg>
-                      <span>{item.label}</span>
+                  <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 8px', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 13, fontWeight: active ? 500 : 400, cursor: 'pointer', transition: 'background 0.12s', textAlign: 'left', width: '100%', gap: 9, fontFamily: SF, letterSpacing: '-0.01em' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : iconBg[item.id], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[item.id]} fill="white" strokeWidth={0} /></svg>
+                      </div>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
                     </div>
                     {item.count !== undefined && (
                       <span style={{ fontSize: 10, fontWeight: 500, color: active ? 'rgba(255,255,255,0.7)' : '#8e8e93', fontFamily: SF }}>{item.count}</span>
@@ -971,17 +1342,32 @@ function SupportContent({ onClose, onMinimize }: { onClose: () => void; onMinimi
       </div>
 
       {/* Content area */}
-      <div style={{ flex: 1, overflow: 'auto', background: 'rgba(246,246,246,0.6)', borderRadius: 12 }}>
-        <div style={{ display: 'flex', gap: 1, padding: '10px 14px 0', alignItems: 'center' }}>
-          <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <button style={{ width: 22, height: 22, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
+      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: '#ffffff', borderRadius: 12 }}>
+        <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
         </div>
 
-        <div style={{ padding: '8px 20px 20px', display: 'flex', flexDirection: 'column' }}>
+        {/* Section header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
+          <div style={{ width: 58, height: 58, borderRadius: 14, background: iconBg[activeTab] || 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginBottom: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[activeTab] || iconPaths.all} fill="white" strokeWidth={0} /></svg>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
+            {(allSupTabs.find(t => t.id === activeTab) as { id: string; label: string } | undefined)?.label || 'Support Tickets'}
+          </div>
+          <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
+            {tabDesc[activeTab] || 'Kelola tiket support klien.'}
+          </div>
+        </div>
+
+        <div style={{ padding: '0 24px 28px', maxWidth: 540, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Summary cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
             {[
@@ -1026,6 +1412,749 @@ function SupportContent({ onClose, onMinimize }: { onClose: () => void; onMinimi
         </div>
       </div>
     </div>
+  )
+}
+
+function AssetsContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
+  const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
+  const [activeTab, setActiveTab] = useState<string>('all')
+  const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedAsset, setSelectedAsset] = useState<string | null>(null)
+
+  const sidebarGroups = [
+    { label: 'STATUS', items: [
+      { id: 'all' as const, label: 'All Assets', count: 18 },
+      { id: 'available' as const, label: 'Available', count: 7 },
+      { id: 'in_use' as const, label: 'In Use', count: 8 },
+      { id: 'under_maintenance' as const, label: 'Maintenance', count: 2 },
+      { id: 'broken' as const, label: 'Broken', count: 1 },
+    ]},
+    { label: 'CATEGORY', items: [
+      { id: 'electronics' as const, label: 'Electronics', count: 9 },
+      { id: 'furniture' as const, label: 'Furniture', count: 4 },
+      { id: 'vehicles' as const, label: 'Vehicles', count: 2 },
+      { id: 'tools' as const, label: 'Tools', count: 3 },
+    ]},
+  ]
+
+  const iconPaths: Record<string, string> = {
+    all: 'M4 6h16M4 12h16M4 18h16',
+    available: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z',
+    in_use: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z',
+    under_maintenance: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z',
+    broken: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z',
+    electronics: 'M4 6h16M4 12h16M4 18h16',
+    furniture: 'M4 6h16M4 12h16M4 18h16',
+    vehicles: 'M4 6h16M4 12h16M4 18h16',
+    tools: 'M4 6h16M4 12h16M4 18h16',
+  }
+
+  const iconBg: Record<string, string> = {
+    all: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+    available: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)',
+    in_use: 'linear-gradient(135deg, #30b0c7 0%, #00778a 100%)',
+    under_maintenance: 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)',
+    broken: 'linear-gradient(135deg, #ff3b30 0%, #d70015 100%)',
+    electronics: 'linear-gradient(135deg, #5856d6 0%, #3634a3 100%)',
+    furniture: 'linear-gradient(135deg, #af52de 0%, #892ab8 100%)',
+    vehicles: 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)',
+    tools: 'linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%)',
+  }
+
+  const statusColor: Record<string, string> = {
+    available: '#34c759',
+    in_use: '#007aff',
+    under_maintenance: '#ff9500',
+    broken: '#ff3b30',
+    disposed: '#8e8e93',
+    lost: '#af52de',
+  }
+
+  const tabDesc: Record<string, string> = {
+    all: 'Semua aset perusahaan dalam satu tempat.',
+    available: 'Aset siap pakai dan belum dipinjam.',
+    in_use: 'Aset yang sedang dipakai karyawan.',
+    under_maintenance: 'Aset dalam perbaikan / servis.',
+    broken: 'Aset rusak dan butuh tindak lanjut.',
+    electronics: 'Laptop, monitor, dan perangkat elektronik.',
+    furniture: 'Meja, kursi, dan perabot kantor.',
+    vehicles: 'Kendaraan operasional perusahaan.',
+    tools: 'Perkakas dan alat kerja lapangan.',
+  }
+
+  const MOCK_ASSETS = [
+    { id: 'AST-001', code: 'LT-2024-001', name: 'MacBook Pro 16"', category: 'electronics', location: 'Kantor Pusat · Lt 2', status: 'in_use', condition: 'good', assignee: 'Budi', cost: 'Rp 38jt' },
+    { id: 'AST-002', code: 'MN-2024-014', name: 'Monitor LG 27" 4K', category: 'electronics', location: 'Kantor Pusat · Lt 2', status: 'in_use', condition: 'good', assignee: 'Siti', cost: 'Rp 4,5jt' },
+    { id: 'AST-003', code: 'LT-2023-008', name: 'ThinkPad X1 Carbon', category: 'electronics', location: 'Gudang IT', status: 'available', condition: 'good', assignee: null, cost: 'Rp 24jt' },
+    { id: 'AST-004', code: 'VH-2022-002', name: 'Toyota Hiace Operasional', category: 'vehicles', location: 'Pool Bintaro', status: 'in_use', condition: 'fair', assignee: 'Tim Lapangan', cost: 'Rp 480jt' },
+    { id: 'AST-005', code: 'TL-2024-031', name: 'Mesin Las Lakoni 900W', category: 'tools', location: 'Workshop', status: 'under_maintenance', condition: 'damaged', assignee: null, cost: 'Rp 2,1jt' },
+    { id: 'AST-006', code: 'FR-2023-011', name: 'Meja Kerja L-Shape', category: 'furniture', location: 'Kantor Pusat · Lt 1', status: 'available', condition: 'new', assignee: null, cost: 'Rp 1,8jt' },
+    { id: 'AST-007', code: 'PR-2024-003', name: 'Printer Epson L6270', category: 'electronics', location: 'Kantor Pusat · Lt 1', status: 'broken', condition: 'damaged', assignee: null, cost: 'Rp 3,4jt' },
+    { id: 'AST-008', code: 'TL-2023-019', name: 'Gerinda Makita 9553', category: 'tools', location: 'Workshop', status: 'in_use', condition: 'fair', assignee: 'Andi', cost: 'Rp 950rb' },
+  ]
+
+  const filteredAssets = activeTab === 'all'
+    ? MOCK_ASSETS
+    : ['available', 'in_use', 'under_maintenance', 'broken'].includes(activeTab)
+      ? MOCK_ASSETS.filter(a => a.status === activeTab)
+      : MOCK_ASSETS.filter(a => a.category === activeTab)
+
+  const filteredSidebarGroups = sidebarGroups.map(g => ({ ...g, items: g.items.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(g => g.items.length > 0)
+  const allAssetTabs = sidebarGroups.flatMap(g => g.items)
+
+  const btnSize = 12
+  const btnGap = 8
+
+  return (
+    <div style={{ display: 'flex', height: '100%', fontFamily: SF, padding: 10, gap: 10 }}>
+      {/* Sidebar */}
+      <div style={{
+        width: 220, flexShrink: 0,
+        background: 'rgba(255,255,255,0.7)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRadius: 12,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
+        display: 'flex', flexDirection: 'column',
+        padding: '6px',
+        overflowY: 'auto',
+      }}>
+        {/* Traffic lights */}
+        <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+          </div>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+          </div>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </div>
+        </div>
+
+        {/* Search */}
+        <div style={{ padding: '0 6px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
+            <Search size={13} color="#8e8e93" />
+            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
+          </div>
+        </div>
+
+        {filteredSidebarGroups.map((group) => (
+          <div key={group.label}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>{group.label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {group.items.map((item) => {
+                const active = activeTab === item.id
+                return (
+                  <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 8px', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 13, fontWeight: active ? 500 : 400, cursor: 'pointer', transition: 'background 0.12s', textAlign: 'left', width: '100%', gap: 9, fontFamily: SF, letterSpacing: '-0.01em' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : iconBg[item.id], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[item.id]} fill="white" strokeWidth={0} /></svg>
+                      </div>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                    </div>
+                    {item.count !== undefined && (
+                      <span style={{ fontSize: 10, fontWeight: 500, color: active ? 'rgba(255,255,255,0.7)' : '#8e8e93', fontFamily: SF }}>{item.count}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Content area */}
+      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: '#ffffff', borderRadius: 12 }}>
+        <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Section header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
+          <div style={{ width: 58, height: 58, borderRadius: 14, background: iconBg[activeTab] || 'linear-gradient(135deg, #5856d6 0%, #3634a3 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginBottom: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[activeTab] || iconPaths.all} fill="white" strokeWidth={0} /></svg>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
+            {(allAssetTabs.find(t => t.id === activeTab) as { id: string; label: string } | undefined)?.label || 'Assets'}
+          </div>
+          <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
+            {tabDesc[activeTab] || 'Kelola aset perusahaan.'}
+          </div>
+        </div>
+
+        <div style={{ padding: '0 24px 28px', maxWidth: 540, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Summary cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+            {[
+              { label: 'Total', value: '18', color: '#007aff', bg: '#f0f7ff' },
+              { label: 'In Use', value: '8', color: '#30b0c7', bg: '#f0fafc' },
+              { label: 'Available', value: '7', color: '#34c759', bg: '#f0fdf4' },
+              { label: 'Maintenance', value: '2', color: '#ff9500', bg: '#fff8f0' },
+            ].map((s) => (
+              <div key={s.label} style={{ padding: 14, borderRadius: 8, background: s.bg, border: '0.5px solid rgba(0,0,0,0.06)' }}>
+                <div style={{ fontSize: 10, color: s.color, fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{s.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: SF, marginTop: 2 }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Asset list */}
+          <div style={{ background: 'white', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            {filteredAssets.map((asset, i) => (
+              <div key={asset.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: i < filteredAssets.length - 1 ? '0.5px solid rgba(0,0,0,0.06)' : 'none', cursor: 'pointer', background: selectedAsset === asset.id ? '#f5f5f7' : 'transparent' }} onClick={() => setSelectedAsset(asset.id)} onMouseEnter={(e) => { if (selectedAsset !== asset.id) e.currentTarget.style.background = '#fafafa' }} onMouseLeave={(e) => { if (selectedAsset !== asset.id) e.currentTarget.style.background = selectedAsset === asset.id ? '#f5f5f7' : 'transparent' }}>
+                <div style={{ width: 4, height: 32, borderRadius: 2, background: statusColor[asset.status], flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{asset.code}</span>
+                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: statusColor[asset.status] + '18', color: statusColor[asset.status], fontWeight: 500, fontFamily: SF }}>{asset.status.replace('_', ' ')}</span>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
+                  <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 2, letterSpacing: '-0.01em' }}>{asset.location}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: '#1d1d1f', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{asset.cost}</span>
+                  {asset.assignee && <span style={{ fontSize: 10, color: '#007aff', fontFamily: SF, letterSpacing: '-0.01em' }}>{asset.assignee}</span>}
+                  {!asset.assignee && <span style={{ fontSize: 10, color: '#34c759', fontFamily: SF, letterSpacing: '-0.01em', fontWeight: 500 }}>Available</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AuditContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
+  const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
+  const [activeTab, setActiveTab] = useState<string>('all')
+  const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedLog, setSelectedLog] = useState<string | null>(null)
+
+  const sidebarGroups = [
+    { label: 'ACTIVITY', items: [
+      { id: 'all' as const, label: 'All Activity', count: 48 },
+      { id: 'create' as const, label: 'Created', count: 21 },
+      { id: 'update' as const, label: 'Updated', count: 17 },
+      { id: 'delete' as const, label: 'Deleted', count: 4 },
+      { id: 'login' as const, label: 'Logins', count: 6 },
+    ]},
+    { label: 'MODULE', items: [
+      { id: 'crm' as const, label: 'CRM', count: 12 },
+      { id: 'hris' as const, label: 'HRIS', count: 9 },
+      { id: 'finance' as const, label: 'Finance', count: 11 },
+      { id: 'procurement' as const, label: 'Procurement', count: 7 },
+      { id: 'projects' as const, label: 'Projects', count: 6 },
+      { id: 'assets' as const, label: 'Assets', count: 3 },
+    ]},
+  ]
+
+  const iconPaths: Record<string, string> = {
+    all: 'M4 6h16M4 12h16M4 18h16',
+    create: 'M12 5v14M5 12h14',
+    update: 'M12 5v14M5 12h14',
+    delete: 'M4 6h16M4 12h16M4 18h16',
+    login: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z',
+    crm: 'M4 6h16M4 12h16M4 18h16',
+    hris: 'M4 6h16M4 12h16M4 18h16',
+    finance: 'M4 6h16M4 12h16M4 18h16',
+    procurement: 'M4 6h16M4 12h16M4 18h16',
+    projects: 'M4 6h16M4 12h16M4 18h16',
+    assets: 'M4 6h16M4 12h16M4 18h16',
+  }
+
+  const iconBg: Record<string, string> = {
+    all: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+    create: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)',
+    update: 'linear-gradient(135deg, #30b0c7 0%, #00778a 100%)',
+    delete: 'linear-gradient(135deg, #ff3b30 0%, #d70015 100%)',
+    login: 'linear-gradient(135deg, #5856d6 0%, #3634a3 100%)',
+    crm: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+    hris: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)',
+    finance: 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)',
+    procurement: 'linear-gradient(135deg, #af52de 0%, #892ab8 100%)',
+    projects: 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)',
+    assets: 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)',
+  }
+
+  const actionColor: Record<string, string> = {
+    create: '#34c759',
+    update: '#30b0c7',
+    delete: '#ff3b30',
+    login: '#5856d6',
+  }
+
+  const tabDesc: Record<string, string> = {
+    all: 'Semua aktivitas sistem dalam satu linimasa.',
+    create: 'Record yang baru dibuat.',
+    update: 'Perubahan data oleh pengguna.',
+    delete: 'Record yang dihapus.',
+    login: 'Riwayat login pengguna.',
+    crm: 'Aktivitas modul CRM.',
+    hris: 'Aktivitas modul HRIS.',
+    finance: 'Aktivitas modul Finance.',
+    procurement: 'Aktivitas modul Procurement.',
+    projects: 'Aktivitas modul Projects.',
+    assets: 'Aktivitas modul Assets.',
+  }
+
+  const MOCK_LOGS = [
+    { id: 'LOG-048', action: 'create', module: 'crm', desc: 'Membuat client PT Maju Jaya', user: 'Admin', time: '2 mnt lalu', ip: '192.168.1.10' },
+    { id: 'LOG-047', action: 'update', module: 'finance', desc: 'Mengubah invoice INV-002 → Paid', user: 'Siti', time: '18 mnt lalu', ip: '192.168.1.12' },
+    { id: 'LOG-046', action: 'login', module: 'hris', desc: 'Login dari perangkat baru', user: 'Budi', time: '32 mnt lalu', ip: '192.168.1.15' },
+    { id: 'LOG-045', action: 'create', module: 'procurement', desc: 'Membuat PO-004 ke PT Cat Indonesia', user: 'Andi', time: '1 jam lalu', ip: '192.168.1.11' },
+    { id: 'LOG-044', action: 'delete', module: 'projects', desc: 'Menghapus task duplikat T-112', user: 'Admin', time: '2 jam lalu', ip: '192.168.1.10' },
+    { id: 'LOG-043', action: 'update', module: 'assets', desc: 'Handover LT-2024-001 → Budi', user: 'Admin', time: '3 jam lalu', ip: '192.168.1.10' },
+    { id: 'LOG-042', action: 'create', module: 'hris', desc: 'Pengajuan cuti 3 hari oleh Siti', user: 'Siti', time: '5 jam lalu', ip: '192.168.1.12' },
+    { id: 'LOG-041', action: 'update', module: 'crm', desc: 'Mengubah status CV Berkah → active', user: 'Dewi', time: 'Kemarin', ip: '192.168.1.14' },
+  ]
+
+  const filteredLogs = activeTab === 'all'
+    ? MOCK_LOGS
+    : ['create', 'update', 'delete', 'login'].includes(activeTab)
+      ? MOCK_LOGS.filter(l => l.action === activeTab)
+      : MOCK_LOGS.filter(l => l.module === activeTab)
+
+  const filteredSidebarGroups = sidebarGroups.map(g => ({ ...g, items: g.items.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(g => g.items.length > 0)
+  const allAuditTabs = sidebarGroups.flatMap(g => g.items)
+
+  const btnSize = 12
+  const btnGap = 8
+
+  return (
+    <div style={{ display: 'flex', height: '100%', fontFamily: SF, padding: 10, gap: 10 }}>
+      {/* Sidebar */}
+      <div style={{
+        width: 220, flexShrink: 0,
+        background: 'rgba(255,255,255,0.7)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRadius: 12,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
+        display: 'flex', flexDirection: 'column',
+        padding: '6px',
+        overflowY: 'auto',
+      }}>
+        {/* Traffic lights */}
+        <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+          </div>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+          </div>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </div>
+        </div>
+
+        {/* Search */}
+        <div style={{ padding: '0 6px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
+            <Search size={13} color="#8e8e93" />
+            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
+          </div>
+        </div>
+
+        {filteredSidebarGroups.map((group) => (
+          <div key={group.label}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>{group.label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {group.items.map((item) => {
+                const active = activeTab === item.id
+                return (
+                  <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 8px', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 13, fontWeight: active ? 500 : 400, cursor: 'pointer', transition: 'background 0.12s', textAlign: 'left', width: '100%', gap: 9, fontFamily: SF, letterSpacing: '-0.01em' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : iconBg[item.id], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[item.id]} fill="white" strokeWidth={0} /></svg>
+                      </div>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                    </div>
+                    {item.count !== undefined && (
+                      <span style={{ fontSize: 10, fontWeight: 500, color: active ? 'rgba(255,255,255,0.7)' : '#8e8e93', fontFamily: SF }}>{item.count}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Content area */}
+      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: '#ffffff', borderRadius: 12 }}>
+        <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Section header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
+          <div style={{ width: 58, height: 58, borderRadius: 14, background: iconBg[activeTab] || 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginBottom: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[activeTab] || iconPaths.all} fill="white" strokeWidth={0} /></svg>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
+            {(allAuditTabs.find(t => t.id === activeTab) as { id: string; label: string } | undefined)?.label || 'Audit Logs'}
+          </div>
+          <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
+            {tabDesc[activeTab] || 'Jejak audit sistem.'}
+          </div>
+        </div>
+
+        <div style={{ padding: '0 24px 28px', maxWidth: 540, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Summary cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+            {[
+              { label: 'Today', value: '12', color: '#007aff', bg: '#f0f7ff' },
+              { label: 'Creates', value: '21', color: '#34c759', bg: '#f0fdf4' },
+              { label: 'Updates', value: '17', color: '#30b0c7', bg: '#f0fafc' },
+              { label: 'Deletes', value: '4', color: '#ff3b30', bg: '#fff5f5' },
+            ].map((s) => (
+              <div key={s.label} style={{ padding: 14, borderRadius: 8, background: s.bg, border: '0.5px solid rgba(0,0,0,0.06)' }}>
+                <div style={{ fontSize: 10, color: s.color, fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{s.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: SF, marginTop: 2 }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Log timeline */}
+          <div style={{ background: 'white', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            {filteredLogs.map((log, i) => (
+              <div key={log.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: i < filteredLogs.length - 1 ? '0.5px solid rgba(0,0,0,0.06)' : 'none', cursor: 'pointer', background: selectedLog === log.id ? '#f5f5f7' : 'transparent' }} onClick={() => setSelectedLog(log.id)} onMouseEnter={(e) => { if (selectedLog !== log.id) e.currentTarget.style.background = '#fafafa' }} onMouseLeave={(e) => { if (selectedLog !== log.id) e.currentTarget.style.background = selectedLog === log.id ? '#f5f5f7' : 'transparent' }}>
+                <div style={{ width: 4, height: 32, borderRadius: 2, background: actionColor[log.action], flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{log.id}</span>
+                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: actionColor[log.action] + '18', color: actionColor[log.action], fontWeight: 500, fontFamily: SF, textTransform: 'capitalize' }}>{log.action}</span>
+                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(142,142,147,0.12)', color: '#8e8e93', fontWeight: 500, fontFamily: SF, textTransform: 'uppercase' }}>{log.module}</span>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{log.desc}</div>
+                  <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 2, letterSpacing: '-0.01em' }}>{log.ip}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{log.time}</span>
+                  <span style={{ fontSize: 10, color: '#007aff', fontFamily: SF, letterSpacing: '-0.01em' }}>{log.user}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CatalogContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
+  const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
+  const [activeTab, setActiveTab] = useState<string>('all')
+  const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedItem, setSelectedItem] = useState<string | null>(null)
+
+  const sidebarGroups = [
+    { label: 'ITEMS', items: [
+      { id: 'all' as const, label: 'All Items', count: 18 },
+      { id: 'service' as const, label: 'Services', count: 10 },
+      { id: 'product' as const, label: 'Products', count: 8 },
+      { id: 'subscriptions' as const, label: 'Subscriptions', count: 5 },
+    ]},
+    { label: 'CATEGORY', items: [
+      { id: 'kanopi' as const, label: 'Kanopi', count: 6 },
+      { id: 'railing' as const, label: 'Railing', count: 4 },
+      { id: 'renovasi' as const, label: 'Renovasi', count: 5 },
+      { id: 'baja' as const, label: 'Baja Ringan', count: 3 },
+    ]},
+  ]
+
+  const iconPaths: Record<string, string> = {
+    all: 'M4 6h16M4 12h16M4 18h16',
+    service: 'M4 6h16M4 12h16M4 18h16',
+    product: 'M4 6h16M4 12h16M4 18h16',
+    subscriptions: 'M4 6h16M4 12h16M4 18h16',
+    kanopi: 'M4 6h16M4 12h16M4 18h16',
+    railing: 'M4 6h16M4 12h16M4 18h16',
+    renovasi: 'M4 6h16M4 12h16M4 18h16',
+    baja: 'M4 6h16M4 12h16M4 18h16',
+  }
+
+  const iconBg: Record<string, string> = {
+    all: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+    service: 'linear-gradient(135deg, #30b0c7 0%, #00778a 100%)',
+    product: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)',
+    subscriptions: 'linear-gradient(135deg, #af52de 0%, #892ab8 100%)',
+    kanopi: 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)',
+    railing: 'linear-gradient(135deg, #5856d6 0%, #3634a3 100%)',
+    renovasi: 'linear-gradient(135deg, #ff3b30 0%, #d70015 100%)',
+    baja: 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)',
+  }
+
+  const tabDesc: Record<string, string> = {
+    all: 'Semua jasa dan produk yang dijual.',
+    service: 'Jasa pemasangan dan pengerjaan.',
+    product: 'Barang fisik dengan stok.',
+    subscriptions: 'Paket langganan klien.',
+    kanopi: 'Paket dan material kanopi.',
+    railing: 'Paket dan material railing.',
+    renovasi: 'Paket renovasi bangunan.',
+    baja: 'Material baja ringan.',
+  }
+
+  const MOCK_ITEMS = [
+    { id: 'ITM-001', code: 'JSA-KNP-01', name: 'Pasang Kanopi Alderon /m²', type: 'service', category: 'kanopi', price: 'Rp 450rb', unit: '/m²', stock: null as number | null, status: 'active' },
+    { id: 'ITM-002', code: 'JSA-RLG-02', name: 'Railing Tangga Stainless /m', type: 'service', category: 'railing', price: 'Rp 850rb', unit: '/m', stock: null, status: 'active' },
+    { id: 'ITM-003', code: 'BRG-ALD-10', name: 'Atap Alderon RS 3m', type: 'product', category: 'kanopi', price: 'Rp 385rb', unit: '/lbr', stock: 120, status: 'active' },
+    { id: 'ITM-004', code: 'JSA-RNV-05', name: 'Renovasi Atap Gudang', type: 'service', category: 'renovasi', price: 'Rp 120jt', unit: '/paket', stock: null, status: 'active' },
+    { id: 'ITM-005', code: 'BRG-BJR-07', name: 'Baja Ringan Taso 0.75', type: 'product', category: 'baja', price: 'Rp 95rb', unit: '/btg', stock: 340, status: 'active' },
+    { id: 'ITM-006', code: 'JSA-RLG-03', name: 'Railing Balkon Minimalis /m', type: 'service', category: 'railing', price: 'Rp 650rb', unit: '/m', stock: null, status: 'inactive' },
+    { id: 'ITM-007', code: 'BRG-CT-02', name: 'Cat Avian 5kg', type: 'product', category: 'renovasi', price: 'Rp 420rb', unit: '/pail', stock: 45, status: 'active' },
+    { id: 'ITM-008', code: 'JSA-KNP-04', name: 'Bongkar Pasang Kanopi Lama', type: 'service', category: 'kanopi', price: 'Rp 150rb', unit: '/m²', stock: null, status: 'active' },
+  ]
+
+  const MOCK_SUBS = [
+    { id: 'SUB-001', code: 'PKT-MAINT-01', name: 'Maintenance Rutin Bulanan', client: 'PT Maju Jaya', price: 'Rp 2,5jt', period: '/bln', quota: '4 kunjungan', status: 'active' },
+    { id: 'SUB-002', code: 'PKT-CEK-02', name: 'Inspeksi Atap Triwulan', client: 'CV Berkah Jaya', price: 'Rp 1,2jt', period: '/3 bln', quota: '2 kunjungan', status: 'active' },
+    { id: 'SUB-003', code: 'PKT-MAINT-03', name: 'Maintenance Rutin Bulanan', client: 'PT Sejahtera', price: 'Rp 2,5jt', period: '/bln', quota: '4 kunjungan', status: 'paused' },
+  ]
+
+  const showingSubs = activeTab === 'subscriptions'
+
+  const filteredItems = activeTab === 'all'
+    ? MOCK_ITEMS
+    : activeTab === 'service' || activeTab === 'product'
+      ? MOCK_ITEMS.filter(i => i.type === activeTab)
+      : MOCK_ITEMS.filter(i => i.category === activeTab)
+
+  const filteredSidebarGroups = sidebarGroups.map(g => ({ ...g, items: g.items.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(g => g.items.length > 0)
+  const allCatalogTabs = sidebarGroups.flatMap(g => g.items)
+
+  const btnSize = 12
+  const btnGap = 8
+
+  return (
+    <div style={{ display: 'flex', height: '100%', fontFamily: SF, padding: 10, gap: 10 }}>
+      {/* Sidebar */}
+      <div style={{
+        width: 220, flexShrink: 0,
+        background: 'rgba(255,255,255,0.7)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRadius: 12,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)',
+        display: 'flex', flexDirection: 'column',
+        padding: '6px',
+        overflowY: 'auto',
+      }}>
+        {/* Traffic lights */}
+        <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+          </div>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+          </div>
+          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+            {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </div>
+        </div>
+
+        {/* Search */}
+        <div style={{ padding: '0 6px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
+            <Search size={13} color="#8e8e93" />
+            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
+          </div>
+        </div>
+
+        {filteredSidebarGroups.map((group) => (
+          <div key={group.label}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>{group.label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {group.items.map((item) => {
+                const active = activeTab === item.id
+                return (
+                  <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 8px', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 13, fontWeight: active ? 500 : 400, cursor: 'pointer', transition: 'background 0.12s', textAlign: 'left', width: '100%', gap: 9, fontFamily: SF, letterSpacing: '-0.01em' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : iconBg[item.id], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)' }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[item.id]} fill="white" strokeWidth={0} /></svg>
+                      </div>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+                    </div>
+                    {item.count !== undefined && (
+                      <span style={{ fontSize: 10, fontWeight: 500, color: active ? 'rgba(255,255,255,0.7)' : '#8e8e93', fontFamily: SF }}>{item.count}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Content area */}
+      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: '#ffffff', borderRadius: 12 }}>
+        <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Section header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
+          <div style={{ width: 58, height: 58, borderRadius: 14, background: iconBg[activeTab] || 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', marginBottom: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d={iconPaths[activeTab] || iconPaths.all} fill="white" strokeWidth={0} /></svg>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
+            {(allCatalogTabs.find(t => t.id === activeTab) as { id: string; label: string } | undefined)?.label || 'Catalog'}
+          </div>
+          <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
+            {tabDesc[activeTab] || 'Katalog jasa dan produk.'}
+          </div>
+        </div>
+
+        <div style={{ padding: '0 24px 28px', maxWidth: 540, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Summary cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
+            {[
+              { label: 'Items', value: '18', color: '#007aff', bg: '#f0f7ff' },
+              { label: 'Services', value: '10', color: '#30b0c7', bg: '#f0fafc' },
+              { label: 'Products', value: '8', color: '#34c759', bg: '#f0fdf4' },
+              { label: 'Subs', value: '5', color: '#af52de', bg: '#f8f0ff' },
+            ].map((s) => (
+              <div key={s.label} style={{ padding: 14, borderRadius: 8, background: s.bg, border: '0.5px solid rgba(0,0,0,0.06)' }}>
+                <div style={{ fontSize: 10, color: s.color, fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{s.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: s.color, fontFamily: SF, marginTop: 2 }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Items / subscriptions list */}
+          <div style={{ background: 'white', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            {showingSubs ? MOCK_SUBS.map((sub, i) => (
+              <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: i < MOCK_SUBS.length - 1 ? '0.5px solid rgba(0,0,0,0.06)' : 'none', cursor: 'pointer', background: selectedItem === sub.id ? '#f5f5f7' : 'transparent' }} onClick={() => setSelectedItem(sub.id)} onMouseEnter={(e) => { if (selectedItem !== sub.id) e.currentTarget.style.background = '#fafafa' }} onMouseLeave={(e) => { if (selectedItem !== sub.id) e.currentTarget.style.background = selectedItem === sub.id ? '#f5f5f7' : 'transparent' }}>
+                <div style={{ width: 4, height: 32, borderRadius: 2, background: sub.status === 'active' ? '#af52de' : '#8e8e93', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{sub.code}</span>
+                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: sub.status === 'active' ? 'rgba(175,82,222,0.12)' : 'rgba(142,142,147,0.12)', color: sub.status === 'active' ? '#af52de' : '#8e8e93', fontWeight: 500, fontFamily: SF, textTransform: 'capitalize' }}>{sub.status}</span>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub.name}</div>
+                  <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 2, letterSpacing: '-0.01em' }}>{sub.client} · {sub.quota}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: '#1d1d1f', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{sub.price}</span>
+                  <span style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{sub.period}</span>
+                </div>
+              </div>
+            )) : filteredItems.map((item, i) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: i < filteredItems.length - 1 ? '0.5px solid rgba(0,0,0,0.06)' : 'none', cursor: 'pointer', background: selectedItem === item.id ? '#f5f5f7' : 'transparent' }} onClick={() => setSelectedItem(item.id)} onMouseEnter={(e) => { if (selectedItem !== item.id) e.currentTarget.style.background = '#fafafa' }} onMouseLeave={(e) => { if (selectedItem !== item.id) e.currentTarget.style.background = selectedItem === item.id ? '#f5f5f7' : 'transparent' }}>
+                <div style={{ width: 4, height: 32, borderRadius: 2, background: item.type === 'service' ? '#30b0c7' : '#34c759', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{item.code}</span>
+                    <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: item.type === 'service' ? 'rgba(48,176,199,0.12)' : 'rgba(52,199,89,0.12)', color: item.type === 'service' ? '#30b0c7' : '#34c759', fontWeight: 500, fontFamily: SF, textTransform: 'capitalize' }}>{item.type}</span>
+                    {item.status !== 'active' && (
+                      <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'rgba(142,142,147,0.12)', color: '#8e8e93', fontWeight: 500, fontFamily: SF }}>{item.status}</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                  <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 2, letterSpacing: '-0.01em' }}>{item.stock !== null ? `Stok: ${item.stock}` : 'Tanpa stok'}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                  <span style={{ fontSize: 11, color: '#1d1d1f', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{item.price}</span>
+                  <span style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{item.unit}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DonutChart({ segs, centerTop, centerSub }: {
+  segs: { frac: number; color: string }[]
+  centerTop: (v: number) => string
+  centerSub: string
+}) {
+  const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setElapsed(Number.MAX_SAFE_INTEGER)
+      return
+    }
+    let raf = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const e = now - start
+      setElapsed(e)
+      if (e < 1600) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  // Apple signature easing — cubic-bezier(0.16, 1, 0.3, 1) ≈ easeOutExpo
+  const easeOutExpo = (x: number) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x))
+  const clamp01 = (x: number) => Math.min(1, Math.max(0, x))
+
+  const r = 28
+  const c = 2 * Math.PI * r
+  const stagger = 160
+  const segDur = 850
+  let acc = 0
+
+  const total = segs.reduce((s, x) => s + x.frac, 0)
+  const countT = easeOutExpo(clamp01(elapsed / 1200))
+
+  return (
+    <svg width="84" height="84" viewBox="0 0 64 64" style={{ flexShrink: 0 }}>
+      <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="9" />
+      {segs.map((s, i) => {
+        const local = easeOutExpo(clamp01((elapsed - i * stagger) / segDur))
+        const dash = s.frac * c * local
+        const off = -acc * c
+        acc += s.frac
+        return (
+          <circle
+            key={i}
+            cx="32" cy="32" r={r} fill="none" stroke={s.color} strokeWidth="9"
+            strokeLinecap="butt"
+            strokeDasharray={`${dash} ${c}`}
+            strokeDashoffset={off}
+            transform="rotate(-90 32 32)"
+          />
+        )
+      })}
+      <text x="32" y="31" textAnchor="middle" fontSize="10" fontWeight="700" fill="#1d1d1f" fontFamily={SF}>
+        {centerTop(countT * total)}
+      </text>
+      <text x="32" y="41" textAnchor="middle" fontSize="8" fill="#8e8e93" fontFamily={SF}>{centerSub}</text>
+    </svg>
   )
 }
 
@@ -1146,11 +2275,14 @@ function DeviceRow({
   )
 }
 
-function SettingsContent({ onLogout, onClose, onMinimize }: { onLogout: () => void; onClose: () => void; onMinimize: () => void }) {
+function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: { onLogout: () => void; onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
   const [activeTab, setActiveTab] = useState<string>('general')
   const [searchQuery, setSearchQuery] = useState('')
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('hub-avatar-url') || '')
+  const [showAvatarModal, setShowAvatarModal] = useState(false)
+  const [avatarInput, setAvatarInput] = useState('')
 
   const categories = [
     { id: 'profile', label: 'Profile & Account', icon: User, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
@@ -1234,6 +2366,7 @@ function SettingsContent({ onLogout, onClose, onMinimize }: { onLogout: () => vo
               cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
+            onClick={onMaximize}
             onMouseEnter={() => setHoveredBtn('maximize')}
             onMouseLeave={() => setHoveredBtn(null)}
           >
@@ -1415,18 +2548,25 @@ function SettingsContent({ onLogout, onClose, onMinimize }: { onLogout: () => vo
             <>
               {/* Centered Large Avatar & Name */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 0 16px', textAlign: 'center' }}>
-                <div style={{
-                  width: 80, height: 80, borderRadius: '50%',
-                  overflow: 'hidden', marginBottom: 10,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.08)',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <img
-                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200&h=200"
-                    alt="Alfian Hafiz"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
+                <div
+                  onClick={() => { setAvatarInput(avatarUrl); setShowAvatarModal(true) }}
+                  style={{
+                    width: 80, height: 80, borderRadius: '50%',
+                    overflow: 'hidden', marginBottom: 10,
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.08)',
+                    background: avatarUrl ? 'transparent' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', position: 'relative',
+                  }}
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                  ) : (
+                    <span style={{ fontSize: 28, fontWeight: 700, color: 'white', fontFamily: SF }}>AH</span>
+                  )}
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}>
+                    <Camera size={20} color="white" />
+                  </div>
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 2 }}>
                   Alfian Hafiz
@@ -1571,8 +2711,8 @@ function SettingsContent({ onLogout, onClose, onMinimize }: { onLogout: () => vo
             </div>
           )}
 
-          {/* Sign Out Card for Non-Profile Tabs */}
-          {activeTab !== 'profile' && (
+           {/* Sign Out Card for Non-Profile Tabs */}
+           {activeTab !== 'profile' && (
             <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
               <button
                 onClick={onLogout}
@@ -1590,6 +2730,43 @@ function SettingsContent({ onLogout, onClose, onMinimize }: { onLogout: () => vo
           )}
         </div>
       </div>
+
+      {/* Avatar URL Modal */}
+      {showAvatarModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowAvatarModal(false)}>
+          <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 4 }}>Ubah Foto Profil</div>
+            <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 14 }}>Masukkan URL gambar dari internet</div>
+            <input
+              type="url"
+              placeholder="https://example.com/photo.jpg"
+              value={avatarInput}
+              onChange={(e) => setAvatarInput(e.target.value)}
+              autoFocus
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setAvatarUrl(avatarInput)
+                  localStorage.setItem('hub-avatar-url', avatarInput)
+                  setShowAvatarModal(false)
+                }
+              }}
+            />
+            {avatarInput && (
+              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'center' }}>
+                <img src={avatarInput} alt="Preview" style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(0,0,0,0.08)' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
+              {avatarUrl && (
+                <button onClick={() => { setAvatarUrl(''); localStorage.removeItem('hub-avatar-url'); setShowAvatarModal(false) }} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#ff3b30', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Hapus</button>
+              )}
+              <button onClick={() => setShowAvatarModal(false)} style={{ padding: '6px 14px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+              <button onClick={() => { setAvatarUrl(avatarInput); localStorage.setItem('hub-avatar-url', avatarInput); setShowAvatarModal(false) }} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1604,6 +2781,10 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
   const [openProcurement, setOpenProcurement] = useState(false)
   const [openSettings, setOpenSettings] = useState(false)
   const [openSupport, setOpenSupport] = useState(false)
+  const [openAssets, setOpenAssets] = useState(false)
+  const [openAudit, setOpenAudit] = useState(false)
+  const [openCatalog, setOpenCatalog] = useState(false)
+  const [openBrowser, setOpenBrowser] = useState(false)
   const [openRanpoAI, setOpenRanpoAI] = useState(false)
   const [openPOS, setOpenPOS] = useState(false)
 
@@ -1628,6 +2809,10 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
     else if (label === 'Ranpo AI') { setOpenRanpoAI(true); id = 'ranpo' }
     else if (label === 'POS') { setOpenPOS(true); id = 'pos' }
     else if (label === 'Support') { setOpenSupport(true); id = 'support' }
+    else if (label === 'Assets') { setOpenAssets(true); id = 'assets' }
+    else if (label === 'Audit') { setOpenAudit(true); id = 'audit' }
+    else if (label === 'Catalog') { setOpenCatalog(true); id = 'catalog' }
+    else if (label === 'Browser') { setOpenBrowser(true); id = 'browser' }
     if (id) bringToFront(id)
   }
 
@@ -1649,6 +2834,16 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
       setOpenPOS(true); id = 'pos'
     } else if (PROJECTS[index].isSettings) {
       setOpenSettings(true); id = 'settings'
+    } else if (PROJECTS[index].isSupport) {
+      setOpenSupport(true); id = 'support'
+    } else if (PROJECTS[index].isAssets) {
+      setOpenAssets(true); id = 'assets'
+    } else if (PROJECTS[index].isAudit) {
+      setOpenAudit(true); id = 'audit'
+    } else if (PROJECTS[index].isCatalog) {
+      setOpenCatalog(true); id = 'catalog'
+    } else if (PROJECTS[index].isBrowser) {
+      setOpenBrowser(true); id = 'browser'
     } else {
       setOpenProject(index); id = `project-${index}`
     }
@@ -1658,7 +2853,7 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
   const dockItems = DOCK_ITEMS.map((item) => ({
     ...item,
     onClick: item.href ? undefined : () => handleDockClick(item.label),
-      isActive: item.label === 'HRIS' ? openHRIS : item.label === 'CRM' ? openClients : item.label === 'Projects' ? openProjects : item.label === 'Finance' ? openFinance : item.label === 'Procurement' ? openProcurement : item.label === 'Settings' ? openSettings : item.label === 'Support' ? openSupport : item.label === 'Notes' ? openOverlay === 'notes' : item.label === 'Ranpo AI' ? openRanpoAI : item.label === 'POS' ? openPOS : false,
+      isActive: item.label === 'HRIS' ? openHRIS : item.label === 'CRM' ? openClients : item.label === 'Projects' ? openProjects : item.label === 'Finance' ? openFinance : item.label === 'Procurement' ? openProcurement : item.label === 'Settings' ? openSettings : item.label === 'Support' ? openSupport : item.label === 'Assets' ? openAssets : item.label === 'Audit' ? openAudit : item.label === 'Catalog' ? openCatalog : item.label === 'Browser' ? openBrowser : item.label === 'Notes' ? openOverlay === 'notes' : item.label === 'Ranpo AI' ? openRanpoAI : item.label === 'POS' ? openPOS : false,
   }))
 
   return (
@@ -1913,6 +3108,70 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           onFocus={() => bringToFront('support')}
         >
           <SupportContent onClose={() => setOpenSupport(false)} onMinimize={() => setOpenSupport(false)} />
+        </WindowShell>
+      )}
+
+      {/* Assets window */}
+      {openAssets && (
+        <WindowShell
+          id="assets"
+          title="Assets"
+          onClose={() => setOpenAssets(false)}
+          wide
+          fill
+          noToolbar
+          zIndex={zIndices['assets'] || 50}
+          onFocus={() => bringToFront('assets')}
+        >
+          <AssetsContent onClose={() => setOpenAssets(false)} onMinimize={() => setOpenAssets(false)} />
+        </WindowShell>
+      )}
+
+      {/* Audit Logs window */}
+      {openAudit && (
+        <WindowShell
+          id="audit"
+          title="Audit Logs"
+          onClose={() => setOpenAudit(false)}
+          wide
+          fill
+          noToolbar
+          zIndex={zIndices['audit'] || 50}
+          onFocus={() => bringToFront('audit')}
+        >
+          <AuditContent onClose={() => setOpenAudit(false)} onMinimize={() => setOpenAudit(false)} />
+        </WindowShell>
+      )}
+
+      {/* Catalog window */}
+      {openCatalog && (
+        <WindowShell
+          id="catalog"
+          title="Catalog"
+          onClose={() => setOpenCatalog(false)}
+          wide
+          fill
+          noToolbar
+          zIndex={zIndices['catalog'] || 50}
+          onFocus={() => bringToFront('catalog')}
+        >
+          <CatalogContent onClose={() => setOpenCatalog(false)} onMinimize={() => setOpenCatalog(false)} />
+        </WindowShell>
+      )}
+
+      {/* Browser window */}
+      {openBrowser && (
+        <WindowShell
+          id="browser"
+          title="Browser"
+          onClose={() => setOpenBrowser(false)}
+          wide
+          fill
+          noToolbar
+          zIndex={zIndices['browser'] || 50}
+          onFocus={() => bringToFront('browser')}
+        >
+          <BrowserContent onClose={() => setOpenBrowser(false)} onMinimize={() => setOpenBrowser(false)} />
         </WindowShell>
       )}
 

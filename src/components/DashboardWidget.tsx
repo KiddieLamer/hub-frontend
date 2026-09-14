@@ -119,19 +119,21 @@ export function DashboardWidgets() {
         {/* Minimal Bar Chart */}
         <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 36 }}>
           {[
-            { label: 'Q1', amount: 185 },
-            { label: 'Q2', amount: 220 },
-            { label: 'Q3', amount: 142 },
-          ].map((q, i) => {
-            const max = 220
-            const isActive = i === 2
+            { label: 'Q1', amount: 185, forecast: false },
+            { label: 'Q2', amount: 220, forecast: false },
+            { label: 'Q3', amount: 142, forecast: false },
+            { label: 'Q4', amount: 260, forecast: true },
+          ].map((q) => {
+            const max = 260
+            const isActive = q.label === 'Q3'
             return (
-              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <div key={q.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                 <div style={{
                   width: '100%',
                   height: `${(q.amount / max) * 28}px`,
                   borderRadius: 4,
-                  background: isActive ? '#fff' : 'rgba(255,255,255,0.2)',
+                  background: isActive ? '#fff' : q.forecast ? 'transparent' : 'rgba(255,255,255,0.2)',
+                  border: q.forecast ? '1px dashed rgba(255,255,255,0.4)' : 'none',
                   transition: 'background 0.2s',
                 }} />
                 <span style={{
@@ -143,6 +145,9 @@ export function DashboardWidgets() {
               </div>
             )
           })}
+        </div>
+        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', marginTop: 8, textAlign: 'right' }}>
+          Q4 forecast · Rp 260jt
         </div>
       </div>
     </div>

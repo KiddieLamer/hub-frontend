@@ -5,6 +5,7 @@ const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 
 interface POSProps {
   onClose: () => void
   onMinimize: () => void
+  onMaximize?: () => void
 }
 
 interface Product {
@@ -31,10 +32,13 @@ const PRODUCTS: Product[] = [
 
 const CATEGORIES = ['All', 'Electronics', 'Accessories']
 
-export function POSContent({ onClose: _onClose, onMinimize: _onMinimize }: POSProps) {
+export function POSContent({ onClose, onMinimize, onMaximize }: POSProps) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
+  const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const btnSize = 12
+  const btnGap = 8
 
   const filteredProducts = PRODUCTS.filter((p) => {
     const matchCategory = selectedCategory === 'All' || p.category === selectedCategory
@@ -75,7 +79,20 @@ export function POSContent({ onClose: _onClose, onMinimize: _onMinimize }: POSPr
   }
 
   return (
-    <div style={{ display: 'flex', height: '100%', fontFamily: SF, gap: 12, padding: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: SF }}>
+      {/* Traffic Lights */}
+      <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
+        <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
+          {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+        </div>
+        <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
+          {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+        </div>
+        <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+          {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', flex: 1, gap: 12, padding: '0 12px 12px', overflow: 'hidden' }}>
       {/* Left: Products */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden' }}>
         {/* Header */}
@@ -229,6 +246,7 @@ export function POSContent({ onClose: _onClose, onMinimize: _onMinimize }: POSPr
             Bayar
           </button>
         </div>
+      </div>
       </div>
     </div>
   )

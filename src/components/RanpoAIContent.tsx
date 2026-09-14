@@ -5,6 +5,7 @@ const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 
 interface RanpoAIProps {
   onClose: () => void
   onMinimize: () => void
+  onMaximize?: () => void
 }
 
 const QUICK_ACTIONS = [
@@ -63,12 +64,15 @@ const MOCK_RESPONSES: Record<string, { content: string; data?: any[] }> = {
   },
 }
 
-export function RanpoAIContent({ onClose: _onClose, onMinimize: _onMinimize }: RanpoAIProps) {
+export function RanpoAIContent({ onClose, onMinimize, onMaximize }: RanpoAIProps) {
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'ai'; content: string; data?: any[] }>>([
     { role: 'ai', content: 'Halo! Saya Ranpo AI, asisten pintar untuk bisnis Anda. Silakan pilih topik di bawah atau ajukan pertanyaan langsung.' },
   ])
   const [input, setInput] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const btnSize = 12
+  const btnGap = 8
 
   const handleQuickAction = (action: typeof QUICK_ACTIONS[0]) => {
     setMessages([...messages, { role: 'user', content: action.query }])
@@ -130,6 +134,18 @@ export function RanpoAIContent({ onClose: _onClose, onMinimize: _onMinimize }: R
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: SF }}>
+      {/* Traffic Lights */}
+      <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
+        <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
+          {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+        </div>
+        <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
+          {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
+        </div>
+        <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
+          {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        </div>
+      </div>
       {/* Header */}
       <div style={{
         display: 'flex',
