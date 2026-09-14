@@ -78,34 +78,64 @@ export const warrantiesApi = {
 
 // ============ HRIS - ATTENDANCES ============
 export const attendancesApi = {
-  list: (userId?: string) => apiFetch(`/api/hris/attendances${userId ? `?userId=${userId}` : ''}`).then(r => r.json()),
-  checkIn: () => apiFetch('/api/hris/attendances', { method: 'POST', body: JSON.stringify({ type: 'check-in' }) }).then(r => r.json()),
-  checkOut: () => apiFetch('/api/hris/attendances', { method: 'POST', body: JSON.stringify({ type: 'check-out' }) }).then(r => r.json()),
+  list: (userId?: string, startDate?: string, endDate?: string) => {
+    const q = new URLSearchParams()
+    if (userId) q.set('userId', userId)
+    if (startDate) q.set('startDate', startDate)
+    if (endDate) q.set('endDate', endDate)
+    const qs = q.toString()
+    return apiFetch(`/api/hris/attendances${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
+  checkIn: (data?: { latitude?: number; longitude?: number; photoUrl?: string }) =>
+    apiFetch('/api/hris/attendances/check-in', { method: 'POST', body: JSON.stringify(data || {}) }).then(r => r.json()),
+  checkOut: (data?: { latitude?: number; longitude?: number; photoUrl?: string }) =>
+    apiFetch('/api/hris/attendances/check-out', { method: 'POST', body: JSON.stringify(data || {}) }).then(r => r.json()),
 }
 
 // ============ HRIS - LEAVES ============
 export const leavesApi = {
-  list: (userId?: string) => apiFetch(`/api/hris/leaves${userId ? `?userId=${userId}` : ''}`).then(r => r.json()),
-  create: (data: Record<string, unknown>) => apiFetch('/api/hris/leaves', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
-  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/hris/leaves/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+  types: () => apiFetch('/api/hris/leaves/types').then(r => r.json()),
+  createType: (data: Record<string, unknown>) => apiFetch('/api/hris/leaves/types', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  listRequests: () => apiFetch('/api/hris/leaves/requests').then(r => r.json()),
+  createRequest: (data: Record<string, unknown>) => apiFetch('/api/hris/leaves/requests', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  approveRequest: (id: string) => apiFetch(`/api/hris/leaves/requests/${id}/approve`, { method: 'PATCH' }).then(r => r.json()),
+  rejectRequest: (id: string) => apiFetch(`/api/hris/leaves/requests/${id}/reject`, { method: 'PATCH' }).then(r => r.json()),
 }
 
 // ============ HRIS - OVERTIME ============
 export const overtimeApi = {
-  list: (userId?: string) => apiFetch(`/api/hris/overtime${userId ? `?userId=${userId}` : ''}`).then(r => r.json()),
+  list: () => apiFetch('/api/hris/overtime').then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/hris/overtime', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  approve: (id: string) => apiFetch(`/api/hris/overtime/${id}/approve`, { method: 'PATCH' }).then(r => r.json()),
+  reject: (id: string) => apiFetch(`/api/hris/overtime/${id}/reject`, { method: 'PATCH' }).then(r => r.json()),
 }
 
 // ============ HRIS - PAYROLL ============
 export const payrollApi = {
-  list: (userId?: string) => apiFetch(`/api/hris/payroll${userId ? `?userId=${userId}` : ''}`).then(r => r.json()),
+  list: (params?: { month?: number; year?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.month) q.set('month', String(params.month))
+    if (params?.year) q.set('year', String(params.year))
+    const qs = q.toString()
+    return apiFetch(`/api/hris/payroll${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
   get: (id: string) => apiFetch(`/api/hris/payroll/${id}`).then(r => r.json()),
+  getProfile: () => apiFetch('/api/hris/payroll/profile').then(r => r.json()),
+  upsertProfile: (data: Record<string, unknown>) => apiFetch('/api/hris/payroll/profile', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
 // ============ HRIS - SHIFTS ============
 export const shiftsApi = {
   list: () => apiFetch('/api/hris/shifts').then(r => r.json()),
-  assign: (data: Record<string, unknown>) => apiFetch('/api/hris/shifts', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  create: (data: Record<string, unknown>) => apiFetch('/api/hris/shifts', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/hris/shifts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+  delete: (id: string) => apiFetch(`/api/hris/shifts/${id}`, { method: 'DELETE' }).then(r => r.json()),
+}
+
+// ============ HRIS - MEMBERS ============
+export const membersApi = {
+  list: () => apiFetch('/api/members').then(r => r.json()),
+  getMe: () => apiFetch('/api/members/me').then(r => r.json()),
 }
 
 // ============ FINANCE - EXPENSE CATEGORIES ============
