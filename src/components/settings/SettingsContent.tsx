@@ -95,7 +95,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [passwordSuccess, setPasswordSuccess] = useState('')
   const [members, setMembers] = useState<any[]>([])
   const [showAddUserForm, setShowAddUserForm] = useState(false)
-  const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', role: 'member' as string })
+  const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', role: 'member' as string, phoneNumber: '', jobTitle: '', department: '' })
   const [addUserError, setAddUserError] = useState('')
   const [addUserLoading, setAddUserLoading] = useState(false)
   const [editMemberModal, setEditMemberModal] = useState<any>(null)
@@ -361,7 +361,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
             <>
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member', phoneNumber: '', jobTitle: '', department: '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
                 <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
@@ -545,6 +545,9 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                       { key: 'fullName', label: 'Full Name', placeholder: 'Budi Santoso', type: 'text', icon: <User size={14} color="white" />, iconBg: '#8e8e93' },
                       { key: 'email', label: 'Email', placeholder: 'budi@example.com', type: 'email', icon: <Key size={14} color="white" />, iconBg: '#007aff' },
                       { key: 'password', label: 'Password', placeholder: 'Min 6 karakter', type: 'password', icon: <Lock size={14} color="white" />, iconBg: '#34c759' },
+                      { key: 'phoneNumber', label: 'Phone', placeholder: '+62 812 3456 7890', type: 'tel', icon: <Building size={14} color="white" />, iconBg: '#5856d6' },
+                      { key: 'jobTitle', label: 'Job Title', placeholder: 'Software Engineer', type: 'text', icon: <Briefcase size={14} color="white" />, iconBg: '#ff2d55' },
+                      { key: 'department', label: 'Department', placeholder: 'Engineering', type: 'text', icon: <Building size={14} color="white" />, iconBg: '#30b0c7' },
                     ].map((f, i, arr) => (
                       <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px', borderBottom: i === arr.length - 1 ? 'none' : '1px solid rgba(0,0,0,0.06)', minHeight: 44 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -578,7 +581,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                         if (!addUserForm.fullName || !addUserForm.email || !addUserForm.password) { setAddUserError('Semua field wajib diisi'); return }
                         setAddUserLoading(true); setAddUserError('')
                         try {
-                          const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, role: 'user', status: 'active' })
+                          const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, jobTitle: addUserForm.jobTitle || undefined, department: addUserForm.department || undefined, role: 'user', status: 'active' })
                           if (userRes.error) { setAddUserError(userRes.error); return }
                           const memberRes = await membersApi.add({ userId: userRes.user.id, role: addUserForm.role })
                           if (memberRes.error) { setAddUserError(memberRes.error); return }
