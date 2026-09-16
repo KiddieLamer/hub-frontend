@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Play, Star, TrendingUp, X, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
 import { Portfolio } from './components/Portfolio'
+import { authApi } from './lib/endpoints'
 
 const AVATARS: string[] = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100',
@@ -159,7 +160,7 @@ function ClientCard({ index, call }: { index: number; call: ClientCall }) {
   )
 }
 
-function AuthModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) {
+function LoginPage({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -209,231 +210,323 @@ function AuthModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: (
   }
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 40 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md"
-          >
-            <div className="absolute inset-0 bg-[#212121] opacity-40 blur-[30px] rounded-3xl" />
-            <motion.div
-              key={shakeKey}
-              animate={shakeKey > 0 ? { x: [0, -12, 12, -8, 8, -4, 4, 0] } : {}}
-              transition={{ duration: 0.5 }}
-              className="relative rounded-3xl bg-[#202020] p-8 shadow-[0px_0px_4px_rgba(255,255,255,0.25)_inset,0px_6px_19px_rgba(0,0,0,0.25)]"
-            >
-              <button
-                onClick={onClose}
-                className="absolute right-4 top-4 rounded-full p-1.5 text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                <X size={18} />
-              </button>
+    <motion.div
+      initial={{ y: '100%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '100%' }}
+      transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#202020] px-4"
+    >
+      <button
+        onClick={onClose}
+        className="absolute right-6 top-6 rounded-full p-2 text-neutral-400 transition-colors hover:bg-white/10 hover:text-white z-10"
+      >
+        <X size={20} />
+      </button>
 
+      <motion.div
+        key={shakeKey}
+        animate={shakeKey > 0 ? { x: [0, -12, 12, -8, 8, -4, 4, 0] } : {}}
+        transition={{ duration: 0.5 }}
+        className="relative w-full max-w-md"
+      >
+        <div className="absolute inset-0 bg-[#212121] opacity-40 blur-[30px] rounded-3xl" />
+        <div className="relative rounded-3xl bg-[#2a2a2a] p-8 shadow-[0px_0px_4px_rgba(255,255,255,0.25)_inset,0px_6px_19px_rgba(0,0,0,0.25)]">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-8 text-center"
+          >
+            <h2 className="font-heading text-2xl text-white">
+              {mode === 'login' ? 'Welcome back' : 'Create account'}
+            </h2>
+            <p className="mt-2 text-sm text-neutral-500">
+              {mode === 'login' ? 'Sign in to continue to Hub' : 'Get started with Hub'}
+            </p>
+          </motion.div>
+
+          <AnimatePresence mode="wait">
+            {success ? (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="mb-8 text-center"
+                key="success"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center gap-3 py-8"
               >
-                <h2 className="font-heading text-2xl text-white">
-                  {mode === 'login' ? 'Welcome back' : 'Create account'}
-                </h2>
-                <p className="mt-2 text-sm text-neutral-400">
-                  {mode === 'login' ? 'Sign in to continue' : 'Sign up to get started'}
+                <CheckCircle size={48} className="text-[#52D352]" />
+                <p className="text-sm text-white font-medium">
+                  {mode === 'login' ? 'Login successful!' : 'Account created!'}
                 </p>
               </motion.div>
-
-              <AnimatePresence mode="wait">
-                {success ? (
+            ) : (
+              <motion.form
+                key={mode}
+                initial={{ opacity: 0, x: mode === 'login' ? -20 : 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: mode === 'login' ? 20 : -20 }}
+                transition={{ duration: 0.2 }}
+                onSubmit={handleSubmit}
+                className="flex flex-col gap-4"
+              >
+                {mode === 'register' && (
                   <motion.div
-                    key="success"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex flex-col items-center gap-3 py-6"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="relative"
                   >
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: 'spring', damping: 15, stiffness: 400, delay: 0.1 }}
-                    >
-                      <CheckCircle size={48} className="text-[#52D352]" />
-                    </motion.div>
-                    <p className="text-sm text-neutral-300">
-                      {mode === 'login' ? 'Login berhasil!' : 'Registrasi berhasil!'}
-                    </p>
+                    <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
+                    <input
+                      type="text"
+                      placeholder="Full name"
+                      value={name}
+                      onChange={(e) => { setName(e.target.value); setError('') }}
+                      className="w-full rounded-2xl bg-[#1a1a1a] py-3.5 pl-11 pr-4 text-sm text-white placeholder-neutral-500 outline-none shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset] transition-shadow focus:shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset,0px_0px_8px_rgba(242,92,64,0.3)]"
+                    />
                   </motion.div>
-                ) : (
-                  <motion.form
-                    key={mode}
-                    initial={{ opacity: 0, x: mode === 'login' ? -20 : 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: mode === 'login' ? 20 : -20 }}
-                    transition={{ duration: 0.25 }}
-                    className="space-y-4"
-                    onSubmit={handleSubmit}
-                  >
-                    {mode === 'register' && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        transition={{ duration: 0.2 }}
-                        className="relative"
-                      >
-                        <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
-                        <input
-                          type="text"
-                          placeholder="Full name"
-                          value={name}
-                          onChange={(e) => { setName(e.target.value); setError('') }}
-                          className="w-full rounded-2xl bg-[#1a1a1a] py-3.5 pl-11 pr-4 text-sm text-white placeholder-neutral-500 outline-none shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset] transition-shadow focus:shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset,0px_0px_8px_rgba(242,92,64,0.3)]"
-                        />
-                      </motion.div>
-                    )}
-
-                    <div className="relative">
-                      <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
-                      <input
-                        type="text"
-                        placeholder="Email address"
-                        value={email}
-                        onChange={(e) => { setEmail(e.target.value); setError('') }}
-                        className="w-full rounded-2xl bg-[#1a1a1a] py-3.5 pl-11 pr-4 text-sm text-white placeholder-neutral-500 outline-none shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset] transition-shadow focus:shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset,0px_0px_8px_rgba(242,92,64,0.3)]"
-                      />
-                    </div>
-
-                    <div className="relative">
-                      <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
-                      <input
-                        type="password"
-                        placeholder="Password"
-                        value={password}
-                        onChange={(e) => { setPassword(e.target.value); setError('') }}
-                        className="w-full rounded-2xl bg-[#1a1a1a] py-3.5 pl-11 pr-4 text-sm text-white placeholder-neutral-500 outline-none shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset] transition-shadow focus:shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset,0px_0px_8px_rgba(242,92,64,0.3)]"
-                      />
-                    </div>
-
-                    {error && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2.5"
-                      >
-                        <AlertCircle size={14} className="shrink-0 text-red-400" />
-                        <span className="text-xs text-red-400">{error}</span>
-                      </motion.div>
-                    )}
-
-                    <button type="submit" className="group relative mt-2 w-full">
-                      <span className="absolute inset-0 bg-[#F25C40] opacity-40 blur-[20px] transition-all duration-300 group-hover:scale-105 group-hover:translate-y-0.5" />
-                      <span className="relative block w-full rounded-2xl bg-[#F25C40] py-3.5 text-sm font-medium text-white shadow-[0px_0px_4px_rgba(255,255,255,0.25)_inset,0px_6px_19px_rgba(242,92,64,0.35)]">
-                        {mode === 'login' ? 'Sign In' : 'Create Account'}
-                      </span>
-                    </button>
-                  </motion.form>
                 )}
-              </AnimatePresence>
 
-              {!success && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="mt-6 text-center text-xs text-neutral-500"
-                >
-                  {mode === 'login' ? (
-                    <>
-                      Don&apos;t have an account?{' '}
-                      <button onClick={toggleMode} className="font-medium text-[#F25C40] transition-colors hover:text-[#e04a30]">
-                        Get started
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      Already have an account?{' '}
-                      <button onClick={toggleMode} className="font-medium text-[#F25C40] transition-colors hover:text-[#e04a30]">
-                        Sign in
-                      </button>
-                    </>
-                  )}
-                </motion.p>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
+                  <input
+                    type="text"
+                    placeholder="Email address"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setError('') }}
+                    className="w-full rounded-2xl bg-[#1a1a1a] py-3.5 pl-11 pr-4 text-sm text-white placeholder-neutral-500 outline-none shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset] transition-shadow focus:shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset,0px_0px_8px_rgba(242,92,64,0.3)]"
+                  />
+                </div>
+
+                <div className="relative">
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setError('') }}
+                    className="w-full rounded-2xl bg-[#1a1a1a] py-3.5 pl-11 pr-4 text-sm text-white placeholder-neutral-500 outline-none shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset] transition-shadow focus:shadow-[0px_0px_3px_rgba(255,255,255,0.1)_inset,0px_0px_8px_rgba(242,92,64,0.3)]"
+                  />
+                </div>
+
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2.5"
+                  >
+                    <AlertCircle size={14} className="shrink-0 text-red-400" />
+                    <span className="text-xs text-red-400">{error}</span>
+                  </motion.div>
+                )}
+
+                <button type="submit" className="group relative mt-2 w-full">
+                  <span className="absolute inset-0 bg-[#F25C40] opacity-40 blur-[20px] transition-all duration-300 group-hover:scale-105 group-hover:translate-y-0.5" />
+                  <span className="relative block w-full rounded-2xl bg-[#F25C40] py-3.5 text-sm font-medium text-white shadow-[0px_0px_4px_rgba(255,255,255,0.25)_inset,0px_6px_19px_rgba(242,92,64,0.35)]">
+                    {mode === 'login' ? 'Sign In' : 'Create Account'}
+                  </span>
+                </button>
+              </motion.form>
+            )}
+          </AnimatePresence>
+
+          {!success && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mt-6 text-center text-xs text-neutral-500"
+            >
+              {mode === 'login' ? (
+                <>
+                  Don&apos;t have an account?{' '}
+                  <button onClick={toggleMode} className="font-medium text-[#F25C40] transition-colors hover:text-[#e04a30]">
+                    Get started
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <button onClick={toggleMode} className="font-medium text-[#F25C40] transition-colors hover:text-[#e04a30]">
+                    Sign in
+                  </button>
+                </>
               )}
-            </motion.div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            </motion.p>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
-function LandingPage({ onLogin }: { onLogin: () => void }) {
+function LandingPage({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: () => void }) {
+  const [showLogin, setShowLogin] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      setError('Email dan password wajib diisi')
+      return
+    }
+    setLoading(true)
+    setError('')
+    try {
+      const data = await authApi.login(email, password)
+      if (data.error) {
+        setError(data.error)
+      } else {
+        onSuccess()
+      }
+    } catch {
+      setError('Email atau password salah')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="bg-[#F7F7F7] px-6 py-16 min-h-screen">
       <main className="mx-auto grid max-w-[1440px] gap-12 lg:grid-cols-[1.2fr_0.8fr]">
-        <section className="flex flex-col gap-8">
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#D1F2D1] px-3 py-1.5">
-            <span className="h-2 w-2 rounded-full bg-[#52D352] shadow-[0_0_8px_rgba(82,211,82,0.6)] animate-pulse" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-[#52D352]">
-              Booking for summer
-            </span>
-          </div>
+        <section className="relative flex flex-col gap-8 overflow-hidden min-h-[500px] justify-center">
+          <AnimatePresence mode="wait">
+            {!showLogin ? (
+              <motion.div
+                key="content"
+                initial={{ y: 0, opacity: 1 }}
+                exit={{ y: '-100%', opacity: 0 }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                className="flex flex-col gap-8"
+              >
+                <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#D1F2D1] px-3 py-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#52D352] shadow-[0_0_8px_rgba(82,211,82,0.6)] animate-pulse" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-[#52D352]">
+                    Booking for summer
+                  </span>
+                </div>
 
-          <h1 className="font-heading text-[#202020] text-4xl leading-[1.05] tracking-[-0.02em] sm:text-6xl xl:text-7xl">
-            Expanding{' '}
-            <DeepShadowIcon>
-              <TrendingUp className="-rotate-6 text-white" size={28} />
-            </DeepShadowIcon>{' '}
-            reach <br /> with every lead
-          </h1>
+                <h1 className="font-heading text-[#202020] text-4xl leading-[1.05] tracking-[-0.02em] sm:text-6xl xl:text-7xl">
+                  Expanding{' '}
+                  <DeepShadowIcon>
+                    <TrendingUp className="-rotate-6 text-white" size={28} />
+                  </DeepShadowIcon>{' '}
+                  reach <br /> with every lead
+                </h1>
 
-          <p className="max-w-md text-lg leading-relaxed text-neutral-500">
-            Automating lead systems and funnels, we design scalable growth engines for your next venture.
-          </p>
+                <p className="max-w-md text-lg leading-relaxed text-neutral-500">
+                  Automating lead systems and funnels, we design scalable growth engines for your next venture.
+                </p>
 
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-            <DeepShadowButton onClick={onLogin}>Scale revenue now</DeepShadowButton>
-            <button className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-6 py-3.5 text-sm font-medium text-neutral-700">
-              <Play size={16} className="fill-neutral-700" />
-              Start Here
-            </button>
-          </div>
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                  <DeepShadowButton onClick={() => setShowLogin(true)}>Scale revenue now</DeepShadowButton>
+                  <button className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-6 py-3.5 text-sm font-medium text-neutral-700">
+                    <Play size={16} className="fill-neutral-700" />
+                    Start Here
+                  </button>
+                </div>
 
-          <div className="flex flex-col gap-8 pt-4 sm:flex-row sm:items-center sm:gap-12">
-            <div>
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
-                Verified Clients
-              </p>
-              <div className="flex items-center">
-                <DeepShadowAvatar src={AVATARS[0]} size="md" />
-                <DeepShadowAvatar src={AVATARS[1]} size="lg" hasGlow className="-ml-3" />
-                <DeepShadowAvatar src={AVATARS[2]} size="md" className="-ml-3" />
-                <DeepShadowAvatar src={AVATARS[3]} size="lg" className="-ml-3" />
-              </div>
-            </div>
-            <div className="hidden h-12 w-px bg-neutral-200 sm:block" />
-            <div>
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
-                Top Tier Quality 5/5
-              </p>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} size={18} className="text-[#FFB648] fill-[#FFB648]" />
-                ))}
-              </div>
-            </div>
-          </div>
+                <div className="flex flex-col gap-8 pt-4 sm:flex-row sm:items-center sm:gap-12">
+                  <div>
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
+                      Verified Clients
+                    </p>
+                    <div className="flex items-center">
+                      <DeepShadowAvatar src={AVATARS[0]} size="md" />
+                      <DeepShadowAvatar src={AVATARS[1]} size="lg" hasGlow className="-ml-3" />
+                      <DeepShadowAvatar src={AVATARS[2]} size="md" className="-ml-3" />
+                      <DeepShadowAvatar src={AVATARS[3]} size="lg" className="-ml-3" />
+                    </div>
+                  </div>
+                  <div className="hidden h-12 w-px bg-neutral-200 sm:block" />
+                  <div>
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
+                      Top Tier Quality 5/5
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star key={i} size={18} className="text-[#FFB648] fill-[#FFB648]" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="login"
+                initial={{ y: '100%', opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: '100%', opacity: 0 }}
+                transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                className="flex flex-col gap-6 justify-center"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <button
+                    onClick={() => setShowLogin(false)}
+                    className="rounded-full p-2 text-neutral-400 transition-colors hover:bg-neutral-200 hover:text-neutral-700"
+                  >
+                    <X size={18} />
+                  </button>
+                  <span className="text-sm text-neutral-500">Kembali</span>
+                </div>
+
+                <h2 className="font-heading text-3xl text-[#202020] tracking-[-0.02em]">
+                  Sign in to Hub
+                </h2>
+                <p className="text-sm text-neutral-500 -mt-4">
+                  Enter your credentials to continue
+                </p>
+
+                <div className="flex flex-col gap-4 max-w-sm">
+                  <div className="relative">
+                    <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="text"
+                      placeholder="Email address"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setError('') }}
+                      className="w-full rounded-xl border border-neutral-200 bg-white py-3 pl-11 pr-4 text-sm text-[#202020] placeholder-neutral-400 outline-none transition-shadow focus:border-[#F25C40] focus:shadow-[0_0_0_3px_rgba(242,92,64,0.1)]"
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError('') }}
+                      className="w-full rounded-xl border border-neutral-200 bg-white py-3 pl-11 pr-4 text-sm text-[#202020] placeholder-neutral-400 outline-none transition-shadow focus:border-[#F25C40] focus:shadow-[0_0_0_3px_rgba(242,92,64,0.1)]"
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+                      <AlertCircle size={14} className="text-red-500" />
+                      <span className="text-xs text-red-600">{error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleSignIn}
+                    disabled={loading}
+                    className="mt-2 w-full max-w-sm rounded-xl bg-[#202020] py-3 text-sm font-medium text-white shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all hover:bg-[#2a2a2a] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Signing in...' : 'Sign In'}
+                  </button>
+
+                  <p className="text-center text-xs text-neutral-400 mt-2">
+                    Don&apos;t have an account?{' '}
+                    <button onClick={onSuccess} className="font-medium text-[#F25C40] hover:text-[#e04a30]">
+                      Get started
+                    </button>
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
 
         <section className="relative h-[560px] overflow-hidden md:h-[620px] lg:h-[720px]">
@@ -481,15 +574,21 @@ function App() {
 
   return (
     <>
-      {authState === 'landing' && (
-        <LandingPage onLogin={() => setAuthState('login')} />
-      )}
+      <AnimatePresence mode="wait">
+        {authState === 'landing' && (
+          <LandingPage key="landing" onLogin={() => setAuthState('login')} onSuccess={() => setAuthState('portfolio')} />
+        )}
+      </AnimatePresence>
 
-      <AuthModal
-        isOpen={authState === 'login'}
-        onClose={() => setAuthState('landing')}
-        onSuccess={() => setAuthState('portfolio')}
-      />
+      <AnimatePresence>
+        {authState === 'login' && (
+          <LoginPage
+            key="login"
+            onClose={() => setAuthState('landing')}
+            onSuccess={() => setAuthState('portfolio')}
+          />
+        )}
+      </AnimatePresence>
 
       {authState === 'portfolio' && (
         <Portfolio onLogout={() => setAuthState('landing')} />

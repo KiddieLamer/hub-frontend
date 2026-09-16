@@ -38,6 +38,7 @@ interface Project {
 const PROJECT_STATUS: Record<string, { bg: string; text: string; label: string }> = {
   planning: { bg: 'rgba(142,142,147,0.12)', text: '#8e8e93', label: 'Planning' },
   active: { bg: 'rgba(0,122,255,0.12)', text: '#007aff', label: 'Active' },
+  in_progress: { bg: 'rgba(0,122,255,0.12)', text: '#007aff', label: 'In Progress' },
   on_hold: { bg: 'rgba(255,149,0,0.12)', text: '#ff9500', label: 'On Hold' },
   completed: { bg: 'rgba(52,199,89,0.12)', text: '#34c759', label: 'Completed' },
   cancelled: { bg: 'rgba(255,59,48,0.12)', text: '#ff3b30', label: 'Cancelled' },
@@ -142,7 +143,7 @@ export function ProjectsContent({ onClose, onMinimize, onMaximize }: { onClose: 
   )
 
   const activeProject = projects.find(p => p.id === selectedProjectId) || projects[0]
-  const activeStatus = PROJECT_STATUS[activeProject?.status || 'planning']
+  const activeStatus = PROJECT_STATUS[activeProject?.status || 'planning'] || PROJECT_STATUS.planning
 
   const handleDragStart = (taskId: string, columnId: string) => {
     setDraggedTask({ taskId, fromColumn: columnId })
@@ -214,7 +215,7 @@ export function ProjectsContent({ onClose, onMinimize, onMaximize }: { onClose: 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {filteredProjects.map((p) => {
             const active = selectedProjectId === p.id
-            const st = PROJECT_STATUS[p.status || 'planning']
+            const st = PROJECT_STATUS[p.status || 'planning'] || PROJECT_STATUS.planning
             return (
               <button key={p.id} onClick={() => setSelectedProjectId(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 8px', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', cursor: 'pointer', transition: 'background 0.12s', textAlign: 'left', width: '100%', fontFamily: SF }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
                 <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)', fontSize: 11, fontWeight: 700, color: 'white' }}>

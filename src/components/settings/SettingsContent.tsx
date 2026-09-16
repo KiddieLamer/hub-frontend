@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Search, User, Wifi, Bluetooth, Globe, Battery, Settings, Palette, Sparkles, Monitor, Sun, Bell, Volume2, Moon, Hourglass, Lock, Key, Laptop, RefreshCw, HardDrive, Airplay, Clock, Calendar, Shield, CreditCard, Cloud, Users, ShoppingBag, Smartphone, Camera, ShieldCheck, Sliders } from 'lucide-react'
-import { usersApi } from '../../lib/endpoints'
+import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock } from 'lucide-react'
+import { usersApi, membersApi } from '../../lib/endpoints'
 
 function GroupedRow({
   icon,
@@ -75,50 +75,6 @@ function GroupedRow({
   )
 }
 
-function DeviceRow({
-  icon,
-  title,
-  subtitle,
-  isLast,
-}: {
-  icon: React.ReactNode
-  title: string
-  subtitle: string
-  isLast?: boolean
-}) {
-  const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
-  return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '10px 14px',
-        borderBottom: isLast ? 'none' : '1px solid rgb(229, 229, 234)',
-        minHeight: 48,
-        cursor: 'pointer',
-        transition: 'background 0.1s',
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'}
-      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {icon}
-        </div>
-        <div>
-          <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, fontWeight: 600 }}>{title}</div>
-          <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 1 }}>{subtitle}</div>
-        </div>
-      </div>
-
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="9 18 15 12 9 6" />
-      </svg>
-    </div>
-  )
-}
-
 export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: { onLogout: () => void; onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
   const [activeTab, setActiveTab] = useState<string>('general')
@@ -135,40 +91,51 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' })
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
+  const [members, setMembers] = useState<any[]>([])
+  const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', role: 'member' as string })
+  const [addUserError, setAddUserError] = useState('')
+  const [addUserLoading, setAddUserLoading] = useState(false)
+  const [currentTenant, setCurrentTenant] = useState<any>(null)
+  const [showTenantModal, setShowTenantModal] = useState(false)
+  const [tenantForm, setTenantForm] = useState({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
+  const [tenantError, setTenantError] = useState('')
+  const [tenantLoading, setTenantLoading] = useState(false)
 
   useEffect(() => {
     usersApi.getMe().then(data => {
-      setUser(data)
-      if (data.avatarUrl) {
-        setAvatarUrl(data.avatarUrl)
-        localStorage.setItem('hub-avatar-url', data.avatarUrl)
+      const u = data.user || data
+      setUser(u)
+      if (u.avatarUrl) {
+        setAvatarUrl(u.avatarUrl)
+        localStorage.setItem('hub-avatar-url', u.avatarUrl)
       }
     }).catch(() => setError('Failed to load user data'))
   }, [])
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
+    }
+    if (activeTab === 'company') {
+      tenantsApi.getCurrent().then(data => setCurrentTenant(data?.tenant || null)).catch(() => {})
+    }
+  }, [activeTab])
 
   const getInitials = (name?: string) => {
     if (!name) return 'U'
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
   }
 
+  const isPlatformOwner = user?.platformRole === 'owner'
+
   const categories = [
     { id: 'profile', label: 'Profile & Account', icon: User, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
-    { id: 'wifi', label: 'Wi-Fi', icon: Wifi, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
-    { id: 'bluetooth', label: 'Bluetooth', icon: Bluetooth, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
-    { id: 'network', label: 'Network', icon: Globe, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
-    { id: 'battery', label: 'Battery', icon: Battery, bg: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' },
+    ...(isPlatformOwner ? [{ id: 'company', label: 'Company', icon: Building, bg: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' }] : []),
     { id: 'general', label: 'General', icon: Settings, bg: 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)' },
-    { id: 'accessibility', label: 'Accessibility', icon: User, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
     { id: 'appearance', label: 'Appearance', icon: Palette, bg: 'linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%)' },
-    { id: 'siri', label: 'Apple Intelligence & Siri', icon: Sparkles, bg: 'linear-gradient(135deg, #a259ff 0%, #6131b4 100%)' },
-    { id: 'dock', label: 'Desktop & Dock', icon: Monitor, bg: 'linear-gradient(135deg, #2c2c2e 0%, #1c1c1e 100%)' },
-    { id: 'displays', label: 'Displays', icon: Sun, bg: 'linear-gradient(135deg, #30b0c7 0%, #00778a 100%)' },
-    { id: 'notifications', label: 'Notifications', icon: Bell, bg: 'linear-gradient(135deg, #ff3b30 0%, #d70015 100%)' },
-    { id: 'sound', label: 'Sound', icon: Volume2, bg: 'linear-gradient(135deg, #ff2d55 0%, #c4002f 100%)' },
-    { id: 'focus', label: 'Focus', icon: Moon, bg: 'linear-gradient(135deg, #5856d6 0%, #3634a3 100%)' },
-    { id: 'screentime', label: 'Screen Time', icon: Hourglass, bg: 'linear-gradient(135deg, #af52de 0%, #892ab8 100%)' },
-    { id: 'lockscreen', label: 'Lock Screen', icon: Lock, bg: 'linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%)' },
     { id: 'security', label: 'Privacy & Security', icon: ShieldCheck, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
+    { id: 'users', label: 'Users & Groups', icon: Users, bg: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' },
   ]
 
   const filteredCategories = categories.filter(c => c.label.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -383,7 +350,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
             <div style={{
               width: 58, height: 58, borderRadius: 14,
-              background: activeTab === 'general' ? 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)' : 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+              background: activeTab === 'general' ? 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)' : activeTab === 'users' ? 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' : 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'white', marginBottom: 10,
               boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)',
@@ -392,19 +359,22 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               {activeTab === 'general' && <Settings size={32} color="white" />}
               {activeTab === 'security' && <ShieldCheck size={32} color="white" />}
               {activeTab === 'appearance' && <Palette size={32} color="white" />}
-              {activeTab !== 'general' && activeTab !== 'security' && activeTab !== 'appearance' && <Settings size={32} color="white" />}
+              {activeTab === 'users' && <Users size={32} color="white" />}
+              {activeTab === 'company' && <Building size={32} color="white" />}
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
               {activeTab === 'general' && 'General'}
               {activeTab === 'security' && 'Privacy & Security'}
               {activeTab === 'appearance' && 'Appearance'}
-              {activeTab !== 'general' && activeTab !== 'security' && activeTab !== 'appearance' && (categories.find(c => c.id === activeTab)?.label || 'General')}
+              {activeTab === 'users' && 'Users & Groups'}
+              {activeTab === 'company' && 'Company'}
             </div>
             <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
-              {activeTab === 'general' && 'Manage your overall setup and preferences for Mac, such as software updates, device language, AirDrop, and more.'}
+              {activeTab === 'general' && 'Manage your overall setup and preferences, such as language, timezone, and regional settings.'}
               {activeTab === 'security' && 'Manage privacy permissions, security keys, passkeys, and encryption settings.'}
               {activeTab === 'appearance' && 'Customize theme colors, accent styles, and window appearance.'}
-              {activeTab !== 'general' && activeTab !== 'security' && activeTab !== 'appearance' && 'Configure and personalize settings for this section.'}
+              {activeTab === 'users' && 'Manage team members, roles, and access permissions for this tenant.'}
+              {activeTab === 'company' && 'Create and manage your company or organization settings.'}
             </div>
           </div>
         )}
@@ -444,62 +414,30 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 </div>
               </div>
 
-              {/* Group 1: Personal Info, Sign-In & Security, Payment */}
+              {/* Group 1: Personal Info, Sign-In & Security */}
               <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
                 <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Personal Information" onClick={() => {
                   setProfileForm({ fullName: user?.fullName || '', email: user?.email || '', phoneNumber: user?.phoneNumber || '', jobTitle: user?.jobTitle || '', department: user?.department || '' })
                   setShowProfileModal(true)
                 }} />
-                <GroupedRow icon={<Lock size={14} />} iconBg="#8e8e93" label="Sign-In & Security" onClick={() => {
+                <GroupedRow icon={<Lock size={14} />} iconBg="#8e8e93" label="Sign-In & Security" isLast onClick={() => {
                   setPasswordForm({ currentPassword: '', newPassword: '' })
                   setPasswordError('')
                   setPasswordSuccess('')
                   setShowPasswordModal(true)
                 }} />
-                <GroupedRow icon={<CreditCard size={14} />} iconBg="#8e8e93" label="Payment & Shipping" isLast onClick={() => {}} />
               </div>
 
-              {/* Group 2: iCloud, Family, Media & Purchases, Sign in with Apple */}
+              {/* Group 2: Work Info */}
               <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                <GroupedRow icon={<Cloud size={14} />} iconBg="#007aff" label="iCloud" onClick={() => {}} />
-                <GroupedRow icon={<Users size={14} />} iconBg="#34c759" label="Family" value="Set Up" editable onClick={() => {}} />
-                <GroupedRow icon={<ShoppingBag size={14} />} iconBg="#007aff" label="Media & Purchases" onClick={() => {}} />
-                <GroupedRow
-                  icon={
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.32c.68-.82 1.14-1.97.98-3.14-1 .04-2.19.67-2.88 1.48-.6.7-1.12 1.84-.98 2.97 1.12.09 2.22-.5 2.88-1.31z"/>
-                    </svg>
-                  }
-                  iconBg="#1c1c1e"
-                  label="Sign in with Apple"
-                  isLast
-                  onClick={() => {}}
-                />
-              </div>
-
-              {/* Group 3: Devices Section */}
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 6, paddingLeft: 4 }}>
-                  Devices
-                </div>
-                <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                  <DeviceRow
-                    icon={<Laptop size={20} color="#007aff" />}
-                    title="Razor Crest"
-                    subtitle='This MacBook Pro 16"'
-                  />
-                  <DeviceRow
-                    icon={<Smartphone size={18} color="#007aff" />}
-                    title="Alfian h"
-                    subtitle="iPhone 13"
-                    isLast
-                  />
-                </div>
-              </div>
-
-              {/* Group 4: Contact Key Verification */}
-              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                <GroupedRow icon={<Users size={14} />} iconBg="#8e8e93" label="Contact Key Verification" isLast onClick={() => {}} />
+                <GroupedRow icon={<Briefcase size={14} />} iconBg="#007aff" label="Job Title" value={user?.jobTitle || 'Not set'} onClick={() => {
+                  setProfileForm({ fullName: user?.fullName || '', email: user?.email || '', phoneNumber: user?.phoneNumber || '', jobTitle: user?.jobTitle || '', department: user?.department || '' })
+                  setShowProfileModal(true)
+                }} />
+                <GroupedRow icon={<Building size={14} />} iconBg="#34c759" label="Department" value={user?.department || 'Not set'} isLast onClick={() => {
+                  setProfileForm({ fullName: user?.fullName || '', email: user?.email || '', phoneNumber: user?.phoneNumber || '', jobTitle: user?.jobTitle || '', department: user?.department || '' })
+                  setShowProfileModal(true)
+                }} />
               </div>
 
               {/* Bottom Action Footer: Sign Out... Button & ? Help Circle */}
@@ -516,18 +454,62 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 >
                   Sign Out...
                 </button>
-
-                <button
-                  style={{
-                    width: 22, height: 22, borderRadius: '50%', border: 'none',
-                    background: 'rgba(0,0,0,0.08)', color: '#1d1d1f', fontSize: 12, fontWeight: 600,
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: SF,
-                  }}
-                >
-                  ?
-                </button>
               </div>
+            </>
+          )}
+
+          {/* COMPANY TAB */}
+          {activeTab === 'company' && (
+            <>
+              {currentTenant ? (
+                <>
+                  <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                    <GroupedRow icon={<Building size={14} />} iconBg="#34c759" label="Company Name" value={currentTenant.name} onClick={isPlatformOwner ? () => {
+                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
+                      setShowTenantModal(true)
+                    } : undefined} />
+                    <GroupedRow icon={<Globe size={14} />} iconBg="#007aff" label="Website" value={currentTenant.website || 'Not set'} onClick={isPlatformOwner ? () => {
+                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
+                      setShowTenantModal(true)
+                    } : undefined} />
+                    <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Email" value={currentTenant.email || 'Not set'} onClick={isPlatformOwner ? () => {
+                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
+                      setShowTenantModal(true)
+                    } : undefined} />
+                    <GroupedRow icon={<Clock size={14} />} iconBg="#30b0c7" label="Phone" value={currentTenant.phoneNumber || 'Not set'} onClick={isPlatformOwner ? () => {
+                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
+                      setShowTenantModal(true)
+                    } : undefined} />
+                    <GroupedRow icon={<Building size={14} />} iconBg="#8e8e93" label="Address" value={currentTenant.address || 'Not set'} isLast onClick={isPlatformOwner ? () => {
+                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
+                      setShowTenantModal(true)
+                    } : undefined} />
+                  </div>
+                  {isPlatformOwner && (
+                    <button onClick={() => setShowTenantModal(true)} style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, alignSelf: 'flex-end' }}>
+                      Edit Company
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                  <Building size={48} color="#8e8e93" style={{ marginBottom: 16 }} />
+                  <div style={{ fontSize: 16, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 8 }}>No Company Yet</div>
+                  {isPlatformOwner ? (
+                    <>
+                      <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, marginBottom: 20 }}>Create a company to get started with your workspace.</div>
+                      <button onClick={() => {
+                        setTenantForm({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
+                        setShowTenantModal(true)
+                      }} style={{ padding: '10px 20px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>
+                        Create Company
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF }}>Contact the platform owner to create a company for you.</div>
+                  )}
+                </div>
+              )}
             </>
           )}
 
@@ -535,31 +517,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           {activeTab === 'general' && (
             <>
               <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                <GroupedRow icon={<Laptop size={14} />} iconBg="#8e8e93" label="About" />
-                <GroupedRow icon={<RefreshCw size={14} />} iconBg="#8e8e93" label="Software Update" />
-                <GroupedRow icon={<HardDrive size={14} />} iconBg="#8e8e93" label="Storage" isLast />
+                <GroupedRow icon={<Globe size={14} />} iconBg="#007aff" label="Language" value="English" isLast />
               </div>
 
               <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                <GroupedRow icon={<Shield size={14} />} iconBg="#ff3b30" label="AppleCare & Warranty" isLast />
-              </div>
-
-              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                <GroupedRow icon={<Airplay size={14} />} iconBg="#007aff" label="AirDrop & Handoff" isLast />
-              </div>
-
-              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                <GroupedRow icon={<Key size={14} />} iconBg="#8e8e93" label="AutoFill & Passwords" />
-                <GroupedRow icon={<Calendar size={14} />} iconBg="#007aff" label="Date & Time" />
-                <GroupedRow icon={<Globe size={14} />} iconBg="#007aff" label="Language & Region" />
-                <GroupedRow icon={<Sliders size={14} />} iconBg="#8e8e93" label="Login Items & Extensions" />
-                <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Sharing" />
-                <GroupedRow icon={<HardDrive size={14} />} iconBg="#8e8e93" label="Startup Disk" />
-                <GroupedRow icon={<Clock size={14} />} iconBg="#30b0c7" label="Time Machine" isLast />
-              </div>
-
-              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                <GroupedRow icon={<ShieldCheck size={14} />} iconBg="#34c759" label="Device Management" isLast />
+                <GroupedRow icon={<Clock size={14} />} iconBg="#30b0c7" label="Timezone" value="Asia/Jakarta (WIB)" isLast />
               </div>
             </>
           )}
@@ -568,23 +530,81 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           {activeTab === 'security' && (
             <>
               <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                <GroupedRow icon={<Key size={14} />} iconBg="#007aff" label="Password" value="••••••••" editable />
-                <GroupedRow icon={<ShieldCheck size={14} />} iconBg="#34c759" label="Two-Factor Authentication" value="Enabled" editable />
-                <GroupedRow icon={<Laptop size={14} />} iconBg="#8e8e93" label="Active Sessions" value="2 devices" isLast />
-              </div>
-              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                <GroupedRow icon={<Lock size={14} />} iconBg="#ff9500" label="FileVault Encryption" value="On" />
-                <GroupedRow icon={<Shield size={14} />} iconBg="#007aff" label="Firewall" value="On" isLast />
+                <GroupedRow icon={<Key size={14} />} iconBg="#007aff" label="Change Password" onClick={() => {
+                  setPasswordForm({ currentPassword: '', newPassword: '' })
+                  setPasswordError('')
+                  setPasswordSuccess('')
+                  setShowPasswordModal(true)
+                }} />
+                <GroupedRow icon={<Users size={14} />} iconBg="#8e8e93" label="Active Sessions" value="1 device" isLast />
               </div>
             </>
           )}
 
-          {/* OTHER TABS */}
-          {activeTab !== 'general' && activeTab !== 'profile' && activeTab !== 'security' && (
-            <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-              <GroupedRow icon={<Settings size={14} />} iconBg="#007aff" label={`${categories.find(c => c.id === activeTab)?.label || 'Setting'} Configuration`} value="Default" editable />
-              <GroupedRow icon={<Sliders size={14} />} iconBg="#8e8e93" label="Advanced Preferences" value="Enabled" isLast />
-            </div>
+          {/* APPEARANCE TAB */}
+          {activeTab === 'appearance' && (
+            <>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                <div style={{ padding: '12px 14px', borderBottom: '1px solid rgb(229, 229, 234)' }}>
+                  <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, fontWeight: 500, marginBottom: 10 }}>Accent Color</div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {['#007aff', '#34c759', '#ff9500', '#ff3b30', '#af52de', '#5856d6'].map((c) => (
+                      <div key={c} style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }} />
+                    ))}
+                  </div>
+                </div>
+                <GroupedRow icon={<Palette size={14} />} iconBg="#8e8e93" label="Theme" value="Light" isLast />
+              </div>
+            </>
+          )}
+
+          {/* USERS & GROUPS TAB */}
+          {activeTab === 'users' && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                <button
+                  onClick={() => { setShowAddUserModal(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member' }) }}
+                  style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}
+                >
+                  + Add User
+                </button>
+              </div>
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                {members.length === 0 ? (
+                  <div style={{ padding: 20, textAlign: 'center', color: '#8e8e93', fontSize: 13, fontFamily: SF }}>No members yet</div>
+                ) : (
+                  members.map((m: any, i: number) => (
+                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', borderBottom: i === members.length - 1 ? 'none' : '1px solid rgb(229, 229, 234)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'white', fontFamily: SF }}>
+                          {(m.userFullName || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF }}>{m.userFullName}</div>
+                          <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{m.userEmail}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
+                        {m.role !== 'owner' && (
+                          <button
+                            onClick={async () => {
+                              if (confirm(`Remove ${m.userFullName} from this tenant?`)) {
+                                await membersApi.remove(m.id)
+                                setMembers(prev => prev.filter((x: any) => x.id !== m.id))
+                              }
+                            }}
+                            style={{ padding: '4px 10px', borderRadius: 5, border: 'none', background: 'rgba(255,59,48,0.08)', color: '#ff3b30', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
           )}
 
            {/* Sign Out Card for Non-Profile Tabs */}
@@ -672,8 +692,8 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               <button onClick={() => setShowProfileModal(false)} style={{ padding: '6px 14px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
               <button onClick={async () => {
                 try {
-                  const updated = await usersApi.updateMe(profileForm)
-                  setUser((prev: any) => ({ ...prev, ...updated }))
+                  const res = await usersApi.updateMe(profileForm)
+                  if (res.user) setUser((prev: any) => ({ ...prev, ...res.user }))
                   setShowProfileModal(false)
                 } catch { setError('Failed to update profile') }
               }} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Simpan</button>
@@ -719,6 +739,146 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   setTimeout(() => setShowPasswordModal(false), 1200)
                 } catch (e: any) { setPasswordError(e?.message || 'Failed to change password') }
               }} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowAddUserModal(false)}>
+          <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 14 }}>Add User to Tenant</div>
+            {addUserError && <div style={{ fontSize: 12, color: '#ff3b30', fontFamily: SF, marginBottom: 10, background: 'rgba(255,59,48,0.06)', padding: '6px 10px', borderRadius: 6 }}>{addUserError}</div>}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Full Name</div>
+              <input type="text" value={addUserForm.fullName} onChange={(e) => setAddUserForm(p => ({ ...p, fullName: e.target.value }))} placeholder="Budi Santoso" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Email</div>
+              <input type="email" value={addUserForm.email} onChange={(e) => setAddUserForm(p => ({ ...p, email: e.target.value }))} placeholder="budi@example.com" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Password</div>
+              <input type="password" value={addUserForm.password} onChange={(e) => setAddUserForm(p => ({ ...p, password: e.target.value }))} placeholder="Min 6 karakter" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role</div>
+              <select value={addUserForm.role} onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', background: 'white', color: '#1d1d1f' }}>
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowAddUserModal(false)} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+              <button
+                disabled={addUserLoading}
+                onClick={async () => {
+                  if (!addUserForm.fullName || !addUserForm.email || !addUserForm.password) {
+                    setAddUserError('Semua field wajib diisi')
+                    return
+                  }
+                  setAddUserLoading(true)
+                  setAddUserError('')
+                  try {
+                    const userRes = await usersApi.create({
+                      fullName: addUserForm.fullName,
+                      email: addUserForm.email,
+                      password: addUserForm.password,
+                      role: 'user',
+                      status: 'active',
+                    })
+                    if (userRes.error) {
+                      setAddUserError(userRes.error)
+                      return
+                    }
+                    const memberRes = await membersApi.add({ userId: userRes.user.id, role: addUserForm.role })
+                    if (memberRes.error) {
+                      setAddUserError(memberRes.error)
+                      return
+                    }
+                    setShowAddUserModal(false)
+                    const data = await membersApi.list()
+                    setMembers(data?.members || [])
+                  } catch (e: any) {
+                    setAddUserError(e?.message || 'Gagal menambah user')
+                  } finally {
+                    setAddUserLoading(false)
+                  }
+                }}
+                style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: addUserLoading ? '#8e8e93' : '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: addUserLoading ? 'not-allowed' : 'pointer', fontFamily: SF }}
+              >
+                {addUserLoading ? 'Adding...' : 'Add User'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTenantModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowTenantModal(false)}>
+          <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 14 }}>{currentTenant ? 'Edit Company' : 'Create Company'}</div>
+            {tenantError && <div style={{ fontSize: 12, color: '#ff3b30', fontFamily: SF, marginBottom: 10, background: 'rgba(255,59,48,0.06)', padding: '6px 10px', borderRadius: 6 }}>{tenantError}</div>}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Company Name *</div>
+              <input type="text" value={tenantForm.name} onChange={(e) => setTenantForm(p => ({ ...p, name: e.target.value }))} placeholder="PT Maju Jaya" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Slug * (lowercase, no spaces)</div>
+              <input type="text" value={tenantForm.slug} onChange={(e) => setTenantForm(p => ({ ...p, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} placeholder="pt-maju-jaya" disabled={!!currentTenant} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: currentTenant ? '#f5f5f5' : 'white' }} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Website</div>
+              <input type="url" value={tenantForm.website} onChange={(e) => setTenantForm(p => ({ ...p, website: e.target.value }))} placeholder="https://example.com" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Email</div>
+              <input type="email" value={tenantForm.email} onChange={(e) => setTenantForm(p => ({ ...p, email: e.target.value }))} placeholder="info@example.com" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Phone</div>
+              <input type="tel" value={tenantForm.phoneNumber} onChange={(e) => setTenantForm(p => ({ ...p, phoneNumber: e.target.value }))} placeholder="+62 812 3456 7890" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Address</div>
+              <textarea value={tenantForm.address} onChange={(e) => setTenantForm(p => ({ ...p, address: e.target.value }))} placeholder="Jl. Sudirman No. 123, Jakarta" rows={2} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', resize: 'vertical' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowTenantModal(false)} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+              <button
+                disabled={tenantLoading}
+                onClick={async () => {
+                  if (!tenantForm.name || !tenantForm.slug) {
+                    setTenantError('Company name and slug are required')
+                    return
+                  }
+                  setTenantLoading(true)
+                  setTenantError('')
+                  try {
+                    let res
+                    if (currentTenant) {
+                      res = await tenantsApi.updateCurrent(tenantForm)
+                    } else {
+                      res = await tenantsApi.create(tenantForm)
+                    }
+                    if (res.error) {
+                      setTenantError(res.error)
+                      return
+                    }
+                    setShowTenantModal(false)
+                    const data = await tenantsApi.getCurrent()
+                    setCurrentTenant(data?.tenant || null)
+                  } catch (e: any) {
+                    setTenantError(e?.message || 'Failed to save company')
+                  } finally {
+                    setTenantLoading(false)
+                  }
+                }}
+                style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: tenantLoading ? '#8e8e93' : '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: tenantLoading ? 'not-allowed' : 'pointer', fontFamily: SF }}
+              >
+                {tenantLoading ? 'Saving...' : currentTenant ? 'Save Changes' : 'Create Company'}
+              </button>
             </div>
           </div>
         </div>

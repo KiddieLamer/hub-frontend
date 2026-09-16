@@ -1,4 +1,4 @@
-import { apiFetch, setTokens, clearTokens } from './api'
+import { apiFetch, setTokens, clearTokens, setTenantId } from './api'
 
 // ============ AUTH ============
 export const authApi = {
@@ -8,7 +8,18 @@ export const authApi = {
       body: JSON.stringify({ email, password }),
     })
     const data = await res.json()
-    if (res.ok) setTokens(data.accessToken, data.refreshToken)
+    if (res.ok) {
+      setTokens(data.accessToken, data.refreshToken)
+      if (data.user.currentTenantId) {
+        setTenantId(data.user.currentTenantId)
+      } else {
+        const tenantsRes = await apiFetch('/api/tenants')
+        const tenantsData = await tenantsRes.json()
+        if (tenantsData.tenants?.length > 0) {
+          setTenantId(tenantsData.tenants[0].id)
+        }
+      }
+    }
     return data
   },
 
@@ -18,13 +29,19 @@ export const authApi = {
       body: JSON.stringify(payload),
     })
     const data = await res.json()
-    if (res.ok) setTokens(data.accessToken, data.refreshToken)
+    if (res.ok) {
+      setTokens(data.accessToken, data.refreshToken)
+      if (data.user.currentTenantId) {
+        setTenantId(data.user.currentTenantId)
+      }
+    }
     return data
   },
 
   logout: async () => {
     await apiFetch('/api/auth/logout', { method: 'POST' })
     clearTokens()
+    localStorage.removeItem('hub-tenant-id')
   },
 }
 
@@ -43,6 +60,7 @@ export const usersApi = {
 // ============ TENANTS ============
 export const tenantsApi = {
   list: () => apiFetch('/api/tenants').then(r => r.json()),
+  listAll: () => apiFetch('/api/tenants/all').then(r => r.json()),
   get: (id: string) => apiFetch(`/api/tenants/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/tenants', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
   getCurrent: () => apiFetch('/api/tenants/current').then(r => r.json()),
@@ -140,6 +158,12 @@ export const shiftsApi = {
 export const membersApi = {
   list: () => apiFetch('/api/members').then(r => r.json()),
   getMe: () => apiFetch('/api/members/me').then(r => r.json()),
+  add: (data: { userId: string; role?: string }) =>
+    apiFetch('/api/members', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  updateRole: (id: string, role: string) =>
+    apiFetch(`/api/members/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }).then(r => r.json()),
+  remove: (id: string) =>
+    apiFetch(`/api/members/${id}`, { method: 'DELETE' }).then(r => r.json()),
 }
 
 // ============ FINANCE - EXPENSE CATEGORIES ============

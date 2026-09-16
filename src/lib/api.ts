@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_URL = import.meta.env.VITE_API_URL || 'https://dazai.my.id'
 
 interface Tokens {
   accessToken: string
@@ -30,6 +30,14 @@ export function getAccessToken() {
 
 export function setTokens(accessToken: string, refreshToken: string) {
   saveTokens({ accessToken, refreshToken })
+}
+
+export function getTenantId() {
+  return localStorage.getItem('hub-tenant-id') || ''
+}
+
+export function setTenantId(tenantId: string) {
+  localStorage.setItem('hub-tenant-id', tenantId)
 }
 
 async function refreshAccessToken(): Promise<string> {
@@ -71,6 +79,11 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   if (tokens.accessToken) {
     headers['Authorization'] = `Bearer ${tokens.accessToken}`
+  }
+
+  const tenantId = getTenantId()
+  if (tenantId) {
+    headers['X-Tenant-ID'] = tenantId
   }
 
   let res = await fetch(url, { ...options, headers })
