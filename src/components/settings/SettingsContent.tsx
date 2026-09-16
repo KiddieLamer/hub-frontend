@@ -613,24 +613,6 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               )}
             </>
           )}
-
-           {/* Sign Out Card for Non-Profile Tabs */}
-           {activeTab !== 'profile' && (
-            <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-              <button
-                onClick={onLogout}
-                style={{
-                  width: '100%', padding: '11px 14px', border: 'none', background: 'transparent',
-                  color: '#ff3b30', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                  fontFamily: SF, textAlign: 'center', transition: 'background 0.1s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,59,48,0.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-              >
-                Sign Out of Account
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
