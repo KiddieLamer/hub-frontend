@@ -28,7 +28,7 @@ function GroupedRow({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '9px 14px',
-        borderBottom: isLast ? 'none' : '1px solid rgb(229, 229, 234)',
+        borderBottom: isLast ? 'none' : '1px solid rgba(0,0,0,0.06)',
         minHeight: 38,
         cursor: onClick ? 'pointer' : 'default',
         transition: 'background 0.1s',
@@ -444,7 +444,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               </div>
 
               {/* Group 1: Personal Info, Sign-In & Security */}
-              <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+              <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
                 <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Personal Information" onClick={() => {
                   setProfileForm({ fullName: user?.fullName || '', email: user?.email || '', phoneNumber: user?.phoneNumber || '', jobTitle: user?.jobTitle || '', department: user?.department || '' })
                   setShowProfileModal(true)
@@ -458,7 +458,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               </div>
 
               {/* Group 2: Work Info */}
-              <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+              <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
                 <GroupedRow icon={<Briefcase size={14} />} iconBg="#007aff" label="Job Title" value={user?.jobTitle || 'Not set'} onClick={() => {
                   setProfileForm({ fullName: user?.fullName || '', email: user?.email || '', phoneNumber: user?.phoneNumber || '', jobTitle: user?.jobTitle || '', department: user?.department || '' })
                   setShowProfileModal(true)
@@ -490,11 +490,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           {/* GENERAL TAB */}
           {activeTab === 'general' && (
             <>
-              <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+              <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
                 <GroupedRow icon={<Globe size={14} />} iconBg="#007aff" label="Language" value="English" isLast />
               </div>
 
-              <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+              <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
                 <GroupedRow icon={<Clock size={14} />} iconBg="#30b0c7" label="Timezone" value="Asia/Jakarta (WIB)" isLast />
               </div>
             </>
@@ -503,7 +503,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           {/* PRIVACY & SECURITY TAB */}
           {activeTab === 'security' && (
             <>
-              <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+              <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
                 <GroupedRow icon={<Key size={14} />} iconBg="#007aff" label="Change Password" onClick={() => {
                   setPasswordForm({ currentPassword: '', newPassword: '' })
                   setPasswordError('')
@@ -518,7 +518,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           {/* APPEARANCE TAB */}
           {activeTab === 'appearance' && (
             <>
-              <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+              <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
                 <div style={{ padding: '12px 14px', borderBottom: '1px solid rgb(229, 229, 234)' }}>
                   <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, fontWeight: 500, marginBottom: 10 }}>Accent Color</div>
                   <div style={{ display: 'flex', gap: 10 }}>
@@ -553,13 +553,13 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     <span style={{ padding: '3px 12px', borderRadius: 12, background: selectedMember.role === 'owner' ? 'rgba(255,149,0,0.12)' : selectedMember.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 12, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{selectedMember.role}</span>
                   </div>
 
-                  <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                  <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
                     <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Full Name" value={selectedMember.userFullName} />
                     <GroupedRow icon={<Key size={14} />} iconBg="#007aff" label="Email" value={selectedMember.userEmail} />
                     <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : '#34c759'} label="Role" value={selectedMember.role} isLast />
                   </div>
 
-                  <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden', marginTop: 14 }}>
+                  <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', marginTop: 14 }}>
                     <button onClick={async () => {
                       const newPass = prompt('Enter new password for ' + selectedMember.userFullName + ':')
                       if (!newPass || newPass.length < 6) { if (newPass !== null) alert('Password must be at least 6 characters'); return }
@@ -571,7 +571,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   </div>
 
                   {selectedMember.role !== 'owner' && (
-                    <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden', marginTop: 14 }}>
+                    <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', marginTop: 14 }}>
                       <button onClick={async () => {
                         if (confirm(`Remove ${selectedMember.userFullName} from this tenant?`)) {
                           await membersApi.remove(selectedMember.id)
@@ -584,7 +584,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 </div>
               ) : (
                 /* Member List View */
-                <div style={{ background: '#f8f8f8', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
                   {members.length === 0 ? (
                     <div style={{ padding: 20, textAlign: 'center', color: '#8e8e93', fontSize: 13, fontFamily: SF }}>No members yet</div>
                   ) : (
