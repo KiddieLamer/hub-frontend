@@ -94,7 +94,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
   const [members, setMembers] = useState<any[]>([])
-  const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [showAddUserForm, setShowAddUserForm] = useState(false)
   const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', role: 'member' as string })
   const [addUserError, setAddUserError] = useState('')
   const [addUserLoading, setAddUserLoading] = useState(false)
@@ -363,7 +363,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
             <>
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button onClick={() => { setShowAddUserModal(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
                 <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
@@ -380,7 +380,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         </div>
 
         {/* Section Header for non-profile tabs */}
-        {activeTab !== 'profile' && !(activeTab === 'users' && selectedMember) && (
+        {activeTab !== 'profile' && !(activeTab === 'users' && (selectedMember || showAddUserForm)) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
             <div style={{
               width: 58, height: 58, borderRadius: 14,
@@ -537,7 +537,54 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           {/* USERS & GROUPS TAB */}
           {activeTab === 'users' && (
             <>
-              {selectedMember ? (
+              {showAddUserForm ? (
+                /* Inline Add User Form */
+                <div style={{ padding: '0 4px', maxWidth: 640, margin: '0 auto' }}>
+                  <div style={{ background: '#f8f8f8', borderRadius: 10, padding: 20, width: '100%', boxSizing: 'border-box' }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 16 }}>Add User to Tenant</div>
+                    {addUserError && <div style={{ fontSize: 12, color: '#ff3b30', fontFamily: SF, marginBottom: 10, background: 'rgba(255,59,48,0.06)', padding: '6px 10px', borderRadius: 6 }}>{addUserError}</div>}
+                    {[
+                      { key: 'fullName', label: 'Full Name', placeholder: 'Budi Santoso', type: 'text' },
+                      { key: 'email', label: 'Email', placeholder: 'budi@example.com', type: 'email' },
+                      { key: 'password', label: 'Password', placeholder: 'Min 6 karakter', type: 'password' },
+                    ].map(f => (
+                      <div key={f.key} style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>{f.label}</div>
+                        <input type={f.type} value={(addUserForm as any)[f.key]} onChange={(e) => setAddUserForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+                      </div>
+                    ))}
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role</div>
+                      <select value={addUserForm.role} onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', background: 'white', color: '#1d1d1f' }}>
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                      <button onClick={() => setShowAddUserForm(false)} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+                      <button
+                        disabled={addUserLoading}
+                        onClick={async () => {
+                          if (!addUserForm.fullName || !addUserForm.email || !addUserForm.password) { setAddUserError('Semua field wajib diisi'); return }
+                          setAddUserLoading(true); setAddUserError('')
+                          try {
+                            const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, role: 'user', status: 'active' })
+                            if (userRes.error) { setAddUserError(userRes.error); return }
+                            const memberRes = await membersApi.add({ userId: userRes.user.id, role: addUserForm.role })
+                            if (memberRes.error) { setAddUserError(memberRes.error); return }
+                            setShowAddUserForm(false)
+                            const data = await membersApi.list()
+                            setMembers(data?.members || [])
+                          } catch (e: any) { setAddUserError(e?.message || 'Gagal menambah user') } finally { setAddUserLoading(false) }
+                        }}
+                        style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: addUserLoading ? '#8e8e93' : '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: addUserLoading ? 'not-allowed' : 'pointer', fontFamily: SF }}
+                      >
+                        {addUserLoading ? 'Adding...' : 'Add User'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedMember ? (
                 /* Member Detail View */
                 <div style={{ padding: '0 4px', maxWidth: 640, margin: '0 auto' }}>
                   {/* ID Card */}
@@ -758,76 +805,6 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
       )}
 
       {/* Add User Modal */}
-      {showAddUserModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowAddUserModal(false)}>
-          <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 14 }}>Add User to Tenant</div>
-            {addUserError && <div style={{ fontSize: 12, color: '#ff3b30', fontFamily: SF, marginBottom: 10, background: 'rgba(255,59,48,0.06)', padding: '6px 10px', borderRadius: 6 }}>{addUserError}</div>}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Full Name</div>
-              <input type="text" value={addUserForm.fullName} onChange={(e) => setAddUserForm(p => ({ ...p, fullName: e.target.value }))} placeholder="Budi Santoso" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Email</div>
-              <input type="email" value={addUserForm.email} onChange={(e) => setAddUserForm(p => ({ ...p, email: e.target.value }))} placeholder="budi@example.com" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Password</div>
-              <input type="password" value={addUserForm.password} onChange={(e) => setAddUserForm(p => ({ ...p, password: e.target.value }))} placeholder="Min 6 karakter" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role</div>
-              <select value={addUserForm.role} onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', background: 'white', color: '#1d1d1f' }}>
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowAddUserModal(false)} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
-              <button
-                disabled={addUserLoading}
-                onClick={async () => {
-                  if (!addUserForm.fullName || !addUserForm.email || !addUserForm.password) {
-                    setAddUserError('Semua field wajib diisi')
-                    return
-                  }
-                  setAddUserLoading(true)
-                  setAddUserError('')
-                  try {
-                    const userRes = await usersApi.create({
-                      fullName: addUserForm.fullName,
-                      email: addUserForm.email,
-                      password: addUserForm.password,
-                      role: 'user',
-                      status: 'active',
-                    })
-                    if (userRes.error) {
-                      setAddUserError(userRes.error)
-                      return
-                    }
-                    const memberRes = await membersApi.add({ userId: userRes.user.id, role: addUserForm.role })
-                    if (memberRes.error) {
-                      setAddUserError(memberRes.error)
-                      return
-                    }
-                    setShowAddUserModal(false)
-                    const data = await membersApi.list()
-                    setMembers(data?.members || [])
-                  } catch (e: any) {
-                    setAddUserError(e?.message || 'Gagal menambah user')
-                  } finally {
-                    setAddUserLoading(false)
-                  }
-                }}
-                style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: addUserLoading ? '#8e8e93' : '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: addUserLoading ? 'not-allowed' : 'pointer', fontFamily: SF }}
-              >
-                {addUserLoading ? 'Adding...' : 'Add User'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {editMemberModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setEditMemberModal(null)}>
           <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
