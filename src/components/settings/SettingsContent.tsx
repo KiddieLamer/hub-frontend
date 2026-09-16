@@ -381,7 +381,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
 
         {/* Section Header for non-profile tabs */}
         {activeTab !== 'profile' && !(activeTab === 'users' && selectedMember) && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center', background: '#f8f8f8', borderRadius: 10, width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
             <div style={{
               width: 58, height: 58, borderRadius: 14,
               background: activeTab === 'general' ? 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)' : activeTab === 'users' ? 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' : 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
