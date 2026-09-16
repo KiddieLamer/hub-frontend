@@ -378,7 +378,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         </div>
 
         {/* Section Header for non-profile tabs */}
-        {activeTab !== 'profile' && !(activeTab === 'users' && (selectedMember || showAddUserForm)) && (
+        {activeTab !== 'profile' && !(activeTab === 'users' && selectedMember) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
             <div style={{
               width: 58, height: 58, borderRadius: 14,
