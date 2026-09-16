@@ -409,7 +409,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         )}
 
         {/* Grouped Cards Container */}
-        <div style={{ padding: activeTab === 'profile' ? '8px 24px 28px' : '0 24px 28px', maxWidth: 540, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ padding: activeTab === 'profile' ? '8px 24px 28px' : '0 24px 28px', maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* PROFILE / APPLE ACCOUNT TAB */}
           {activeTab === 'profile' && (
             <>
@@ -537,7 +537,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
             <>
               {selectedMember ? (
                 /* Member Detail View */
-                <div style={{ padding: '0 4px', maxWidth: 540, margin: '0 auto' }}>
+                <div style={{ padding: '0 4px', maxWidth: 640, margin: '0 auto' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
                     <div style={{ position: 'relative', marginBottom: 12 }}>
                       {selectedMember.userAvatarUrl ? (
