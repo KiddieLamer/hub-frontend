@@ -558,20 +558,22 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                       )}
                     </div>
 
-                    {/* Name */}
-                    <div className="id-name">
-                      {(selectedMember.userFullName || 'User').split(' ').map((word: string, i: number) => (
-                        <span key={i}>{word}</span>
-                      ))}
-                    </div>
-
                     {/* White wave bottom */}
-                    <div className="id-bottom" />
-
-                    {/* Meta */}
-                    <div className="id-meta">
-                      <span className="id-role">{selectedMember.role}</span>
-                      <span className="id-number">{selectedMember.userEmail}</span>
+                    <div className="id-bottom">
+                      <svg className="id-wave" viewBox="0 0 320 100" preserveAspectRatio="none">
+                        <path d="M0,55 C65,20 125,20 180,38 C235,56 275,62 320,48 L320,100 L0,100 Z" fill="#f8f8f7" />
+                      </svg>
+                      <div className="id-content">
+                        <div className="id-name">
+                          {(selectedMember.userFullName || 'User').split(' ').map((word: string, i: number) => (
+                            <span key={i}>{word}</span>
+                          ))}
+                        </div>
+                        <div className="id-meta">
+                          <span className="id-role">{selectedMember.role}</span>
+                          <span className="id-number">{selectedMember.userEmail}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
