@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { catalogApi } from '../lib/endpoints'
 
 const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
 
@@ -21,26 +22,28 @@ interface CartItem extends Product {
   quantity: number
 }
 
-const PRODUCTS: Product[] = [
-  { id: '1', name: 'Laptop ASUS ROG', price: 18500000, stock: 5, category: 'Electronics', image: 'https://cdn.jim-nielsen.com/macos/1024/swiftly-business-workspace-2025-04-26.png?rf=1024' },
-  { id: '2', name: 'Monitor LG 27"', price: 4500000, stock: 8, category: 'Electronics', image: 'https://cdn.jim-nielsen.com/macos/1024/expense-tracker-accountit-2025-04-26.png?rf=1024' },
-  { id: '3', name: 'Keyboard Mechanical', price: 850000, stock: 15, category: 'Accessories', image: 'https://cdn.jim-nielsen.com/macos/1024/reminders-2025-11-14.png?rf=1024' },
-  { id: '4', name: 'Mouse Wireless', price: 350000, stock: 20, category: 'Accessories', image: 'https://cdn.jim-nielsen.com/macos/1024/1doc-word-processor-for-writer-2020-08-17.png?rf=1024' },
-  { id: '5', name: 'Webcam HD', price: 750000, stock: 12, category: 'Accessories', image: 'https://cdn.jim-nielsen.com/macos/512/contacts-journal-crm-2015-05-26.png?rf=512' },
-  { id: '6', name: 'Headset Gaming', price: 1200000, stock: 10, category: 'Accessories', image: 'https://cdn.jim-nielsen.com/macos/1024/system-settings-2025-11-14.png?rf=1024' },
-]
-
-const CATEGORIES = ['All', 'Electronics', 'Accessories']
-
 export function POSContent({ onClose, onMinimize, onMaximize }: POSProps) {
   const [cart, setCart] = useState<CartItem[]>([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [_loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const btnSize = 12
   const btnGap = 8
+  const CATEGORIES = ['All', ...Array.from(new Set(products.map(p => p.category)))]
 
-  const filteredProducts = PRODUCTS.filter((p) => {
+  useEffect(() => {
+    setLoading(true)
+    catalogApi.list({ type: 'product' }).then(res => {
+      const p = res?.items || res || []
+      setProducts(Array.isArray(p) ? p : [])
+      setLoading(false)
+    }).catch(() => { setError('Gagal memuat data'); setLoading(false) })
+  }, [])
+
+  const filteredProducts = products.filter((p) => {
     const matchCategory = selectedCategory === 'All' || p.category === selectedCategory
     const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase())
     return matchCategory && matchSearch
@@ -141,6 +144,20 @@ export function POSContent({ onClose, onMinimize, onMaximize }: POSProps) {
         </div>
 
         {/* Product Grid */}
+        {error ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 }}>
+            <div style={{ fontSize: 13, color: '#ff3b30', fontFamily: SF }}>Gagal memuat data</div>
+            <button onClick={() => { setError(null); setLoading(true); catalogApi.list({ type: 'product' }).then(res => { const p = res?.items || res || []; setProducts(Array.isArray(p) ? p : []); setLoading(false) }).catch(() => { setError('Gagal memuat data'); setLoading(false) }) }} style={{ fontSize: 12, color: '#007aff', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SF }}>Coba lagi</button>
+          </div>
+        ) : _loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
+            <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF }}>Memuat data...</div>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 }}>
+            <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF }}>Belum ada data</div>
+          </div>
+        ) : (
         <div style={{ flex: 1, overflow: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, alignContent: 'start' }}>
           {filteredProducts.map((product) => (
             <button
@@ -171,6 +188,7 @@ export function POSContent({ onClose, onMinimize, onMaximize }: POSProps) {
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {/* Right: Cart */}

@@ -36,6 +36,8 @@ export const usersApi = {
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
   getMe: () => apiFetch('/api/users/me').then(r => r.json()),
   updateMe: (data: Record<string, unknown>) => apiFetch('/api/users/me', { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    apiFetch('/api/users/me/change-password', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
 // ============ TENANTS ============
@@ -43,6 +45,8 @@ export const tenantsApi = {
   list: () => apiFetch('/api/tenants').then(r => r.json()),
   get: (id: string) => apiFetch(`/api/tenants/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/tenants', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  getCurrent: () => apiFetch('/api/tenants/current').then(r => r.json()),
+  updateCurrent: (data: Record<string, unknown>) => apiFetch('/api/tenants/current', { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
 // ============ CRM - CLIENTS ============
@@ -222,20 +226,40 @@ export const supportTicketsApi = {
 
 // ============ PROJECTS ============
 export const projectsApi = {
-  list: () => apiFetch('/api/projects').then(r => r.json()),
+  list: (params?: { search?: string; status?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.search) q.set('search', params.search)
+    if (params?.status) q.set('status', params.status)
+    const qs = q.toString()
+    return apiFetch(`/api/projects${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
+  stats: () => apiFetch('/api/projects/stats').then(r => r.json()),
   get: (id: string) => apiFetch(`/api/projects/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/projects', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
   delete: (id: string) => apiFetch(`/api/projects/${id}`, { method: 'DELETE' }).then(r => r.json()),
+  addMember: (id: string, data: Record<string, unknown>) => apiFetch(`/api/projects/${id}/members`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  removeMember: (id: string, userId: string) => apiFetch(`/api/projects/${id}/members/${userId}`, { method: 'DELETE' }).then(r => r.json()),
+  createColumn: (id: string, data: Record<string, unknown>) => apiFetch(`/api/projects/${id}/columns`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
 // ============ TASKS ============
 export const tasksApi = {
-  list: (projectId?: string) => apiFetch(`/api/tasks${projectId ? `?projectId=${projectId}` : ''}`).then(r => r.json()),
+  list: (params?: { projectId?: string; columnId?: string; assignedTo?: string; priority?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.projectId) q.set('projectId', params.projectId)
+    if (params?.columnId) q.set('columnId', params.columnId)
+    if (params?.assignedTo) q.set('assignedTo', params.assignedTo)
+    if (params?.priority) q.set('priority', params.priority)
+    const qs = q.toString()
+    return apiFetch(`/api/tasks${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
   get: (id: string) => apiFetch(`/api/tasks/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
   delete: (id: string) => apiFetch(`/api/tasks/${id}`, { method: 'DELETE' }).then(r => r.json()),
+  move: (id: string, data: Record<string, unknown>) => apiFetch(`/api/tasks/${id}/move`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  addComment: (id: string, data: Record<string, unknown>) => apiFetch(`/api/tasks/${id}/comments`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
 // ============ TAGS ============
@@ -264,48 +288,61 @@ export const catalogSubscriptionsApi = {
   create: (data: Record<string, unknown>) => apiFetch('/api/catalog/subscriptions', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
-// ============ PROCUREMENT - VENDORS ============
-export const vendorsApi = {
-  list: () => apiFetch('/api/procurement/vendors').then(r => r.json()),
-  get: (id: string) => apiFetch(`/api/procurement/vendors/${id}`).then(r => r.json()),
-  create: (data: Record<string, unknown>) => apiFetch('/api/procurement/vendors', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
-  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/procurement/vendors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
-}
-
-// ============ PROCUREMENT - PURCHASE REQUESTS ============
-export const purchaseRequestsApi = {
-  list: () => apiFetch('/api/procurement/purchase-requests').then(r => r.json()),
-  get: (id: string) => apiFetch(`/api/procurement/purchase-requests/${id}`).then(r => r.json()),
-  create: (data: Record<string, unknown>) => apiFetch('/api/procurement/purchase-requests', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
-  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/procurement/purchase-requests/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
-}
-
-// ============ PROCUREMENT - PURCHASE ORDERS ============
-export const purchaseOrdersApi = {
-  list: () => apiFetch('/api/procurement/purchase-orders').then(r => r.json()),
-  get: (id: string) => apiFetch(`/api/procurement/purchase-orders/${id}`).then(r => r.json()),
-  create: (data: Record<string, unknown>) => apiFetch('/api/procurement/purchase-orders', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
-  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/procurement/purchase-orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
-}
-
-// ============ PROCUREMENT - GOODS RECEIPTS ============
-export const goodsReceiptsApi = {
-  list: () => apiFetch('/api/procurement/goods-receipts').then(r => r.json()),
-  create: (data: Record<string, unknown>) => apiFetch('/api/procurement/goods-receipts', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+// ============ SUPPORT / TICKETS ============
+export const supportApi = {
+  list: (params?: { status?: string; priority?: string; category?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.status) q.set('status', params.status)
+    if (params?.priority) q.set('priority', params.priority)
+    if (params?.category) q.set('category', params.category)
+    const qs = q.toString()
+    return apiFetch(`/api/compliance/tickets${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
+  get: (id: string) => apiFetch(`/api/compliance/tickets/${id}`).then(r => r.json()),
+  create: (data: Record<string, unknown>) => apiFetch('/api/compliance/tickets', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/compliance/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+  assign: (id: string, data: Record<string, unknown>) => apiFetch(`/api/compliance/tickets/${id}/assign`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
 // ============ ASSETS ============
 export const assetsApi = {
-  list: () => apiFetch('/api/assets').then(r => r.json()),
+  list: (params?: { status?: string; category?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.status) q.set('status', params.status)
+    if (params?.category) q.set('category', params.category)
+    const qs = q.toString()
+    return apiFetch(`/api/assets${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
   get: (id: string) => apiFetch(`/api/assets/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/assets', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/assets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
-// ============ POS ============
+// ============ AUDIT LOGS ============
+export const auditApi = {
+  list: (params?: { action?: string; module?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.action) q.set('action', params.action)
+    if (params?.module) q.set('module', params.module)
+    const qs = q.toString()
+    return apiFetch(`/api/compliance/audit-logs${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
+}
+
+// ============ POS (PURCHASE ORDERS) ============
 export const posApi = {
-  list: () => apiFetch('/api/pos').then(r => r.json()),
+  list: (params?: { status?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.status) q.set('status', params.status)
+    const qs = q.toString()
+    return apiFetch(`/api/pos${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
+  stats: () => apiFetch('/api/pos/stats').then(r => r.json()),
+  get: (id: string) => apiFetch(`/api/pos/${id}`).then(r => r.json()),
   create: (data: Record<string, unknown>) => apiFetch('/api/pos', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  updateStatus: (id: string, data: Record<string, unknown>) => apiFetch(`/api/pos/${id}/status`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  receive: (id: string, data: Record<string, unknown>) => apiFetch(`/api/pos/${id}/receive`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  delete: (id: string) => apiFetch(`/api/pos/${id}`, { method: 'DELETE' }).then(r => r.json()),
 }
 
 // ============ STOCK MOVEMENTS ============
@@ -314,10 +351,38 @@ export const stockMovementsApi = {
   create: (data: Record<string, unknown>) => apiFetch('/api/stock-movements', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
-// ============ SUPPLIERS ============
-export const suppliersApi = {
-  list: () => apiFetch('/api/suppliers').then(r => r.json()),
-  create: (data: Record<string, unknown>) => apiFetch('/api/suppliers', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+// ============ CATALOG ============
+export const catalogApi = {
+  list: (params?: { type?: string; category?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.type) q.set('type', params.type)
+    if (params?.category) q.set('category', params.category)
+    const qs = q.toString()
+    return apiFetch(`/api/catalog/items${qs ? `?${qs}` : ''}`).then(r => r.json())
+  },
+  get: (id: string) => apiFetch(`/api/catalog/items/${id}`).then(r => r.json()),
+  create: (data: Record<string, unknown>) => apiFetch('/api/catalog/items', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/catalog/items/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+}
+
+// ============ PROCUREMENT ============
+export const vendorsApi = {
+  list: () => apiFetch('/api/procurement/vendors').then(r => r.json()),
+  get: (id: string) => apiFetch(`/api/procurement/vendors/${id}`).then(r => r.json()),
+  create: (data: Record<string, unknown>) => apiFetch('/api/procurement/vendors', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/procurement/vendors/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => r.json()),
+}
+export const purchaseRequestsApi = {
+  list: () => apiFetch('/api/procurement/purchase-requests').then(r => r.json()),
+  create: (data: Record<string, unknown>) => apiFetch('/api/procurement/purchase-requests', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+}
+export const purchaseOrdersApi = {
+  list: () => apiFetch('/api/procurement/purchase-orders').then(r => r.json()),
+  create: (data: Record<string, unknown>) => apiFetch('/api/procurement/purchase-orders', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+}
+export const goodsReceiptsApi = {
+  list: () => apiFetch('/api/procurement/goods-receipts').then(r => r.json()),
+  create: (data: Record<string, unknown>) => apiFetch('/api/procurement/goods-receipts', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
 }
 
 // ============ NOTIFICATIONS ============

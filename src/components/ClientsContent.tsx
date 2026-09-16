@@ -142,28 +142,40 @@ function ClientsView({ onRefresh }: { onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try {
       const data = await clientsApi.list()
       setClients(data.clients || [])
     } catch {
-      setClients([
-        { id: '1', name: 'PT Maju Jaya', industry: 'Manufacturing', status: 'active', picName: 'Budi Santoso' },
-        { id: '2', name: 'CV Berkah Abadi', industry: 'Construction', status: 'lead', picName: 'Andi Wijaya' },
-      ])
+      setError('Gagal memuat data')
     } finally { setLoading(false) }
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
 
-  const filtered = clients.filter((c) => c.name?.toLowerCase().includes(search.toLowerCase()) || c.picName?.toLowerCase().includes(search.toLowerCase()))
+  const filtered = clients.filter((c) => {
+    const q = search.toLowerCase()
+    return !q || c.name?.toLowerCase().includes(q) || c.picName?.toLowerCase().includes(q) || c.picEmail?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)
+  })
 
   const handleCreate = async () => {
     try { await clientsApi.create(formValues); setShowForm(false); setFormValues({}); loadData(); onRefresh() } catch {}
   }
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Hapus client ini?')) return
+    try { await clientsApi.delete(id); loadData(); onRefresh() } catch {}
+  }
+
   if (loading) return <EmptyState text="Memuat data..." />
+  if (error) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 }}>
+      <div style={{ fontSize: 13, color: '#ff3b30', fontFamily: SF }}>Gagal memuat data</div>
+      <button onClick={() => { setError(null); setLoading(true); loadData() }} style={{ fontSize: 12, color: '#007aff', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SF }}>Coba lagi</button>
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -181,6 +193,9 @@ function ClientsView({ onRefresh }: { onRefresh: () => void }) {
                 <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 1 }}>{client.picName || '-'} · {client.industry || '-'}</div>
               </div>
               <StatusBadge status={client.status} />
+              <button onClick={(e) => { e.stopPropagation(); handleDelete(client.id) }} style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: 0.4, transition: 'opacity 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
             </div>
           ))}
         </div>
@@ -209,10 +224,11 @@ function BookingsView({ onRefresh }: { onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try { const data = await bookingsApi.list(); setBookings(data.bookings || []) } catch {
-      setBookings([{ id: '1', title: 'Survey', date: '2026-09-15', startTime: '10:00', status: 'confirmed' }])
+      setError('Gagal memuat data')
     } finally { setLoading(false) }
   }, [])
 
@@ -222,7 +238,18 @@ function BookingsView({ onRefresh }: { onRefresh: () => void }) {
     try { await bookingsApi.create(formValues); setShowForm(false); setFormValues({}); loadData(); onRefresh() } catch {}
   }
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Hapus booking ini?')) return
+    try { await bookingsApi.update(id, { status: 'cancelled' }); loadData(); onRefresh() } catch {}
+  }
+
   if (loading) return <EmptyState text="Memuat data..." />
+  if (error) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 }}>
+      <div style={{ fontSize: 13, color: '#ff3b30', fontFamily: SF }}>Gagal memuat data</div>
+      <button onClick={() => { setError(null); setLoading(true); loadData() }} style={{ fontSize: 12, color: '#007aff', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SF }}>Coba lagi</button>
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -237,6 +264,9 @@ function BookingsView({ onRefresh }: { onRefresh: () => void }) {
                 </div>
                 <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 2 }}>{b.date} {b.startTime} - {b.endTime}</div>
               </div>
+              <button onClick={(e) => { e.stopPropagation(); handleDelete(b.id) }} style={{ width: 20, height: 20, borderRadius: 4, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: 0.4, transition: 'opacity 0.15s' }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
             </div>
           ))}
         </div>
@@ -263,10 +293,11 @@ function QuotationsView({ onRefresh }: { onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try { const data = await quotationsApi.list(); setQuotations(data.quotations || []) } catch {
-      setQuotations([{ id: '1', quotationNumber: 'QUO-09-001', title: 'Kanopi Alderon', grandTotal: '45000000', status: 'sent' }])
+      setError('Gagal memuat data')
     } finally { setLoading(false) }
   }, [])
 
@@ -277,6 +308,12 @@ function QuotationsView({ onRefresh }: { onRefresh: () => void }) {
   }
 
   if (loading) return <EmptyState text="Memuat data..." />
+  if (error) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 }}>
+      <div style={{ fontSize: 13, color: '#ff3b30', fontFamily: SF }}>Gagal memuat data</div>
+      <button onClick={() => { setError(null); setLoading(true); loadData() }} style={{ fontSize: 12, color: '#007aff', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SF }}>Coba lagi</button>
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -323,10 +360,11 @@ function WarrantiesView({ onRefresh }: { onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try { const data = await warrantiesApi.list(); setWarranties(data.warranties || []) } catch {
-      setWarranties([{ id: '1', policyNumber: 'WR-2026-001', item: 'Kanopi Alderon RS', startDate: '2026-09-01', endDate: '2029-09-01', status: 'active' }])
+      setError('Gagal memuat data')
     } finally { setLoading(false) }
   }, [])
 
@@ -337,6 +375,12 @@ function WarrantiesView({ onRefresh }: { onRefresh: () => void }) {
   }
 
   if (loading) return <EmptyState text="Memuat data..." />
+  if (error) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 }}>
+      <div style={{ fontSize: 13, color: '#ff3b30', fontFamily: SF }}>Gagal memuat data</div>
+      <button onClick={() => { setError(null); setLoading(true); loadData() }} style={{ fontSize: 12, color: '#007aff', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SF }}>Coba lagi</button>
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

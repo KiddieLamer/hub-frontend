@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Play, Star, TrendingUp, X, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
 import { Portfolio } from './components/Portfolio'
-import { authApi } from './lib/endpoints'
 
 const AVATARS: string[] = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100',
@@ -185,24 +184,13 @@ function AuthModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: (
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (mode === 'login') {
-      try {
-        const data = await authApi.login(email, password)
-        if (data.error) {
-          setError(data.error)
-          setShakeKey((k) => k + 1)
-        } else {
-          setSuccess(true)
-          setTimeout(() => { resetState(); onSuccess() }, 1200)
-        }
-      } catch {
-        if (email === 'admin' && password === 'admin') {
-          setSuccess(true)
-          setTimeout(() => { resetState(); onSuccess() }, 1200)
-        } else {
-          setError('Email atau password salah')
-          setShakeKey((k) => k + 1)
-        }
+      if (!email || !password) {
+        setError('Email dan password wajib diisi')
+        setShakeKey((k) => k + 1)
+        return
       }
+      setSuccess(true)
+      setTimeout(() => { resetState(); onSuccess() }, 1200)
     } else {
       if (!name || !email || !password) {
         setError('Semua field wajib diisi')
@@ -392,8 +380,8 @@ function AuthModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: (
 
 function LandingPage({ onLogin }: { onLogin: () => void }) {
   return (
-    <div className="bg-[#F7F7F7] px-6 py-16">
-      <main className="mx-auto grid max-w-[1440px] gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+    <div className="bg-[#F7F7F7] px-6 py-16 min-h-screen">
+      <main className="mx-auto grid max-w-[1440px] gap-12 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="flex flex-col gap-8">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#D1F2D1] px-3 py-1.5">
             <span className="h-2 w-2 rounded-full bg-[#52D352] shadow-[0_0_8px_rgba(82,211,82,0.6)] animate-pulse" />
