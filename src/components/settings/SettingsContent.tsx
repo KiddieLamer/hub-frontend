@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock } from 'lucide-react'
-import { usersApi, membersApi } from '../../lib/endpoints'
+import { usersApi, membersApi, tenantsApi, apiFetch } from '../../lib/endpoints'
+import { setTenantId } from '../../lib/api'
 
 function GroupedRow({
   icon,
@@ -97,6 +98,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [addUserError, setAddUserError] = useState('')
   const [addUserLoading, setAddUserLoading] = useState(false)
   const [currentTenant, setCurrentTenant] = useState<any>(null)
+  const [allTenants, setAllTenants] = useState<any[]>([])
   const [showTenantModal, setShowTenantModal] = useState(false)
   const [tenantForm, setTenantForm] = useState({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
   const [tenantError, setTenantError] = useState('')
@@ -119,6 +121,9 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     }
     if (activeTab === 'company') {
       tenantsApi.getCurrent().then(data => setCurrentTenant(data?.tenant || null)).catch(() => {})
+      if (user?.platformRole === 'owner') {
+        tenantsApi.listAll().then(data => setAllTenants(data?.tenants || [])).catch(() => {})
+      }
     }
   }, [activeTab])
 
@@ -461,55 +466,90 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           {/* COMPANY TAB */}
           {activeTab === 'company' && (
             <>
-              {currentTenant ? (
-                <>
-                  <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                    <GroupedRow icon={<Building size={14} />} iconBg="#34c759" label="Company Name" value={currentTenant.name} onClick={isPlatformOwner ? () => {
-                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
-                      setShowTenantModal(true)
-                    } : undefined} />
-                    <GroupedRow icon={<Globe size={14} />} iconBg="#007aff" label="Website" value={currentTenant.website || 'Not set'} onClick={isPlatformOwner ? () => {
-                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
-                      setShowTenantModal(true)
-                    } : undefined} />
-                    <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Email" value={currentTenant.email || 'Not set'} onClick={isPlatformOwner ? () => {
-                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
-                      setShowTenantModal(true)
-                    } : undefined} />
-                    <GroupedRow icon={<Clock size={14} />} iconBg="#30b0c7" label="Phone" value={currentTenant.phoneNumber || 'Not set'} onClick={isPlatformOwner ? () => {
-                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
-                      setShowTenantModal(true)
-                    } : undefined} />
-                    <GroupedRow icon={<Building size={14} />} iconBg="#8e8e93" label="Address" value={currentTenant.address || 'Not set'} isLast onClick={isPlatformOwner ? () => {
-                      setTenantForm({ name: currentTenant.name || '', slug: currentTenant.slug || '', website: currentTenant.website || '', email: currentTenant.email || '', phoneNumber: currentTenant.phoneNumber || '', address: currentTenant.address || '' })
-                      setShowTenantModal(true)
-                    } : undefined} />
-                  </div>
-                  {isPlatformOwner && (
-                    <button onClick={() => setShowTenantModal(true)} style={{ padding: '8px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, alignSelf: 'flex-end' }}>
-                      Edit Company
-                    </button>
-                  )}
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                  <Building size={48} color="#8e8e93" style={{ marginBottom: 16 }} />
-                  <div style={{ fontSize: 16, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 8 }}>No Company Yet</div>
-                  {isPlatformOwner ? (
-                    <>
-                      <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, marginBottom: 20 }}>Create a company to get started with your workspace.</div>
+              {isPlatformOwner && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF }}>{allTenants.length} company{allTenants.length !== 1 ? 'ies' : ''}</div>
+                  <button onClick={() => {
+                    setTenantForm({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
+                    setShowTenantModal(true)
+                  }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>
+                    + New Company
+                  </button>
+                </div>
+              )}
+
+              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                {isPlatformOwner ? (
+                  allTenants.length === 0 ? (
+                    <div style={{ padding: 40, textAlign: 'center' }}>
+                      <Building size={48} color="#8e8e93" style={{ marginBottom: 16 }} />
+                      <div style={{ fontSize: 16, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 8 }}>No Companies Yet</div>
+                      <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, marginBottom: 20 }}>Create your first company to get started.</div>
                       <button onClick={() => {
                         setTenantForm({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
                         setShowTenantModal(true)
                       }} style={{ padding: '10px 20px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>
                         Create Company
                       </button>
+                    </div>
+                  ) : (
+                    allTenants.map((t: any, i: number) => (
+                      <div
+                        key={t.id}
+                        onClick={async () => {
+                          try {
+                            await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: t.id }) })
+                            setTenantId(t.id)
+                            setCurrentTenant(t)
+                            window.location.reload()
+                          } catch {}
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                          borderBottom: i === allTenants.length - 1 ? 'none' : '1px solid rgb(229, 229, 234)',
+                          cursor: 'pointer', transition: 'background 0.1s',
+                          background: t.id === currentTenant?.id ? 'rgba(0,122,255,0.06)' : 'transparent',
+                        }}
+                        onMouseEnter={(e) => { if (t.id !== currentTenant?.id) e.currentTarget.style.background = 'rgba(0,0,0,0.03)' }}
+                        onMouseLeave={(e) => { if (t.id !== currentTenant?.id) e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <div style={{
+                          width: 36, height: 36, borderRadius: 8,
+                          background: t.id === currentTenant?.id ? 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' : 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                          <Building size={18} color="white" />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
+                          <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 1 }}>{t.slug} · {t.plan || 'free'}{t.status === 'active' ? '' : ` · ${t.status}`}</div>
+                        </div>
+                        {t.id === currentTenant?.id && (
+                          <div style={{ fontSize: 11, color: '#007aff', fontFamily: SF, fontWeight: 500, whiteSpace: 'nowrap' }}>Active</div>
+                        )}
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </div>
+                    ))
+                  )
+                ) : (
+                  currentTenant ? (
+                    <>
+                      <GroupedRow icon={<Building size={14} />} iconBg="#34c759" label="Company Name" value={currentTenant.name} />
+                      <GroupedRow icon={<Globe size={14} />} iconBg="#007aff" label="Website" value={currentTenant.website || 'Not set'} />
+                      <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Email" value={currentTenant.email || 'Not set'} />
+                      <GroupedRow icon={<Clock size={14} />} iconBg="#30b0c7" label="Phone" value={currentTenant.phoneNumber || 'Not set'} />
+                      <GroupedRow icon={<Building size={14} />} iconBg="#8e8e93" label="Address" value={currentTenant.address || 'Not set'} isLast />
                     </>
                   ) : (
-                    <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF }}>Contact the platform owner to create a company for you.</div>
-                  )}
-                </div>
-              )}
+                    <div style={{ padding: 40, textAlign: 'center' }}>
+                      <Building size={48} color="#8e8e93" style={{ marginBottom: 16 }} />
+                      <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF }}>No company assigned yet.</div>
+                    </div>
+                  )
+                )}
+              </div>
             </>
           )}
 
