@@ -639,6 +639,9 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
                     <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Full Name" value={selectedMember.userFullName} />
                     <GroupedRow icon={<Key size={14} />} iconBg="#007aff" label="Email" value={selectedMember.userEmail} />
+                    <GroupedRow icon={<Building size={14} />} iconBg="#5856d6" label="Phone" value={selectedMember.userPhoneNumber} />
+                    <GroupedRow icon={<Briefcase size={14} />} iconBg="#ff2d55" label="Job Title" value={selectedMember.jobTitle} />
+                    <GroupedRow icon={<Building size={14} />} iconBg="#30b0c7" label="Department" value={selectedMember.userDepartment} />
                     <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : '#34c759'} label="Role" value={selectedMember.role} isLast />
                   </div>
 
