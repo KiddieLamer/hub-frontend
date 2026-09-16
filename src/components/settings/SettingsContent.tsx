@@ -381,7 +381,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
 
         {/* Section Header for non-profile tabs */}
         {activeTab !== 'profile' && !(activeTab === 'users' && selectedMember) && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center', background: '#f8f8f8', borderRadius: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center', background: '#f8f8f8', borderRadius: 10, width: '100%', boxSizing: 'border-box' }}>
             <div style={{
               width: 58, height: 58, borderRadius: 14,
               background: activeTab === 'general' ? 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)' : activeTab === 'users' ? 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' : 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
@@ -608,7 +608,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 </div>
               ) : (
                 /* Member List View */
-                <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
                   {members.length === 0 ? (
                     <div style={{ padding: 20, textAlign: 'center', color: '#8e8e93', fontSize: 13, fontFamily: SF }}>No members yet</div>
                   ) : (
