@@ -538,19 +538,41 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               {selectedMember ? (
                 /* Member Detail View */
                 <div style={{ padding: '0 4px', maxWidth: 640, margin: '0 auto' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
-                    <div style={{ position: 'relative', marginBottom: 12 }}>
+                  {/* ID Card */}
+                  <div style={{ position: 'relative', width: '100%', maxWidth: 320, height: 420, margin: '0 auto 20px', overflow: 'hidden', borderRadius: 16, background: '#d8d8d6', boxShadow: '0 20px 45px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.08)', fontFamily: SF, color: '#252525' }}>
+                    {/* Hook */}
+                    <div style={{ position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)', width: 25, height: 42, zIndex: 20, borderRadius: '0 0 14px 14px', background: '#333' }}>
+                      <div style={{ position: 'absolute', top: 7, left: '50%', transform: 'translateX(-50%)', width: 13, height: 18, border: '3px solid #777', borderRadius: '50%', background: '#222' }} />
+                    </div>
+
+                    {/* Photo */}
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 280, overflow: 'hidden' }}>
                       {selectedMember.userAvatarUrl ? (
-                        <img src={selectedMember.userAvatarUrl} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />
+                        <img src={selectedMember.userAvatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }} />
                       ) : (
-                        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: 'white', fontFamily: SF }}>
+                        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 72, fontWeight: 700, color: 'white' }}>
                           {(selectedMember.userFullName || 'U').charAt(0).toUpperCase()}
                         </div>
                       )}
                     </div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>{selectedMember.userFullName}</div>
-                    <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, marginBottom: 8 }}>{selectedMember.userEmail}</div>
-                    <span style={{ padding: '3px 12px', borderRadius: 12, background: selectedMember.role === 'owner' ? 'rgba(255,149,0,0.12)' : selectedMember.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 12, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{selectedMember.role}</span>
+
+                    {/* Name overlay */}
+                    <div style={{ position: 'absolute', top: 268, left: 22, zIndex: 10, display: 'flex', flexDirection: 'column', fontSize: 22, lineHeight: 1.05, fontWeight: 500, letterSpacing: '-0.5px', color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                      {(selectedMember.userFullName || 'User').split(' ').map((word: string, i: number) => (
+                        <span key={i}>{word}</span>
+                      ))}
+                    </div>
+
+                    {/* White curved bottom */}
+                    <div style={{ position: 'absolute', left: '-5%', bottom: -1, width: '110%', height: 160, background: '#f8f8f7', borderRadius: '52% 52% 0 0 / 32% 32% 0 0', zIndex: 5 }}>
+                      <div style={{ position: 'absolute', top: -35, left: 0, width: '100%', height: 70, background: '#f8f8f7', borderRadius: '50%' }} />
+                    </div>
+
+                    {/* Meta */}
+                    <div style={{ position: 'absolute', left: 25, right: 25, bottom: 25, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', fontSize: 11, zIndex: 10 }}>
+                      <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: '-0.2px', textTransform: 'capitalize' }}>{selectedMember.role}</span>
+                      <span style={{ fontSize: 9, fontWeight: 500, color: '#555' }}>{selectedMember.userEmail}</span>
+                    </div>
                   </div>
 
                   <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden' }}>
