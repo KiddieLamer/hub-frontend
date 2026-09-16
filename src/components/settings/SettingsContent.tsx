@@ -98,6 +98,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [addUserLoading, setAddUserLoading] = useState(false)
   const [editMemberModal, setEditMemberModal] = useState<any>(null)
   const [editMemberRole, setEditMemberRole] = useState('')
+  const [selectedMember, setSelectedMember] = useState<any>(null)
 
   useEffect(() => {
     usersApi.getMe().then(data => {
@@ -324,16 +325,45 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         {/* Navigation arrows top toolbar */}
         <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 2 }}>
-            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
+            {activeTab === 'users' && selectedMember ? (
+              <button onClick={() => setSelectedMember(null)} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+            ) : (
+              <>
+                <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </>
+            )}
           </div>
-          {activeTab === 'profile' && (
+          {activeTab === 'users' && selectedMember ? (
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>{selectedMember.userFullName}</span>
+          ) : activeTab === 'users' ? (
+            <>
+              <span style={{ flex: 1 }} />
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button onClick={() => { setShowAddUserModal(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+                {selectedMember && selectedMember.role !== 'owner' && (
+                  <>
+                    <button onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
+                    <button onClick={async () => { if (confirm(`Delete ${selectedMember.userFullName}?`)) { await membersApi.remove(selectedMember.id); setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id)); setSelectedMember(null) } }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          ) : activeTab === 'profile' ? (
             <span style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Apple Account</span>
-          )}
+          ) : null}
         </div>
 
         {/* Section Header for non-profile tabs */}
@@ -494,45 +524,82 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           {/* USERS & GROUPS TAB */}
           {activeTab === 'users' && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-                <button
-                  onClick={() => { setShowAddUserModal(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member' }) }}
-                  style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}
-                >
-                  + Add User
-                </button>
-              </div>
-              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                {members.length === 0 ? (
-                  <div style={{ padding: 20, textAlign: 'center', color: '#8e8e93', fontSize: 13, fontFamily: SF }}>No members yet</div>
-                ) : (
-                  members.map((m: any, i: number) => (
-                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', borderBottom: i === members.length - 1 ? 'none' : '1px solid rgb(229, 229, 234)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {m.userAvatarUrl ? (
-                          <img src={m.userAvatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.setAttribute('style', 'display:flex') }} />
-                        ) : null}
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: m.userAvatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'white', fontFamily: SF, position: m.userAvatarUrl ? 'absolute' : undefined }}>
-                          {(m.userFullName || 'U').charAt(0).toUpperCase()}
+              {selectedMember ? (
+                /* Member Detail View */
+                <div style={{ padding: '0 4px', maxWidth: 540, margin: '0 auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center' }}>
+                    <div style={{ position: 'relative', marginBottom: 12 }}>
+                      {selectedMember.userAvatarUrl ? (
+                        <img src={selectedMember.userAvatarUrl} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: 'white', fontFamily: SF }}>
+                          {(selectedMember.userFullName || 'U').charAt(0).toUpperCase()}
                         </div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF }}>{m.userFullName}</div>
-                          <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{m.userEmail}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
-                        {m.role !== 'owner' && (
-                          <>
-                            <button onClick={() => { setEditMemberModal(m); setEditMemberRole(m.role) }} style={{ padding: '4px 8px', borderRadius: 5, border: 'none', background: 'rgba(0,122,255,0.08)', color: '#007aff', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Edit</button>
-                            <button onClick={async () => { if (confirm(`Remove ${m.userFullName}?`)) { await membersApi.remove(m.id); setMembers(prev => prev.filter((x: any) => x.id !== m.id)) } }} style={{ padding: '4px 8px', borderRadius: 5, border: 'none', background: 'rgba(255,59,48,0.08)', color: '#ff3b30', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Remove</button>
-                          </>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  ))
-                )}
-              </div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>{selectedMember.userFullName}</div>
+                    <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, marginBottom: 8 }}>{selectedMember.userEmail}</div>
+                    <span style={{ padding: '3px 12px', borderRadius: 12, background: selectedMember.role === 'owner' ? 'rgba(255,149,0,0.12)' : selectedMember.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 12, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{selectedMember.role}</span>
+                  </div>
+
+                  <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                    <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Full Name" value={selectedMember.userFullName} />
+                    <GroupedRow icon={<Key size={14} />} iconBg="#007aff" label="Email" value={selectedMember.userEmail} />
+                    <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : '#34c759'} label="Role" value={selectedMember.role} isLast />
+                  </div>
+
+                  <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden', marginTop: 14 }}>
+                    <button onClick={async () => {
+                      const newPass = prompt('Enter new password for ' + selectedMember.userFullName + ':')
+                      if (!newPass || newPass.length < 6) { if (newPass !== null) alert('Password must be at least 6 characters'); return }
+                      try {
+                        await apiFetch(`/api/users/${selectedMember.userId}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: newPass }) })
+                        alert('Password reset successfully')
+                      } catch { alert('Failed to reset password') }
+                    }} style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'transparent', color: '#007aff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center' }}>Reset Password</button>
+                  </div>
+
+                  {selectedMember.role !== 'owner' && (
+                    <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', overflow: 'hidden', marginTop: 14 }}>
+                      <button onClick={async () => {
+                        if (confirm(`Remove ${selectedMember.userFullName} from this tenant?`)) {
+                          await membersApi.remove(selectedMember.id)
+                          setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id))
+                          setSelectedMember(null)
+                        }
+                      }} style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'transparent', color: '#ff3b30', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center' }}>Remove from Tenant</button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Member List View */
+                <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+                  {members.length === 0 ? (
+                    <div style={{ padding: 20, textAlign: 'center', color: '#8e8e93', fontSize: 13, fontFamily: SF }}>No members yet</div>
+                  ) : (
+                    members.map((m: any, i: number) => (
+                      <div key={m.id} onClick={() => setSelectedMember(m)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', borderBottom: i === members.length - 1 ? 'none' : '1px solid rgb(229, 229, 234)', cursor: 'pointer', transition: 'background 0.1s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {m.userAvatarUrl ? (
+                            <img src={m.userAvatarUrl} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.setAttribute('style', 'display:flex') }} />
+                          ) : null}
+                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: m.userAvatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'white', fontFamily: SF }}>
+                            {(m.userFullName || 'U').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF }}>{m.userFullName}</div>
+                            <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{m.userEmail}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </>
           )}
 
