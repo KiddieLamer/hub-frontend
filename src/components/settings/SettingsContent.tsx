@@ -100,6 +100,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [addUserLoading, setAddUserLoading] = useState(false)
   const [editMemberModal, setEditMemberModal] = useState<any>(null)
   const [editMemberRole, setEditMemberRole] = useState('')
+  const [editMemberForm, setEditMemberForm] = useState({ fullName: '', email: '', phoneNumber: '', jobTitle: '', department: '' })
   const [selectedMember, setSelectedMember] = useState<any>(null)
 
   useEffect(() => {
@@ -345,15 +346,13 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               <span style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>{selectedMember.userFullName}</span>
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                </button>
                 {selectedMember.role !== 'owner' && (
-                  <>
-                    <button onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                    </button>
-                    <button onClick={async () => { if (confirm(`Delete ${selectedMember.userFullName}?`)) { await membersApi.remove(selectedMember.id); setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id)); setSelectedMember(null) } }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                    </button>
-                  </>
+                  <button onClick={async () => { if (confirm(`Delete ${selectedMember.userFullName}?`)) { await membersApi.remove(selectedMember.id); setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id)); setSelectedMember(null) } }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
                 )}
               </div>
             </>
@@ -822,22 +821,41 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
       {/* Add User Modal */}
       {editMemberModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setEditMemberModal(null)}>
-          <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 340, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 14 }}>Edit Member</div>
-            <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, marginBottom: 10 }}>{editMemberModal.userFullName}</div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role</div>
-              <select value={editMemberRole} onChange={(e) => setEditMemberRole(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', background: 'white', color: '#1d1d1f' }}>
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
+          <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 14 }}>Edit {editMemberModal.userFullName}</div>
+            {[
+              { key: 'fullName', label: 'Full Name', value: editMemberForm.fullName },
+              { key: 'email', label: 'Email', value: editMemberForm.email },
+              { key: 'phoneNumber', label: 'Phone', value: editMemberForm.phoneNumber },
+              { key: 'jobTitle', label: 'Job Title', value: editMemberForm.jobTitle },
+              { key: 'department', label: 'Department', value: editMemberForm.department },
+            ].map(f => (
+              <div key={f.key} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>{f.label}</div>
+                <input type="text" value={f.value} onChange={(e) => setEditMemberForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+              </div>
+            ))}
+            {editMemberModal.role !== 'owner' && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role</div>
+                <select value={editMemberRole} onChange={(e) => setEditMemberRole(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', background: 'white', color: '#1d1d1f' }}>
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button onClick={() => setEditMemberModal(null)} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
               <button onClick={async () => {
-                await membersApi.updateRole(editMemberModal.id, editMemberRole)
-                setMembers(prev => prev.map((x: any) => x.id === editMemberModal.id ? { ...x, role: editMemberRole } : x))
-                setEditMemberModal(null)
+                try {
+                  await usersApi.update(editMemberModal.userId, { fullName: editMemberForm.fullName, email: editMemberForm.email, phoneNumber: editMemberForm.phoneNumber || undefined, jobTitle: editMemberForm.jobTitle || undefined, department: editMemberForm.department || undefined })
+                  if (editMemberModal.role !== 'owner') {
+                    await membersApi.updateRole(editMemberModal.id, editMemberRole)
+                  }
+                  setMembers(prev => prev.map((x: any) => x.id === editMemberModal.id ? { ...x, ...editMemberForm, role: editMemberModal.role !== 'owner' ? editMemberRole : x.role } : x))
+                  setSelectedMember((prev: any) => prev ? { ...prev, ...editMemberForm, role: editMemberModal.role !== 'owner' ? editMemberRole : prev.role } : prev)
+                  setEditMemberModal(null)
+                } catch { alert('Failed to update') }
               }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Save</button>
             </div>
           </div>
