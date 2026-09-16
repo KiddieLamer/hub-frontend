@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock } from 'lucide-react'
-import { usersApi, membersApi, tenantsApi } from '../../lib/endpoints'
-import { apiFetch, setTenantId } from '../../lib/api'
+import { usersApi, membersApi } from '../../lib/endpoints'
 
 function GroupedRow({
   icon,
@@ -97,12 +96,6 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', role: 'member' as string })
   const [addUserError, setAddUserError] = useState('')
   const [addUserLoading, setAddUserLoading] = useState(false)
-  const [currentTenant, setCurrentTenant] = useState<any>(null)
-  const [allTenants, setAllTenants] = useState<any[]>([])
-  const [showTenantModal, setShowTenantModal] = useState(false)
-  const [tenantForm, setTenantForm] = useState({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
-  const [tenantError, setTenantError] = useState('')
-  const [tenantLoading, setTenantLoading] = useState(false)
 
   useEffect(() => {
     usersApi.getMe().then(data => {
@@ -119,12 +112,6 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     if (activeTab === 'users') {
       membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
     }
-    if (activeTab === 'company') {
-      tenantsApi.getCurrent().then(data => setCurrentTenant(data?.tenant || null)).catch(() => {})
-      if (user?.platformRole === 'owner') {
-        tenantsApi.listAll().then(data => setAllTenants(data?.tenants || [])).catch(() => {})
-      }
-    }
   }, [activeTab])
 
   const getInitials = (name?: string) => {
@@ -132,11 +119,8 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
   }
 
-  const isPlatformOwner = user?.platformRole === 'owner'
-
   const categories = [
     { id: 'profile', label: 'Profile & Account', icon: User, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
-    ...(isPlatformOwner ? [{ id: 'company', label: 'Company', icon: Building, bg: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' }] : []),
     { id: 'general', label: 'General', icon: Settings, bg: 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)' },
     { id: 'appearance', label: 'Appearance', icon: Palette, bg: 'linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%)' },
     { id: 'security', label: 'Privacy & Security', icon: ShieldCheck, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
@@ -365,21 +349,18 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               {activeTab === 'security' && <ShieldCheck size={32} color="white" />}
               {activeTab === 'appearance' && <Palette size={32} color="white" />}
               {activeTab === 'users' && <Users size={32} color="white" />}
-              {activeTab === 'company' && <Building size={32} color="white" />}
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
               {activeTab === 'general' && 'General'}
               {activeTab === 'security' && 'Privacy & Security'}
               {activeTab === 'appearance' && 'Appearance'}
               {activeTab === 'users' && 'Users & Groups'}
-              {activeTab === 'company' && 'Company'}
             </div>
             <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
               {activeTab === 'general' && 'Manage your overall setup and preferences, such as language, timezone, and regional settings.'}
               {activeTab === 'security' && 'Manage privacy permissions, security keys, passkeys, and encryption settings.'}
               {activeTab === 'appearance' && 'Customize theme colors, accent styles, and window appearance.'}
               {activeTab === 'users' && 'Manage team members, roles, and access permissions for this tenant.'}
-              {activeTab === 'company' && 'Create and manage your company or organization settings.'}
             </div>
           </div>
         )}
@@ -459,96 +440,6 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 >
                   Sign Out...
                 </button>
-              </div>
-            </>
-          )}
-
-          {/* COMPANY TAB */}
-          {activeTab === 'company' && (
-            <>
-              {isPlatformOwner && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF }}>{allTenants.length} company{allTenants.length !== 1 ? 'ies' : ''}</div>
-                  <button onClick={() => {
-                    setTenantForm({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
-                    setShowTenantModal(true)
-                  }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>
-                    + New Company
-                  </button>
-                </div>
-              )}
-
-              <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                {isPlatformOwner ? (
-                  allTenants.length === 0 ? (
-                    <div style={{ padding: 40, textAlign: 'center' }}>
-                      <Building size={48} color="#8e8e93" style={{ marginBottom: 16 }} />
-                      <div style={{ fontSize: 16, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 8 }}>No Companies Yet</div>
-                      <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, marginBottom: 20 }}>Create your first company to get started.</div>
-                      <button onClick={() => {
-                        setTenantForm({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
-                        setShowTenantModal(true)
-                      }} style={{ padding: '10px 20px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>
-                        Create Company
-                      </button>
-                    </div>
-                  ) : (
-                    allTenants.map((t: any, i: number) => (
-                      <div
-                        key={t.id}
-                        onClick={async () => {
-                          try {
-                            await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: t.id }) })
-                            setTenantId(t.id)
-                            setCurrentTenant(t)
-                            window.location.reload()
-                          } catch {}
-                        }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                          borderBottom: i === allTenants.length - 1 ? 'none' : '1px solid rgb(229, 229, 234)',
-                          cursor: 'pointer', transition: 'background 0.1s',
-                          background: t.id === currentTenant?.id ? 'rgba(0,122,255,0.06)' : 'transparent',
-                        }}
-                        onMouseEnter={(e) => { if (t.id !== currentTenant?.id) e.currentTarget.style.background = 'rgba(0,0,0,0.03)' }}
-                        onMouseLeave={(e) => { if (t.id !== currentTenant?.id) e.currentTarget.style.background = 'transparent' }}
-                      >
-                        <div style={{
-                          width: 36, height: 36, borderRadius: 8,
-                          background: t.id === currentTenant?.id ? 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' : 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                        }}>
-                          <Building size={18} color="white" />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
-                          <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 1 }}>{t.slug} · {t.plan || 'free'}{t.status === 'active' ? '' : ` · ${t.status}`}</div>
-                        </div>
-                        {t.id === currentTenant?.id && (
-                          <div style={{ fontSize: 11, color: '#007aff', fontFamily: SF, fontWeight: 500, whiteSpace: 'nowrap' }}>Active</div>
-                        )}
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
-                      </div>
-                    ))
-                  )
-                ) : (
-                  currentTenant ? (
-                    <>
-                      <GroupedRow icon={<Building size={14} />} iconBg="#34c759" label="Company Name" value={currentTenant.name} />
-                      <GroupedRow icon={<Globe size={14} />} iconBg="#007aff" label="Website" value={currentTenant.website || 'Not set'} />
-                      <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Email" value={currentTenant.email || 'Not set'} />
-                      <GroupedRow icon={<Clock size={14} />} iconBg="#30b0c7" label="Phone" value={currentTenant.phoneNumber || 'Not set'} />
-                      <GroupedRow icon={<Building size={14} />} iconBg="#8e8e93" label="Address" value={currentTenant.address || 'Not set'} isLast />
-                    </>
-                  ) : (
-                    <div style={{ padding: 40, textAlign: 'center' }}>
-                      <Building size={48} color="#8e8e93" style={{ marginBottom: 16 }} />
-                      <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF }}>No company assigned yet.</div>
-                    </div>
-                  )
-                )}
               </div>
             </>
           )}
@@ -855,74 +746,6 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         </div>
       )}
 
-      {showTenantModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowTenantModal(false)}>
-          <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 14 }}>{currentTenant ? 'Edit Company' : 'Create Company'}</div>
-            {tenantError && <div style={{ fontSize: 12, color: '#ff3b30', fontFamily: SF, marginBottom: 10, background: 'rgba(255,59,48,0.06)', padding: '6px 10px', borderRadius: 6 }}>{tenantError}</div>}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Company Name *</div>
-              <input type="text" value={tenantForm.name} onChange={(e) => setTenantForm(p => ({ ...p, name: e.target.value }))} placeholder="PT Maju Jaya" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Slug * (lowercase, no spaces)</div>
-              <input type="text" value={tenantForm.slug} onChange={(e) => setTenantForm(p => ({ ...p, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))} placeholder="pt-maju-jaya" disabled={!!currentTenant} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: currentTenant ? '#f5f5f5' : 'white' }} />
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Website</div>
-              <input type="url" value={tenantForm.website} onChange={(e) => setTenantForm(p => ({ ...p, website: e.target.value }))} placeholder="https://example.com" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Email</div>
-              <input type="email" value={tenantForm.email} onChange={(e) => setTenantForm(p => ({ ...p, email: e.target.value }))} placeholder="info@example.com" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Phone</div>
-              <input type="tel" value={tenantForm.phoneNumber} onChange={(e) => setTenantForm(p => ({ ...p, phoneNumber: e.target.value }))} placeholder="+62 812 3456 7890" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Address</div>
-              <textarea value={tenantForm.address} onChange={(e) => setTenantForm(p => ({ ...p, address: e.target.value }))} placeholder="Jl. Sudirman No. 123, Jakarta" rows={2} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', resize: 'vertical' }} />
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowTenantModal(false)} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
-              <button
-                disabled={tenantLoading}
-                onClick={async () => {
-                  if (!tenantForm.name || !tenantForm.slug) {
-                    setTenantError('Company name and slug are required')
-                    return
-                  }
-                  setTenantLoading(true)
-                  setTenantError('')
-                  try {
-                    let res
-                    if (currentTenant) {
-                      res = await tenantsApi.updateCurrent(tenantForm)
-                    } else {
-                      res = await tenantsApi.create(tenantForm)
-                    }
-                    if (res.error) {
-                      setTenantError(res.error)
-                      return
-                    }
-                    setShowTenantModal(false)
-                    const data = await tenantsApi.getCurrent()
-                    setCurrentTenant(data?.tenant || null)
-                  } catch (e: any) {
-                    setTenantError(e?.message || 'Failed to save company')
-                  } finally {
-                    setTenantLoading(false)
-                  }
-                }}
-                style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: tenantLoading ? '#8e8e93' : '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: tenantLoading ? 'not-allowed' : 'pointer', fontFamily: SF }}
-              >
-                {tenantLoading ? 'Saving...' : currentTenant ? 'Save Changes' : 'Create Company'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

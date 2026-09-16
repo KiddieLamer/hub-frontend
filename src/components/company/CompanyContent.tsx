@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Building2, MapPin, Mail, Phone, Globe, FileText, Cloud, Palette } from 'lucide-react'
+import { Building2, MapPin, Mail, Phone, Globe, FileText, Cloud, Palette, Plus, Trash2 } from 'lucide-react'
 import { tenantsApi } from '../../lib/endpoints'
+import { apiFetch, setTenantId } from '../../lib/api'
 
 const PLACEHOLDER_LOGO = 'https://cdn.jim-nielsen.com/macos/512/creativit-mood-board-vision-2023-09-29.png?rf=1024'
 
@@ -75,6 +76,12 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [editValue, setEditValue] = useState('')
   const [editError, setEditError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [allTenants, setAllTenants] = useState<any[]>([])
+  const [isOwner, setIsOwner] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createForm, setCreateForm] = useState({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
+  const [createError, setCreateError] = useState('')
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     tenantsApi.getCurrent().then(data => {
@@ -83,6 +90,16 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     }).catch(() => {
       setError('Gagal memuat data perusahaan')
       setLoading(false)
+    })
+
+    import('../../lib/endpoints').then(({ usersApi }) => {
+      usersApi.getMe().then((data: any) => {
+        const u = data.user || data
+        if (u.platformRole === 'owner') {
+          setIsOwner(true)
+          tenantsApi.listAll().then((d: any) => setAllTenants(d?.tenants || [])).catch(() => {})
+        }
+      }).catch(() => {})
     })
   }, [])
 
@@ -156,10 +173,82 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         </div>
 
         {/* Company name header */}
-        <div style={{ padding: '8px 12px 4px' }}>
+        <div style={{ padding: '8px 12px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>
-            {tenant?.name || 'Perusahaan'}
+            Companies
           </div>
+          {isOwner && (
+            <div
+              onClick={() => { setCreateForm({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' }); setCreateError(''); setShowCreateModal(true) }}
+              style={{ width: 20, height: 20, borderRadius: 5, background: '#34c759', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <Plus size={12} color="white" />
+            </div>
+          )}
+        </div>
+
+        {/* Company list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 4px' }}>
+          {isOwner && allTenants.map((t: any) => (
+            <div
+              key={t.id}
+              onClick={async () => {
+                try {
+                  await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: t.id }) })
+                  setTenantId(t.id)
+                  setTenant(t)
+                } catch {}
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6,
+                cursor: 'pointer', transition: 'background 0.1s',
+                background: t.id === tenant?.id ? 'rgba(0,122,255,0.08)' : 'transparent',
+                marginBottom: 1,
+              }}
+              onMouseEnter={(e) => { if (t.id !== tenant?.id) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }}
+              onMouseLeave={(e) => { if (t.id !== tenant?.id) e.currentTarget.style.background = 'transparent' }}
+            >
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: t.id === tenant?.id ? '#007aff' : '#8e8e93', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Building2 size={12} color="white" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: t.id === tenant?.id ? 600 : 400, color: '#1d1d1f', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
+              </div>
+              {allTenants.length > 1 && (
+                <div
+                  onClick={async (e) => {
+                    e.stopPropagation()
+                    if (!confirm(`Delete "${t.name}"?`)) return
+                    try {
+                      await apiFetch(`/api/tenants/${t.id}`, { method: 'DELETE' })
+                      setAllTenants((prev: any[]) => prev.filter((x: any) => x.id !== t.id))
+                      if (t.id === tenant?.id && allTenants.length > 1) {
+                        const next = allTenants.find((x: any) => x.id !== t.id)
+                        if (next) {
+                          await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: next.id }) })
+                          setTenantId(next.id)
+                          setTenant(next)
+                        }
+                      }
+                    } catch {}
+                  }}
+                  style={{ width: 16, height: 16, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.4, transition: 'opacity 0.1s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+                >
+                  <Trash2 size={10} color="#ff3b30" />
+                </div>
+              )}
+            </div>
+          ))}
+          {!isOwner && (
+            <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: '#007aff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Building2 size={12} color="white" />
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>{tenant?.name || 'Perusahaan'}</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -359,6 +448,73 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 }}
               >
                 {saving ? 'Menyimpan...' : 'Simpan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Company Modal */}
+      {showCreateModal && (
+        <div
+          style={{
+            position: 'absolute', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div
+            style={{
+              background: 'white', borderRadius: 14, padding: 24, width: 420,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 16 }}>New Company</div>
+            {createError && <div style={{ background: '#fff2f2', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#ff3b30', marginBottom: 12 }}>{createError}</div>}
+            {[
+              { key: 'name', label: 'Company Name', placeholder: 'PT Maju Jaya', required: true },
+              { key: 'slug', label: 'Slug', placeholder: 'pt-maju-jaya', required: true },
+              { key: 'website', label: 'Website', placeholder: 'https://example.com' },
+              { key: 'email', label: 'Email', placeholder: 'info@example.com' },
+              { key: 'phoneNumber', label: 'Phone', placeholder: '+62 812 3456 7890' },
+              { key: 'address', label: 'Address', placeholder: 'Jl. Sudirman No. 123, Jakarta' },
+            ].map(f => (
+              <div key={f.key} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>{f.label}{f.required ? ' *' : ''}</div>
+                <input
+                  type="text"
+                  value={(createForm as any)[f.key]}
+                  onChange={(e) => setCreateForm(p => ({ ...p, [f.key]: f.key === 'slug' ? e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') : e.target.value }))}
+                  placeholder={f.placeholder}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }}
+                />
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => setShowCreateModal(false)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: 'rgb(242,242,247)', fontSize: 13, fontWeight: 500, color: '#1d1d1f', cursor: 'pointer', fontFamily: SF }}>Batal</button>
+              <button
+                disabled={creating}
+                onClick={async () => {
+                  if (!createForm.name || !createForm.slug) { setCreateError('Name and slug required'); return }
+                  setCreating(true); setCreateError('')
+                  try {
+                    const res = await tenantsApi.create(createForm)
+                    if (res.error) { setCreateError(res.error); return }
+                    setShowCreateModal(false)
+                    const d = await tenantsApi.listAll()
+                    setAllTenants(d?.tenants || [])
+                    if (res.tenant) {
+                      await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: res.tenant.id }) })
+                      setTenantId(res.tenant.id)
+                      setTenant(res.tenant)
+                    }
+                  } catch (e: any) { setCreateError(e?.message || 'Failed') } finally { setCreating(false) }
+                }}
+                style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: creating ? '#8e8e93' : '#34c759', fontSize: 13, fontWeight: 500, color: 'white', cursor: creating ? 'default' : 'pointer', fontFamily: SF }}
+              >
+                {creating ? 'Creating...' : 'Create'}
               </button>
             </div>
           </div>
