@@ -276,7 +276,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           <div
             style={{
               width: 80, height: 80, borderRadius: 18, overflow: 'hidden',
-              background: 'rgb(242,242,247)',
+              background: '#f8f8f8ff',
               boxShadow: '0 2px 8px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer',
@@ -300,8 +300,8 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
 
         {/* Company Info */}
         <div style={{
-          background: 'rgb(242,242,247)', borderRadius: 10,
-          border: '0.5px solid rgba(0,0,0,0.08)',
+          background: '#f8f8f8ff', borderRadius: 10,
+
         }}>
           <GroupedRow
             icon={<Building2 size={14} color="white" />}
@@ -343,8 +343,8 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
 
         {/* Links */}
         <div style={{
-          background: 'rgb(242,242,247)', borderRadius: 10,
-          border: '0.5px solid rgba(0,0,0,0.08)',
+          background: '#f8f8f8ff', borderRadius: 10,
+
         }}>
           <GroupedRow
             icon={<MapPin size={14} color="white" />}
@@ -365,8 +365,8 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
 
         {/* Legal */}
         <div style={{
-          background: 'rgb(242,242,247)', borderRadius: 10,
-          border: '0.5px solid rgba(0,0,0,0.08)',
+          background: '#f8f8f8ff', borderRadius: 10,
+
         }}>
           <GroupedRow
             icon={<FileText size={14} color="white" />}
@@ -387,8 +387,8 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
 
         {/* Staff */}
         <div style={{
-          background: 'rgb(242,242,247)', borderRadius: 10,
-          border: '0.5px solid rgba(0,0,0,0.08)',
+          background: '#f8f8f8ff', borderRadius: 10,
+
         }}>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid rgb(229, 229, 234)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -501,7 +501,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 onClick={() => setShowEditModal(false)}
                 style={{
                   padding: '7px 16px', borderRadius: 8, border: 'none',
-                  background: 'rgb(242,242,247)', fontSize: 13, fontWeight: 500,
+                  background: '#f8f8f8ff', fontSize: 13, fontWeight: 500,
                   color: '#1d1d1f', cursor: 'pointer', fontFamily: SF,
                 }}
               >
@@ -563,7 +563,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               </div>
             ))}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button onClick={() => setShowCreateModal(false)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: 'rgb(242,242,247)', fontSize: 13, fontWeight: 500, color: '#1d1d1f', cursor: 'pointer', fontFamily: SF }}>Batal</button>
+              <button onClick={() => setShowCreateModal(false)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: '#f8f8f8ff', fontSize: 13, fontWeight: 500, color: '#1d1d1f', cursor: 'pointer', fontFamily: SF }}>Batal</button>
               <button
                 disabled={creating}
                 onClick={async () => {
@@ -661,7 +661,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>No users found</div>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-              <button onClick={() => setShowAssignModal(false)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: 'rgb(242,242,247)', fontSize: 13, fontWeight: 500, color: '#1d1d1f', cursor: 'pointer', fontFamily: SF }}>Close</button>
+              <button onClick={() => setShowAssignModal(false)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: '#f8f8f8ff', fontSize: 13, fontWeight: 500, color: '#1d1d1f', cursor: 'pointer', fontFamily: SF }}>Close</button>
             </div>
           </div>
         </div>
