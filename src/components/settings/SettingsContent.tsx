@@ -87,6 +87,10 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [avatarInput, setAvatarInput] = useState('')
   const [user, setUser] = useState<any>(null)
   const [error, setError] = useState('')
+  const [rolesList, setRolesList] = useState<any[]>([])
+  const [showAddRole, setShowAddRole] = useState(false)
+  const [newRoleName, setNewRoleName] = useState('')
+  const [newRoleDesc, setNewRoleDesc] = useState('')
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [profileForm, setProfileForm] = useState({ fullName: '', email: '', phoneNumber: '', jobTitle: '', department: '' })
   const [showPasswordModal, setShowPasswordModal] = useState(false)
@@ -117,6 +121,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   useEffect(() => {
     if (activeTab === 'users') {
       membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
+    }
+    if (activeTab === 'roles') {
+      import('../../lib/endpoints').then(({ rolesApi }) => {
+        rolesApi.list().then(data => setRolesList(data?.roles || [])).catch(() => {})
+      })
     }
   }, [activeTab])
 
@@ -705,12 +714,54 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
 
           {activeTab === 'roles' && (
             <>
+              {showAddRole ? (
+                <div style={{ background: '#f8f8f8', borderRadius: 10, padding: 16, marginBottom: 14 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 12 }}>Add New Role</div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role Name</div>
+                    <input value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} placeholder="e.g. Manager" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} autoFocus />
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Description</div>
+                    <input value={newRoleDesc} onChange={(e) => setNewRoleDesc(e.target.value)} placeholder="What can this role do?" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button onClick={() => { setShowAddRole(false); setNewRoleName(''); setNewRoleDesc('') }} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+                    <button onClick={async () => {
+                      if (!newRoleName.trim()) return
+                      try {
+                        const { rolesApi } = await import('../../lib/endpoints')
+                        const data = await rolesApi.create({ name: newRoleName.trim(), description: newRoleDesc.trim() || undefined })
+                        if (data?.role) setRolesList(prev => [...prev, { ...data.role, rolePermissions: [] }])
+                        setShowAddRole(false); setNewRoleName(''); setNewRoleDesc('')
+                      } catch { alert('Failed to create role') }
+                    }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Save</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+                  <button onClick={() => setShowAddRole(true)} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                    Add Role
+                  </button>
+                </div>
+              )}
+
               {[
-                { role: 'owner', label: 'Owner', color: '#ff9500', bg: 'rgba(255,149,0,0.12)', description: 'Full access to all tenant settings, members, and billing. Can delete the tenant.' },
-                { role: 'admin', label: 'Admin', color: '#007aff', bg: 'rgba(0,122,255,0.12)', description: 'Can manage members, settings, and most tenant features. Cannot delete the tenant or change the owner.' },
-                { role: 'member', label: 'Member', color: '#8e8e93', bg: 'rgba(142,142,147,0.12)', description: 'Basic access to view and use tenant features. Cannot manage members or change settings.' },
+                { name: 'owner', label: 'Owner', color: '#ff9500', bg: 'rgba(255,149,0,0.12)', description: 'Full access to all tenant settings, members, and billing. Can delete the tenant.', system: true },
+                { name: 'admin', label: 'Admin', color: '#007aff', bg: 'rgba(0,122,255,0.12)', description: 'Can manage members, settings, and most tenant features. Cannot delete the tenant or change the owner.', system: true },
+                { name: 'member', label: 'Member', color: '#8e8e93', bg: 'rgba(142,142,147,0.12)', description: 'Basic access to view and use tenant features. Cannot manage members or change settings.', system: true },
+                ...rolesList.map((r: any) => ({
+                  name: r.name,
+                  label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
+                  color: '#af52de',
+                  bg: 'rgba(175,82,222,0.12)',
+                  description: r.description || 'Custom role',
+                  system: false,
+                  id: r.id,
+                })),
               ].map((r) => (
-                <div key={r.role} style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div key={r.name} style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 2 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: r.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Shield size={18} color={r.color} />
                   </div>
@@ -718,7 +769,26 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 2 }}>{r.label}</div>
                     <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, lineHeight: 1.4 }}>{r.description}</div>
                   </div>
-                  <span style={{ padding: '2px 8px', borderRadius: 10, background: r.bg, color: r.color, fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize', flexShrink: 0 }}>{r.role}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ padding: '2px 8px', borderRadius: 10, background: r.bg, color: r.color, fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize', flexShrink: 0 }}>{r.system ? 'system' : 'custom'}</span>
+                    {!r.system && (
+                      <div
+                        onClick={async () => {
+                          if (!confirm(`Delete role "${r.label}"?`)) return
+                          try {
+                            const { rolesApi } = await import('../../lib/endpoints')
+                            await rolesApi.remove(r.id)
+                            setRolesList(prev => prev.filter((x: any) => x.id !== r.id))
+                          } catch { alert('Failed to delete role') }
+                        }}
+                        style={{ width: 20, height: 20, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.4 }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ff3b30" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </>

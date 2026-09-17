@@ -166,6 +166,16 @@ export const membersApi = {
     apiFetch(`/api/members/${id}`, { method: 'DELETE' }).then(r => r.json()),
 }
 
+// ============ ROLES ============
+export const rolesApi = {
+  list: () => apiFetch('/api/roles').then(r => r.json()),
+  create: (data: { name: string; description?: string }) =>
+    apiFetch('/api/roles', { method: 'POST', body: JSON.stringify(data) }).then(r => r.json()),
+  remove: (id: string) =>
+    apiFetch(`/api/roles/${id}`, { method: 'DELETE' }).then(r => r.json()),
+  permissions: () => apiFetch('/api/roles/permissions').then(r => r.json()),
+}
+
 // ============ FINANCE - EXPENSE CATEGORIES ============
 export const expenseCategoriesApi = {
   list: () => apiFetch('/api/finance/expense-categories').then(r => r.json()),
