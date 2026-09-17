@@ -780,7 +780,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
                       <Shield size={14} color="white" />
                     </div>
-                    <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, fontWeight: 500 }}>Roles ({3 + rolesList.length})</span>
+                    <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, fontWeight: 500 }}>Roles ({1 + rolesList.length})</span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <button onClick={() => setShowAddRole(true)} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
@@ -790,22 +790,24 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 </div>
 
               {[
-                { name: 'owner', label: 'Owner', color: '#ff9500', bg: 'rgba(255,149,0,0.12)', description: 'Full access to all tenant settings, members, and billing. Can delete the tenant.', system: true },
-                { name: 'admin', label: 'Admin', color: '#007aff', bg: 'rgba(0,122,255,0.12)', description: 'Can manage members, settings, and most tenant features. Cannot delete the tenant or change the owner.', system: true },
-                { name: 'member', label: 'Member', color: '#8e8e93', bg: 'rgba(142,142,147,0.12)', description: 'Basic access to view and use tenant features. Cannot manage members or change settings.', system: true },
+                { name: 'hub-admin', label: 'Hub Admin', color: '#af52de', bg: 'rgba(175,82,222,0.12)', description: 'Platform administrator. Full access across all tenants and system settings.', system: true, icon: 'crown' },
                 ...rolesList.map((r: any) => ({
                   name: r.name,
                   label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
-                  color: '#af52de',
-                  bg: 'rgba(175,82,222,0.12)',
-                  description: r.description || 'Custom role',
+                  color: '#007aff',
+                  bg: 'rgba(0,122,255,0.12)',
+                  description: r.description || 'Tenant role',
                   system: false,
                   id: r.id,
                 })),
               ].map((r) => (
                 <div key={r.name} style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 2 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: r.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Shield size={18} color={r.color} />
+                    {r.icon === 'crown' ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={r.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7z"/><path d="M3 20h18"/></svg>
+                    ) : (
+                      <Shield size={18} color={r.color} />
+                    )}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 2 }}>{r.label}</div>
