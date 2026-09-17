@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock } from 'lucide-react'
+import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock, Shield } from 'lucide-react'
 import { usersApi, membersApi } from '../../lib/endpoints'
 import { apiFetch } from '../../lib/api'
 import './IDCard.css'
@@ -131,6 +131,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     { id: 'appearance', label: 'Appearance', icon: Palette, bg: 'linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%)' },
     { id: 'security', label: 'Privacy & Security', icon: ShieldCheck, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
     { id: 'users', label: 'Users & Groups', icon: Users, bg: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' },
+    ...(user?.role === 'admin' ? [{ id: 'roles', label: 'Roles', icon: Shield, bg: 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)' }] : []),
   ]
 
   const filteredCategories = categories.filter(c => c.label.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -381,7 +382,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
             <div style={{
               width: 58, height: 58, borderRadius: 14,
-              background: activeTab === 'general' ? 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)' : activeTab === 'users' ? 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' : 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
+              background: activeTab === 'general' ? 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)' : activeTab === 'users' ? 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' : activeTab === 'roles' ? 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)' : 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'white', marginBottom: 10,
               boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)',
@@ -391,18 +392,21 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               {activeTab === 'security' && <ShieldCheck size={32} color="white" />}
               {activeTab === 'appearance' && <Palette size={32} color="white" />}
               {activeTab === 'users' && <Users size={32} color="white" />}
+              {activeTab === 'roles' && <Shield size={32} color="white" />}
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
               {activeTab === 'general' && 'General'}
               {activeTab === 'security' && 'Privacy & Security'}
               {activeTab === 'appearance' && 'Appearance'}
               {activeTab === 'users' && 'Users & Groups'}
+              {activeTab === 'roles' && 'Roles'}
             </div>
             <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
               {activeTab === 'general' && 'Manage your overall setup and preferences, such as language, timezone, and regional settings.'}
               {activeTab === 'security' && 'Manage privacy permissions, security keys, passkeys, and encryption settings.'}
               {activeTab === 'appearance' && 'Customize theme colors, accent styles, and window appearance.'}
               {activeTab === 'users' && 'Manage team members, roles, and access permissions for this tenant.'}
+              {activeTab === 'roles' && 'View available roles and their permissions within this tenant.'}
             </div>
           </div>
         )}
@@ -696,6 +700,27 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   )}
                 </div>
               )}
+            </>
+          )}
+
+          {activeTab === 'roles' && (
+            <>
+              {[
+                { role: 'owner', label: 'Owner', color: '#ff9500', bg: 'rgba(255,149,0,0.12)', description: 'Full access to all tenant settings, members, and billing. Can delete the tenant.' },
+                { role: 'admin', label: 'Admin', color: '#007aff', bg: 'rgba(0,122,255,0.12)', description: 'Can manage members, settings, and most tenant features. Cannot delete the tenant or change the owner.' },
+                { role: 'member', label: 'Member', color: '#8e8e93', bg: 'rgba(142,142,147,0.12)', description: 'Basic access to view and use tenant features. Cannot manage members or change settings.' },
+              ].map((r) => (
+                <div key={r.role} style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: r.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Shield size={18} color={r.color} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 2 }}>{r.label}</div>
+                    <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, lineHeight: 1.4 }}>{r.description}</div>
+                  </div>
+                  <span style={{ padding: '2px 8px', borderRadius: 10, background: r.bg, color: r.color, fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize', flexShrink: 0 }}>{r.role}</span>
+                </div>
+              ))}
             </>
           )}
         </div>
