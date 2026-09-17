@@ -95,10 +95,6 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [passwordSuccess, setPasswordSuccess] = useState('')
   const [members, setMembers] = useState<any[]>([])
   const [showAddUserForm, setShowAddUserForm] = useState(false)
-  const [showAssignForm, setShowAssignForm] = useState(false)
-  const [assignSearch, setAssignSearch] = useState('')
-  const [assignResults, setAssignResults] = useState<any[]>([])
-  const [assignLoading, setAssignLoading] = useState(false)
   const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', role: 'member' as string, phoneNumber: '', jobTitle: '', department: '' })
   const [addUserError, setAddUserError] = useState('')
   const [addUserLoading, setAddUserLoading] = useState(false)
@@ -332,7 +328,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         {/* Navigation arrows top toolbar */}
         <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 2 }}>
-            {activeTab === 'users' && (selectedMember || showAddUserForm || showAssignForm) ? (
+            {activeTab === 'users' && (selectedMember || showAddUserForm) ? (
               <button onClick={() => { setSelectedMember(null); setShowAddUserForm(false); setShowAssignForm(false); setAssignSearch(''); setAssignResults([]) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
@@ -364,10 +360,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
             <>
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button onClick={() => { setShowAssignForm(!showAssignForm); setShowAddUserForm(false); setAssignSearch(''); setAssignResults([]) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: showAssignForm ? 'rgba(0,122,255,0.1)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: showAssignForm ? 1 : 0.4 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                </button>
-                <button onClick={() => { setShowAddUserForm(true); setShowAssignForm(false); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member', phoneNumber: '', jobTitle: '', department: '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: showAddUserForm ? 'rgba(0,122,255,0.1)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: showAddUserForm ? 1 : 0.4 }}>
+                <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member', phoneNumber: '', jobTitle: '', department: '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
                 <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
@@ -384,7 +377,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         </div>
 
         {/* Section Header for non-profile tabs */}
-        {activeTab !== 'profile' && !(activeTab === 'users' && (selectedMember || showAddUserForm || showAssignForm)) && (
+        {activeTab !== 'profile' && !(activeTab === 'users' && (selectedMember || showAddUserForm)) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
             <div style={{
               width: 58, height: 58, borderRadius: 14,
@@ -701,64 +694,6 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                       </div>
                     ))
                   )}
-                </div>
-              )}
-
-              {/* Assign Existing User Form */}
-              {showAssignForm && !selectedMember && !showAddUserForm && (
-                <div style={{ padding: '0 4px', maxWidth: 640, margin: '0 auto' }}>
-                  <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, fontFamily: SF, color: '#1d1d1f', marginBottom: 8 }}>Search existing users</div>
-                      <input
-                        type="text"
-                        value={assignSearch}
-                        onChange={(e) => {
-                          setAssignSearch(e.target.value)
-                          if (e.target.value.length >= 2) {
-                            setAssignLoading(true)
-                            usersApi.list(e.target.value).then((data: any) => {
-                              const memberIds = members.map((m: any) => m.userId)
-                              setAssignResults((data?.users || []).filter((u: any) => !memberIds.includes(u.id)))
-                            }).catch(() => {}).finally(() => setAssignLoading(false))
-                          } else {
-                            setAssignResults([])
-                          }
-                        }}
-                        placeholder="Search by name or email..."
-                        autoFocus
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', color: '#1d1d1f', background: 'white', boxSizing: 'border-box' }}
-                      />
-                    </div>
-                    {assignLoading && <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Searching...</div>}
-                    {!assignLoading && assignResults.length > 0 && (
-                      assignResults.slice(0, 5).map((u: any) => (
-                        <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', fontFamily: SF, flexShrink: 0 }}>
-                              {(u.fullName || 'U').charAt(0).toUpperCase()}
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.fullName}</div>
-                              <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{u.email}</div>
-                            </div>
-                          </div>
-                          <button onClick={async () => {
-                            try {
-                              await membersApi.add({ userId: u.id, role: 'member' })
-                              const data = await membersApi.list()
-                              setMembers(data?.members || [])
-                              setAssignResults(prev => prev.filter((x: any) => x.id !== u.id))
-                              setAssignSearch('')
-                            } catch { alert('Failed to assign') }
-                          }} style={{ padding: '4px 12px', borderRadius: 5, border: 'none', background: '#34c759', color: 'white', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: SF, flexShrink: 0 }}>Assign</button>
-                        </div>
-                      ))
-                    )}
-                    {!assignLoading && assignSearch.length >= 2 && assignResults.length === 0 && (
-                      <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>No users found</div>
-                    )}
-                  </div>
                 </div>
               )}
             </>
