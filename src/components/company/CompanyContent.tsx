@@ -308,14 +308,13 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'white', marginBottom: 10,
               boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)',
-              cursor: 'pointer',
+              cursor: 'pointer', position: 'relative',
             }}
             onClick={() => openEdit('logoUrl', logoUrl)}
           >
-            {logoUrl ? (
-              <img src={logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-            ) : (
-              <Building2 size={32} color="white" />
+            <Building2 size={32} color="white" style={{ position: 'absolute' }} />
+            {logoUrl && (
+              <img src={logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'relative', zIndex: 1 }} />
             )}
           </div>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
