@@ -437,8 +437,9 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               staffMembers.map((m: any, i: number) => (
                 <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', borderBottom: i < staffMembers.length - 1 ? '1px solid rgb(229, 229, 234)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', fontFamily: SF, flexShrink: 0 }}>
-                      {(m.userFullName || 'U').charAt(0).toUpperCase()}
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', fontFamily: SF, flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
+                      <span style={{ position: 'absolute' }}>{(m.userFullName || 'U').charAt(0).toUpperCase()}</span>
+                      {m.userAvatarUrl && <img src={m.userAvatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'relative', zIndex: 1 }} />}
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.userFullName}</div>
