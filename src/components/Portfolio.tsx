@@ -137,8 +137,10 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
   const notifRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    const token = localStorage.getItem('hub-access-token')
+    if (!token) return
     notificationsApi.list().then((res) => {
-      setNotifications(res?.notifications || [])
+      if (res?.notifications) setNotifications(res.notifications)
     }).catch(() => {})
   }, [])
 
