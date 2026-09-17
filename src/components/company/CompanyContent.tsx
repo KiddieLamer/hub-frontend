@@ -44,15 +44,15 @@ function GroupedRow({
           <div style={{
             width: 24, height: 24, borderRadius: 6,
             background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
+            flexShrink: 0, boxShadow: 'rgba(0, 0, 0, 0.1) 0px 1px 2px',
           }}>
             {icon}
           </div>
         )}
         <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>{label}</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <span style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, textAlign: 'right', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 0%', justifyContent: 'flex-end' }}>
+        <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
           {value || '-'}
         </span>
         {editable !== false && (
@@ -287,186 +287,188 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20, padding: '0 4px' }}>
-        {/* Error */}
-        {error && (
-          <div style={{ background: '#fff2f2', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#ff3b30', fontFamily: SF }}>
-            {error}
-          </div>
-        )}
+      <div style={{ flex: 1, overflowY: 'auto', background: 'white', borderRadius: 12 }}>
+        {/* Toolbar */}
+        <div style={{ display: 'flex', gap: 2, padding: '12px 18px 0', alignItems: 'center' }}>
+          <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
 
-        {/* Logo Section */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px 20px', textAlign: 'center', width: '100%', boxSizing: 'border-box' }}>
           <div
             style={{
-              width: 80, height: 80, borderRadius: 18, overflow: 'hidden',
-              background: '#f8f8f8ff',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06)',
+              width: 58, height: 58, borderRadius: 14,
+              overflow: 'hidden',
+              background: logoUrl ? 'transparent' : 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', marginBottom: 10,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.12), inset 0 0 0 0.5px rgba(255,255,255,0.3)',
               cursor: 'pointer',
             }}
             onClick={() => openEdit('logoUrl', logoUrl)}
           >
-            <img
-              src={logoUrl || PLACEHOLDER_LOGO}
-              alt="Company Logo"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_LOGO }}
-            />
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            ) : (
+              <Building2 size={32} color="white" />
+            )}
           </div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, letterSpacing: '-0.02em', marginBottom: 4 }}>
             {tenant?.name || 'Nama Perusahaan'}
           </div>
-          <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF }}>
-            Klik logo untuk mengubah
+          <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, maxWidth: 440, lineHeight: 1.4 }}>
+            Company details, links, legal info, and team management.
           </div>
         </div>
 
-        {/* Company Info */}
-        <div style={{
-          background: '#f8f8f8ff', borderRadius: 10,
-
-        }}>
-          <GroupedRow
-            icon={<Building2 size={14} color="white" />}
-            iconBg="linear-gradient(135deg, #007aff 0%, #0051a8 100%)"
-            label="Nama Perusahaan"
-            value={tenant?.name}
-            onClick={() => openEdit('name', tenant?.name)}
-          />
-          <GroupedRow
-            icon={<Mail size={14} color="white" />}
-            iconBg="linear-gradient(135deg, #ff9500 0%, #c77400 100%)"
-            label="Email"
-            value={tenant?.email}
-            onClick={() => openEdit('email', tenant?.email)}
-          />
-          <GroupedRow
-            icon={<Phone size={14} color="white" />}
-            iconBg="linear-gradient(135deg, #34c759 0%, #248a3d 100%)"
-            label="Telepon"
-            value={tenant?.phoneNumber}
-            onClick={() => openEdit('phoneNumber', tenant?.phoneNumber)}
-          />
-          <GroupedRow
-            icon={<Globe size={14} color="white" />}
-            iconBg="linear-gradient(135deg, #5856d6 0%, #3634a3 100%)"
-            label="Website"
-            value={tenant?.website}
-            onClick={() => openEdit('website', tenant?.website)}
-          />
-          <GroupedRow
-            icon={<MapPin size={14} color="white" />}
-            iconBg="linear-gradient(135deg, #ff3b30 0%, #d70015 100%)"
-            label="Alamat"
-            value={tenant?.address}
-            onClick={() => openEdit('address', tenant?.address)}
-            isLast
-          />
-        </div>
-
-        {/* Links */}
-        <div style={{
-          background: '#f8f8f8ff', borderRadius: 10,
-
-        }}>
-          <GroupedRow
-            icon={<MapPin size={14} color="white" />}
-            iconBg="linear-gradient(135deg, #ff2d55 0%, #c4002f 100%)"
-            label="Google Maps"
-            value={tenant?.gmapLink ? 'Tersedia' : 'Belum diatur'}
-            onClick={() => openEdit('gmapLink', tenant?.gmapLink)}
-          />
-          <GroupedRow
-            icon={<Cloud size={14} color="white" />}
-            iconBg="linear-gradient(135deg, #007aff 0%, #0051a8 100%)"
-            label="Google Drive"
-            value={tenant?.gdriveLink ? 'Tersedia' : 'Belum diatur'}
-            onClick={() => openEdit('gdriveLink', tenant?.gdriveLink)}
-            isLast
-          />
-        </div>
-
-        {/* Legal */}
-        <div style={{
-          background: '#f8f8f8ff', borderRadius: 10,
-
-        }}>
-          <GroupedRow
-            icon={<FileText size={14} color="white" />}
-            iconBg="linear-gradient(135deg, #8e8e93 0%, #636366 100%)"
-            label="NPWP"
-            value={tenant?.taxId}
-            onClick={() => openEdit('taxId', tenant?.taxId)}
-          />
-          <GroupedRow
-            icon={<Palette size={14} color="white" />}
-            iconBg="linear-gradient(135deg, #af52de 0%, #892ab8 100%)"
-            label="Plan"
-            value={tenant?.plan?.toUpperCase()}
-            editable={false}
-            isLast
-          />
-        </div>
-
-        {/* Staff */}
-        <div style={{
-          background: '#f8f8f8ff', borderRadius: 10,
-
-        }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid rgb(229, 229, 234)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Users size={14} color="white" />
-              </div>
-              <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>Staff ({staffMembers.length})</span>
-            </div>
-            <div
-              onClick={() => { setShowAssignModal(true); setAssignSearch(''); setAssignResults([]) }}
-              style={{ width: 20, height: 20, borderRadius: 5, background: '#34c759', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            >
-              <Plus size={12} color="white" />
-            </div>
+        {/* Error */}
+        {error && (
+          <div style={{ background: '#fff2f2', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#ff3b30', fontFamily: SF, margin: '0 24px 14px' }}>
+            {error}
           </div>
-          {staffLoading ? (
-            <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Loading...</div>
-          ) : staffMembers.length === 0 ? (
-            <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>No staff yet</div>
-          ) : (
-            staffMembers.map((m: any, i: number) => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: i < staffMembers.length - 1 ? '1px solid rgb(229, 229, 234)' : 'none' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', fontFamily: SF, flexShrink: 0 }}>
-                    {(m.userFullName || 'U').charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>{m.userFullName}</div>
-                    <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{m.userEmail}</div>
-                  </div>
+        )}
+
+        {/* Cards Container */}
+        <div style={{ padding: '0 24px 28px', maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Company Info */}
+          <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
+            <GroupedRow
+              icon={<Building2 size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #007aff 0%, #0051a8 100%)"
+              label="Nama Perusahaan"
+              value={tenant?.name}
+              onClick={() => openEdit('name', tenant?.name)}
+            />
+            <GroupedRow
+              icon={<Mail size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #ff9500 0%, #c77400 100%)"
+              label="Email"
+              value={tenant?.email}
+              onClick={() => openEdit('email', tenant?.email)}
+            />
+            <GroupedRow
+              icon={<Phone size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #34c759 0%, #248a3d 100%)"
+              label="Telepon"
+              value={tenant?.phoneNumber}
+              onClick={() => openEdit('phoneNumber', tenant?.phoneNumber)}
+            />
+            <GroupedRow
+              icon={<Globe size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #5856d6 0%, #3634a3 100%)"
+              label="Website"
+              value={tenant?.website}
+              onClick={() => openEdit('website', tenant?.website)}
+            />
+            <GroupedRow
+              icon={<MapPin size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #ff3b30 0%, #d70015 100%)"
+              label="Alamat"
+              value={tenant?.address}
+              onClick={() => openEdit('address', tenant?.address)}
+              isLast
+            />
+          </div>
+
+          {/* Links */}
+          <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
+            <GroupedRow
+              icon={<MapPin size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #ff2d55 0%, #c4002f 100%)"
+              label="Google Maps"
+              value={tenant?.gmapLink ? 'Tersedia' : 'Belum diatur'}
+              onClick={() => openEdit('gmapLink', tenant?.gmapLink)}
+            />
+            <GroupedRow
+              icon={<Cloud size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #007aff 0%, #0051a8 100%)"
+              label="Google Drive"
+              value={tenant?.gdriveLink ? 'Tersedia' : 'Belum diatur'}
+              onClick={() => openEdit('gdriveLink', tenant?.gdriveLink)}
+              isLast
+            />
+          </div>
+
+          {/* Legal */}
+          <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
+            <GroupedRow
+              icon={<FileText size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #8e8e93 0%, #636366 100%)"
+              label="NPWP"
+              value={tenant?.taxId}
+              onClick={() => openEdit('taxId', tenant?.taxId)}
+            />
+            <GroupedRow
+              icon={<Palette size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #af52de 0%, #892ab8 100%)"
+              label="Plan"
+              value={tenant?.plan?.toUpperCase()}
+              editable={false}
+              isLast
+            />
+          </div>
+
+          {/* Staff */}
+          <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid rgb(229, 229, 234)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'rgba(0, 0, 0, 0.1) 0px 1px 2px' }}>
+                  <Users size={14} color="white" />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
-                  {m.role !== 'owner' && (
-                    <div
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        if (!confirm(`Remove ${m.userFullName} from this company?`)) return
-                        try {
-                          await import('../../lib/endpoints').then(({ membersApi }) => membersApi.remove(m.id))
-                          setStaffMembers(prev => prev.filter((x: any) => x.id !== m.id))
-                        } catch {}
-                      }}
-                      style={{ width: 20, height: 20, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.4 }}
-                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
-                    >
-                      <Trash2 size={10} color="#ff3b30" />
+                <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>Staff ({staffMembers.length})</span>
+              </div>
+              <div
+                onClick={() => { setShowAssignModal(true); setAssignSearch(''); setAssignResults([]) }}
+                style={{ width: 20, height: 20, borderRadius: 5, background: '#34c759', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <Plus size={12} color="white" />
+              </div>
+            </div>
+            {staffLoading ? (
+              <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Loading...</div>
+            ) : staffMembers.length === 0 ? (
+              <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>No staff yet</div>
+            ) : (
+              staffMembers.map((m: any, i: number) => (
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', borderBottom: i < staffMembers.length - 1 ? '1px solid rgb(229, 229, 234)' : 'none', cursor: 'pointer', transition: 'background 0.1s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', fontFamily: SF, flexShrink: 0 }}>
+                      {(m.userFullName || 'U').charAt(0).toUpperCase()}
                     </div>
-                  )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.userFullName}</div>
+                      <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{m.userEmail}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
+                    {m.role !== 'owner' && (
+                      <div
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          if (!confirm(`Remove ${m.userFullName} from this company?`)) return
+                          try {
+                            await import('../../lib/endpoints').then(({ membersApi }) => membersApi.remove(m.id))
+                            setStaffMembers(prev => prev.filter((x: any) => x.id !== m.id))
+                          } catch {}
+                        }}
+                        style={{ width: 20, height: 20, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.4 }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+                      >
+                        <Trash2 size={10} color="#ff3b30" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
 
