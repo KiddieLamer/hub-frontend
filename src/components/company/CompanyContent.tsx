@@ -163,23 +163,42 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         {/* Traffic lights */}
         <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
           <div
-            style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)' }}
+            style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onMouseEnter={() => setHoveredBtn('close')}
             onMouseLeave={() => setHoveredBtn(null)}
             onClick={onClose}
-          />
+          >
+            {hoveredBtn === 'close' && (
+              <svg width="6" height="6" viewBox="0 0 6 6" fill="none">
+                <path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+            )}
+          </div>
           <div
-            style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febd2e' : 'linear-gradient(180deg, #febd2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)' }}
+            style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onMouseEnter={() => setHoveredBtn('minimize')}
             onMouseLeave={() => setHoveredBtn(null)}
             onClick={onMinimize}
-          />
+          >
+            {hoveredBtn === 'minimize' && (
+              <svg width="6" height="2" viewBox="0 0 6 2" fill="none">
+                <path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+            )}
+          </div>
           <div
-            style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)' }}
+            style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onMouseEnter={() => setHoveredBtn('maximize')}
             onMouseLeave={() => setHoveredBtn(null)}
             onClick={onMaximize}
-          />
+          >
+            {hoveredBtn === 'maximize' && (
+              <svg width="6" height="6" viewBox="0 0 6 6" fill="none">
+                <path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
         </div>
 
         {/* Company name header */}
@@ -211,7 +230,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6,
-                cursor: 'pointer', transition: 'background 0.1s',
+                cursor: 'pointer', transition: 'background 0.12s',
                 background: t.id === tenant?.id ? 'rgba(0,122,255,0.08)' : 'transparent',
                 marginBottom: 1,
               }}
@@ -252,7 +271,12 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             </div>
           ))}
           {!isOwner && (
-            <div style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6,
+                background: 'rgba(0,122,255,0.08)',
+              }}
+            >
               <div style={{ width: 24, height: 24, borderRadius: 6, background: '#007aff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Building2 size={12} color="white" />
               </div>
