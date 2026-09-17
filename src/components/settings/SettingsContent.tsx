@@ -349,10 +349,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 <button onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                 </button>
-                {selectedMember.role !== 'owner' && (
-                  <button onClick={async () => { if (confirm(`Delete ${selectedMember.userFullName}?`)) { await membersApi.remove(selectedMember.id); setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id)); setSelectedMember(null) } }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                  </button>
+                {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
                 )}
               </div>
             </>
@@ -641,7 +638,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     <GroupedRow icon={<Building size={14} />} iconBg="#5856d6" label="Phone" value={selectedMember.userPhoneNumber} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
                     <GroupedRow icon={<Briefcase size={14} />} iconBg="#ff2d55" label="Job Title" value={selectedMember.jobTitle} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
                     <GroupedRow icon={<Building size={14} />} iconBg="#30b0c7" label="Department" value={selectedMember.userDepartment} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
-                    <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : '#34c759'} label="Role" value={selectedMember.role} isLast onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
+                    <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'hub-admin' ? '#af52de' : '#34c759'} label="Role" value={selectedMember.role} isLast onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
                   </div>
 
                   <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%', marginTop: 14 }}>
@@ -655,14 +652,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     }} style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'transparent', color: '#007aff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center' }}>Reset Password</button>
                   </div>
 
-                  {selectedMember.role !== 'owner' && (
-                    <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%', marginTop: 14 }}>
-                      <button onClick={async () => {
-                        if (confirm(`Remove ${selectedMember.userFullName} from this tenant?`)) {
-                          await membersApi.remove(selectedMember.id)
-                          setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id))
-                          setSelectedMember(null)
-                        }
+                  {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
                       }} style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'transparent', color: '#ff3b30', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center' }}>Remove from Tenant</button>
                     </div>
                   )}
@@ -688,7 +678,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
+                          <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'hub-admin' ? 'rgba(175,82,222,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'hub-admin' ? '#af52de' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                         </div>
                       </div>
@@ -835,7 +825,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 <input type="text" value={f.value} onChange={(e) => setEditMemberForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
               </div>
             ))}
-            {editMemberModal.role !== 'owner' && (
+            {editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin' && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role</div>
                 <select value={editMemberRole} onChange={(e) => setEditMemberRole(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', background: 'white', color: '#1d1d1f' }}>
@@ -849,11 +839,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               <button onClick={async () => {
                 try {
                   await usersApi.update(editMemberModal.userId, { fullName: editMemberForm.fullName, email: editMemberForm.email, phoneNumber: editMemberForm.phoneNumber || undefined, jobTitle: editMemberForm.jobTitle || undefined, department: editMemberForm.department || undefined })
-                  if (editMemberModal.role !== 'owner') {
+                  if (editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin') {
                     await membersApi.updateRole(editMemberModal.id, editMemberRole)
                   }
-                  setMembers(prev => prev.map((x: any) => x.id === editMemberModal.id ? { ...x, ...editMemberForm, role: editMemberModal.role !== 'owner' ? editMemberRole : x.role } : x))
-                  setSelectedMember((prev: any) => prev ? { ...prev, ...editMemberForm, role: editMemberModal.role !== 'owner' ? editMemberRole : prev.role } : prev)
+                  setMembers(prev => prev.map((x: any) => x.id === editMemberModal.id ? { ...x, ...editMemberForm, role: editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin' ? editMemberRole : x.role } : x))
+                  setSelectedMember((prev: any) => prev ? { ...prev, ...editMemberForm, role: prev.role !== 'owner' && prev.role !== 'hub-admin' ? editMemberRole : prev.role } : prev)
                   setEditMemberModal(null)
                 } catch { alert('Failed to update') }
               }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Save</button>
