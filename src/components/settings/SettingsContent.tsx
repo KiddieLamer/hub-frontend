@@ -746,7 +746,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
                       <Shield size={14} color="white" />
                     </div>
-                    <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, fontWeight: 500 }}>Roles ({[...systemRoles, ...rolesList].length})</span>
+                    <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, fontWeight: 500 }}>Roles ({3 + rolesList.length})</span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <button onClick={() => setShowAddRole(true)} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
