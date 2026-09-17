@@ -237,8 +237,9 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               onMouseEnter={(e) => { if (t.id !== tenant?.id) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }}
               onMouseLeave={(e) => { if (t.id !== tenant?.id) e.currentTarget.style.background = 'transparent' }}
             >
-              <div style={{ width: 24, height: 24, borderRadius: 6, background: t.id === tenant?.id ? '#007aff' : '#8e8e93', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Building2 size={12} color="white" />
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: t.id === tenant?.id ? '#007aff' : '#8e8e93', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
+                <Building2 size={12} color="white" style={{ position: 'absolute' }} />
+                {t.logoUrl && <img src={t.logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'relative', zIndex: 1 }} />}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: t.id === tenant?.id ? 600 : 400, color: '#1d1d1f', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
