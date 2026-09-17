@@ -719,15 +719,15 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 12 }}>Add New Role</div>
                   <div style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role Name</div>
-                    <input value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} placeholder="e.g. Manager" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} autoFocus />
+                    <input value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} placeholder="e.g. Manager" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} autoFocus onKeyDown={(e) => { if (e.key === 'Enter' && newRoleName.trim()) document.getElementById('save-role-btn')?.click() }} />
                   </div>
                   <div style={{ marginBottom: 14 }}>
                     <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Description</div>
-                    <input value={newRoleDesc} onChange={(e) => setNewRoleDesc(e.target.value)} placeholder="What can this role do?" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+                    <input value={newRoleDesc} onChange={(e) => setNewRoleDesc(e.target.value)} placeholder="What can this role do?" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} onKeyDown={(e) => { if (e.key === 'Enter' && newRoleName.trim()) document.getElementById('save-role-btn')?.click() }} />
                   </div>
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <button onClick={() => { setShowAddRole(false); setNewRoleName(''); setNewRoleDesc('') }} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
-                    <button onClick={async () => {
+                    <button id="save-role-btn" onClick={async () => {
                       if (!newRoleName.trim()) return
                       try {
                         const { rolesApi } = await import('../../lib/endpoints')
@@ -738,14 +738,22 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Save</button>
                   </div>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
-                  <button onClick={() => setShowAddRole(true)} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                    Add Role
-                  </button>
+              ) : null}
+
+              <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%', marginBottom: 14 }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e5ea', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+                      <Shield size={14} color="white" />
+                    </div>
+                    <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, fontWeight: 500 }}>Roles ({[...systemRoles, ...rolesList].length})</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button onClick={() => setShowAddRole(true)} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                  </div>
                 </div>
-              )}
 
               {[
                 { name: 'owner', label: 'Owner', color: '#ff9500', bg: 'rgba(255,149,0,0.12)', description: 'Full access to all tenant settings, members, and billing. Can delete the tenant.', system: true },
@@ -791,6 +799,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   </div>
                 </div>
               ))}
+              </div>
             </>
           )}
         </div>
