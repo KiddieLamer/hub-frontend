@@ -235,7 +235,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           </div>
         </div>
 
-        {/* Profile Card Header (Alfian Hafiz / Apple Account) */}
+        {/* Profile Card Header */}
         <div
           onClick={() => setActiveTab('profile')}
           style={{
@@ -264,7 +264,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               {user?.fullName || 'User'}
             </div>
             <div style={{ fontSize: 11, color: activeTab === 'profile' ? 'rgba(255,255,255,0.8)' : '#8e8e93', fontFamily: SF }}>
-              Apple Account
+              Hub Account
             </div>
           </div>
         </div>
@@ -280,7 +280,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
-          <span style={{ fontSize: 12, color: '#1d1d1f', fontFamily: SF }}>Apple Account Suggestions</span>
+          <span style={{ fontSize: 12, color: '#1d1d1f', fontFamily: SF }}>Account Suggestions</span>
           <span style={{
             background: '#ff3b30', color: 'white', fontSize: 11, fontWeight: 700,
             width: 18, height: 18, borderRadius: '50%',
@@ -379,7 +379,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               </div>
             </>
           ) : activeTab === 'profile' ? (
-            <span style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Apple Account</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Hub Account</span>
           ) : null}
         </div>
 

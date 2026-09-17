@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Building2, MapPin, Mail, Phone, Globe, FileText, Cloud, Palette, Plus, Trash2 } from 'lucide-react'
+import { Building2, MapPin, Mail, Phone, Globe, FileText, Cloud, Palette, Plus, Trash2, Users } from 'lucide-react'
 import { tenantsApi } from '../../lib/endpoints'
 import { apiFetch, setTenantId } from '../../lib/api'
 
@@ -82,6 +82,12 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [createForm, setCreateForm] = useState({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
+  const [staffMembers, setStaffMembers] = useState<any[]>([])
+  const [staffLoading, setStaffLoading] = useState(true)
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [assignSearch, setAssignSearch] = useState('')
+  const [assignResults, setAssignResults] = useState<any[]>([])
+  const [assignLoading, setAssignLoading] = useState(false)
 
   useEffect(() => {
     tenantsApi.getCurrent().then(data => {
@@ -92,7 +98,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
       setLoading(false)
     })
 
-    import('../../lib/endpoints').then(({ usersApi }) => {
+    import('../../lib/endpoints').then(({ usersApi, membersApi }) => {
       usersApi.getMe().then((data: any) => {
         const u = data.user || data
         if (u.platformRole === 'owner') {
@@ -100,6 +106,10 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           tenantsApi.listAll().then((d: any) => setAllTenants(d?.tenants || [])).catch(() => {})
         }
       }).catch(() => {})
+      membersApi.list().then((data: any) => {
+        setStaffMembers(data?.members || [])
+        setStaffLoading(false)
+      }).catch(() => setStaffLoading(false))
     })
   }, [])
 
@@ -374,6 +384,66 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             isLast
           />
         </div>
+
+        {/* Staff */}
+        <div style={{
+          background: 'rgb(242,242,247)', borderRadius: 10,
+          border: '0.5px solid rgba(0,0,0,0.08)',
+        }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid rgb(229, 229, 234)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Users size={14} color="white" />
+              </div>
+              <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>Staff ({staffMembers.length})</span>
+            </div>
+            <div
+              onClick={() => { setShowAssignModal(true); setAssignSearch(''); setAssignResults([]) }}
+              style={{ width: 20, height: 20, borderRadius: 5, background: '#34c759', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <Plus size={12} color="white" />
+            </div>
+          </div>
+          {staffLoading ? (
+            <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Loading...</div>
+          ) : staffMembers.length === 0 ? (
+            <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>No staff yet</div>
+          ) : (
+            staffMembers.map((m: any, i: number) => (
+              <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: i < staffMembers.length - 1 ? '1px solid rgb(229, 229, 234)' : 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', fontFamily: SF, flexShrink: 0 }}>
+                    {(m.userFullName || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>{m.userFullName}</div>
+                    <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{m.userEmail}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
+                  {m.role !== 'owner' && (
+                    <div
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        if (!confirm(`Remove ${m.userFullName} from this company?`)) return
+                        try {
+                          await import('../../lib/endpoints').then(({ membersApi }) => membersApi.remove(m.id))
+                          setStaffMembers(prev => prev.filter((x: any) => x.id !== m.id))
+                        } catch {}
+                      }}
+                      style={{ width: 20, height: 20, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.4 }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+                    >
+                      <Trash2 size={10} color="#ff3b30" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Edit Modal */}
@@ -516,6 +586,82 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               >
                 {creating ? 'Creating...' : 'Create'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign User Modal */}
+      {showAssignModal && (
+        <div
+          style={{
+            position: 'absolute', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => setShowAssignModal(false)}
+        >
+          <div
+            style={{
+              background: 'white', borderRadius: 14, padding: 24, width: 400,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 16 }}>Assign Staff</div>
+            <input
+              type="text"
+              value={assignSearch}
+              onChange={(e) => {
+                setAssignSearch(e.target.value)
+                if (e.target.value.length >= 2) {
+                  setAssignLoading(true)
+                  import('../../lib/endpoints').then(({ usersApi }) => {
+                    usersApi.list(e.target.value).then((data: any) => {
+                      const memberIds = staffMembers.map((m: any) => m.userId)
+                      setAssignResults((data?.users || []).filter((u: any) => !memberIds.includes(u.id)))
+                    }).catch(() => {}).finally(() => setAssignLoading(false))
+                  })
+                } else {
+                  setAssignResults([])
+                }
+              }}
+              placeholder="Search by name or email..."
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d1d6', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }}
+            />
+            {assignLoading && <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Searching...</div>}
+            {!assignLoading && assignResults.length > 0 && (
+              <div style={{ marginTop: 12, maxHeight: 200, overflowY: 'auto' }}>
+                {assignResults.slice(0, 5).map((u: any) => (
+                  <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 8, cursor: 'pointer', transition: 'background 0.1s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.04)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', fontFamily: SF, flexShrink: 0 }}>
+                        {(u.fullName || 'U').charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>{u.fullName}</div>
+                        <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{u.email}</div>
+                      </div>
+                    </div>
+                    <button onClick={async () => {
+                      try {
+                        await import('../../lib/endpoints').then(({ membersApi }) => membersApi.add({ userId: u.id, role: 'member' }))
+                        const data = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.list())
+                        setStaffMembers(data?.members || [])
+                        setAssignResults(prev => prev.filter((x: any) => x.id !== u.id))
+                        setAssignSearch('')
+                      } catch { alert('Failed to assign') }
+                    }} style={{ padding: '5px 12px', borderRadius: 6, border: 'none', background: '#34c759', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, flexShrink: 0 }}>Assign</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!assignLoading && assignSearch.length >= 2 && assignResults.length === 0 && (
+              <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>No users found</div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => setShowAssignModal(false)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: 'rgb(242,242,247)', fontSize: 13, fontWeight: 500, color: '#1d1d1f', cursor: 'pointer', fontFamily: SF }}>Close</button>
             </div>
           </div>
         </div>
