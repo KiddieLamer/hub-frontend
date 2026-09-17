@@ -656,6 +656,13 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   </div>
 
                   {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
+                    <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%', marginTop: 14 }}>
+                      <button onClick={async () => {
+                        if (confirm(`Remove ${selectedMember.userFullName} from this tenant?`)) {
+                          await membersApi.remove(selectedMember.id)
+                          setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id))
+                          setSelectedMember(null)
+                        }
                       }} style={{ width: '100%', padding: '11px 14px', border: 'none', background: 'transparent', color: '#ff3b30', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center' }}>Remove from Tenant</button>
                     </div>
                   )}
