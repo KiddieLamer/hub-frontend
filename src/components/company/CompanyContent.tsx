@@ -89,27 +89,14 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [assignResults, setAssignResults] = useState<any[]>([])
   const [assignLoading, setAssignLoading] = useState(false)
 
-  useEffect(() => {
-    tenantsApi.getCurrent().then(data => {
-      setTenant(data.tenant)
-      setLoading(false)
-    }).catch(() => {
-      setError('Gagal memuat data perusahaan')
-      setLoading(false)
-    })
-
-    import('../../lib/endpoints').then(({ usersApi, membersApi }) => {
-      usersApi.getMe().then((data: any) => {
-        const u = data.user || data
-        if (u.platformRole === 'owner') {
-          setIsOwner(true)
-          tenantsApi.listAll().then((d: any) => setAllTenants(d?.tenants || [])).catch(() => {})
-        }
-      }).catch(() => {})
-      if (!localStorage.getItem('hub-tenant-id')) {
-        setStaffLoading(false)
-        return
-      }
+  const loadStaff = () => {
+    if (!localStorage.getItem('hub-tenant-id')) {
+      setStaffMembers([])
+      setStaffLoading(false)
+      return
+    }
+    setStaffLoading(true)
+    import('../../lib/endpoints').then(({ membersApi }) => {
       membersApi.list().then((data: any) => {
         const sorted = (data?.members || []).sort((a: any, b: any) => {
           if (a.role === 'owner') return -1
@@ -122,6 +109,27 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         setStaffLoading(false)
       }).catch(() => setStaffLoading(false))
     })
+  }
+
+  useEffect(() => {
+    tenantsApi.getCurrent().then(data => {
+      setTenant(data.tenant)
+      setLoading(false)
+    }).catch(() => {
+      setError('Gagal memuat data perusahaan')
+      setLoading(false)
+    })
+
+    import('../../lib/endpoints').then(({ usersApi }) => {
+      usersApi.getMe().then((data: any) => {
+        const u = data.user || data
+        if (u.platformRole === 'owner') {
+          setIsOwner(true)
+          tenantsApi.listAll().then((d: any) => setAllTenants(d?.tenants || [])).catch(() => {})
+        }
+      }).catch(() => {})
+    })
+    loadStaff()
   }, [])
 
   const handleSave = async () => {
@@ -237,6 +245,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                   await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: t.id }) })
                   setTenantId(t.id)
                   setTenant(t)
+                  loadStaff()
                 } catch {}
               }}
               style={{
@@ -270,9 +279,11 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                           await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: next.id }) })
                           setTenantId(next.id)
                           setTenant(next)
+                          loadStaff()
                         } else {
                           setTenantId('')
                           setTenant(null)
+                          setStaffMembers([])
                         }
                       }
                     } catch {}
@@ -629,6 +640,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                       await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: res.tenant.id }) })
                       setTenantId(res.tenant.id)
                       setTenant(res.tenant)
+                      loadStaff()
                     }
                   } catch (e: any) { setCreateError(e?.message || 'Failed') } finally { setCreating(false) }
                 }}
