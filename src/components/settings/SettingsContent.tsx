@@ -550,62 +550,78 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               {showAddUserForm ? (
                 /* Inline Add User Form */
                 <div style={{ padding: '0 4px', maxWidth: 640, margin: '0 auto' }}>
-                  {addUserError && <div style={{ fontSize: 12, color: '#ff3b30', fontFamily: SF, marginBottom: 10, background: 'rgba(255,59,48,0.06)', padding: '6px 10px', borderRadius: 6 }}>{addUserError}</div>}
+                  {addUserError && <div style={{ fontSize: 12, color: '#ff3b30', fontFamily: SF, marginBottom: 10, background: 'rgba(255,59,48,0.06)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,59,48,0.12)' }}>{addUserError}</div>}
 
-                  <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
-                    {[
-                      { key: 'fullName', label: 'Full Name', placeholder: 'Budi Santoso', type: 'text', icon: <User size={14} color="white" />, iconBg: '#8e8e93' },
-                      { key: 'email', label: 'Email', placeholder: 'budi@example.com', type: 'email', icon: <Key size={14} color="white" />, iconBg: '#007aff' },
-                      { key: 'password', label: 'Password', placeholder: 'Min 6 karakter', type: 'password', icon: <Lock size={14} color="white" />, iconBg: '#34c759' },
-                      { key: 'phoneNumber', label: 'Phone', placeholder: '+62 812 3456 7890', type: 'tel', icon: <Building size={14} color="white" />, iconBg: '#5856d6' },
-                      { key: 'jobTitle', label: 'Job Title', placeholder: 'Software Engineer', type: 'text', icon: <Briefcase size={14} color="white" />, iconBg: '#ff2d55' },
-                      { key: 'department', label: 'Department', placeholder: 'Engineering', type: 'text', icon: <Building size={14} color="white" />, iconBg: '#30b0c7' },
-                    ].map((f, i, arr) => (
-                      <div key={f.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px', borderBottom: i === arr.length - 1 ? 'none' : '1px solid rgba(0,0,0,0.06)', minHeight: 44 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 24, height: 24, borderRadius: 6, background: f.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-                            {f.icon}
-                          </div>
-                          <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, minWidth: 80 }}>{f.label}</span>
-                        </div>
-                        <input type={f.type} value={(addUserForm as any)[f.key]} onChange={(e) => setAddUserForm(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} style={{ flex: 1, maxWidth: 300, padding: '6px 10px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', textAlign: 'right', color: '#1d1d1f', background: 'white' }} />
+                  <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                    <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 7, background: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+                        <User size={14} color="white" />
                       </div>
-                    ))}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px', minHeight: 44 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 6, background: '#ff9500', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
-                          <ShieldCheck size={14} color="white" />
-                        </div>
-                        <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, minWidth: 80 }}>Role</span>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Add New User</div>
+                        <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>Create user and assign to this tenant</div>
                       </div>
-                      <select value={addUserForm.role} onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value }))} style={{ flex: 1, maxWidth: 300, padding: '6px 10px', borderRadius: 6, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', textAlign: 'right', color: '#1d1d1f', background: 'white' }}>
-                        <option value="member">Member</option>
-                        <option value="admin">Admin</option>
-                      </select>
                     </div>
-                  </div>
 
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
-                    <button onClick={() => setShowAddUserForm(false)} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
-                    <button
-                      disabled={addUserLoading}
-                      onClick={async () => {
-                        if (!addUserForm.fullName || !addUserForm.email || !addUserForm.password) { setAddUserError('Semua field wajib diisi'); return }
-                        setAddUserLoading(true); setAddUserError('')
-                        try {
-                          const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, jobTitle: addUserForm.jobTitle || undefined, department: addUserForm.department || undefined, role: 'user', status: 'active' })
-                          if (userRes.error) { setAddUserError(userRes.error); return }
-                          const memberRes = await membersApi.add({ userId: userRes.user.id, role: addUserForm.role })
-                          if (memberRes.error) { setAddUserError(memberRes.error); return }
-                          setShowAddUserForm(false)
-                          const data = await membersApi.list()
-                          setMembers(data?.members || [])
-                        } catch (e: any) { setAddUserError(e?.message || 'Gagal menambah user') } finally { setAddUserLoading(false) }
-                      }}
-                      style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: addUserLoading ? '#8e8e93' : '#34c759', color: 'white', fontSize: 13, fontWeight: 500, cursor: addUserLoading ? 'not-allowed' : 'pointer', fontFamily: SF }}
-                    >
-                      {addUserLoading ? 'Adding...' : 'Add User'}
-                    </button>
+                    <div style={{ padding: 18 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Full Name *</label>
+                          <input type="text" value={addUserForm.fullName} onChange={(e) => setAddUserForm(p => ({ ...p, fullName: e.target.value }))} placeholder="Budi Santoso" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Email *</label>
+                          <input type="email" value={addUserForm.email} onChange={(e) => setAddUserForm(p => ({ ...p, email: e.target.value }))} placeholder="budi@example.com" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Password *</label>
+                          <input type="password" value={addUserForm.password} onChange={(e) => setAddUserForm(p => ({ ...p, password: e.target.value }))} placeholder="Min 6 karakter" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Phone</label>
+                          <input type="tel" value={addUserForm.phoneNumber} onChange={(e) => setAddUserForm(p => ({ ...p, phoneNumber: e.target.value }))} placeholder="+62 812 3456 7890" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Job Title</label>
+                          <input type="text" value={addUserForm.jobTitle} onChange={(e) => setAddUserForm(p => ({ ...p, jobTitle: e.target.value }))} placeholder="Software Engineer" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Department</label>
+                          <input type="text" value={addUserForm.department} onChange={(e) => setAddUserForm(p => ({ ...p, department: e.target.value }))} placeholder="Engineering" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Role</label>
+                        <select value={addUserForm.role} onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }}>
+                          <option value="member">Member</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', gap: 8, justifyContent: 'flex-end', background: '#fafafa' }}>
+                      <button onClick={() => setShowAddUserForm(false)} style={{ padding: '7px 16px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', background: 'white', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
+                      <button
+                        disabled={addUserLoading}
+                        onClick={async () => {
+                          if (!addUserForm.fullName || !addUserForm.email || !addUserForm.password) { setAddUserError('Semua field wajib diisi'); return }
+                          setAddUserLoading(true); setAddUserError('')
+                          try {
+                            const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, jobTitle: addUserForm.jobTitle || undefined, department: addUserForm.department || undefined, role: 'user', status: 'active' })
+                            if (userRes.error) { setAddUserError(userRes.error); return }
+                            const memberRes = await membersApi.add({ userId: userRes.user.id, role: addUserForm.role })
+                            if (memberRes.error) { setAddUserError(memberRes.error); return }
+                            setShowAddUserForm(false)
+                            const data = await membersApi.list()
+                            setMembers(data?.members || [])
+                          } catch (e: any) { setAddUserError(e?.message || 'Gagal menambah user') } finally { setAddUserLoading(false) }
+                        }}
+                        style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: addUserLoading ? '#8e8e93' : '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: addUserLoading ? 'not-allowed' : 'pointer', fontFamily: SF }}
+                      >
+                        {addUserLoading ? 'Adding...' : 'Add User'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : selectedMember ? (
