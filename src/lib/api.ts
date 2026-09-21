@@ -37,7 +37,11 @@ export function getTenantId() {
 }
 
 export function setTenantId(tenantId: string) {
-  localStorage.setItem('hub-tenant-id', tenantId)
+  if (tenantId) {
+    localStorage.setItem('hub-tenant-id', tenantId)
+  } else {
+    localStorage.removeItem('hub-tenant-id')
+  }
 }
 
 async function refreshAccessToken(): Promise<string> {
