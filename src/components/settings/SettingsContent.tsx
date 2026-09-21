@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock, Shield, Phone, AlertTriangle } from 'lucide-react'
 import { usersApi, membersApi, tenantsApi } from '../../lib/endpoints'
 import { apiFetch } from '../../lib/api'
@@ -129,6 +129,9 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', phoneNumber: '', jobTitle: '', department: '' })
   const [addUserError, setAddUserError] = useState('')
   const [addUserLoading, setAddUserLoading] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [editMemberModal, setEditMemberModal] = useState<any>(null)
   const [editMemberRole, setEditMemberRole] = useState('')
   const [editMemberForm, setEditMemberForm] = useState({ fullName: '', email: '', phoneNumber: '', jobTitle: '', department: '' })
@@ -452,6 +455,52 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
             <>
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {searchOpen ? (
+                  <div style={{ display: 'flex', alignItems: 'center', background: '#f5f5f7', borderRadius: 12, padding: '0 8px', height: 24, gap: 4 }}>
+                    <Search size={12} color="#8e8e93" />
+                    <input
+                      autoFocus
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value)
+                        if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+                        searchTimerRef.current = setTimeout(() => {
+                          const q = e.target.value.trim()
+                          if (!q) { loadUsers(); return }
+                          if (user?.platformRole === 'owner') {
+                            usersApi.list(q).then(data => {
+                              const allUsers = (data?.users || []).map((u: any) => ({
+                                id: u.id, userId: u.id, role: u.role || 'user', jobTitle: u.jobTitle,
+                                createdAt: u.createdAt, userFullName: u.fullName, userEmail: u.email,
+                                userAvatarUrl: u.avatarUrl, userPhoneNumber: u.phoneNumber,
+                                userDepartment: u.department, userStatus: u.status,
+                              }))
+                              setMembers(allUsers)
+                            }).catch(() => {})
+                          } else {
+                            membersApi.list().then(data => {
+                              const q2 = q.toLowerCase()
+                              setMembers((data?.members || []).filter((m: any) =>
+                                (m.userFullName || '').toLowerCase().includes(q2) ||
+                                (m.userEmail || '').toLowerCase().includes(q2)
+                              ))
+                            }).catch(() => {})
+                          }
+                        }, 3000)
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); loadUsers() } }}
+                      placeholder="Cari user... (3s)"
+                      style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 11, fontFamily: SF, color: '#1d1d1f', width: 120 }}
+                    />
+                    <button onClick={() => { setSearchOpen(false); setSearchQuery(''); if (searchTimerRef.current) clearTimeout(searchTimerRef.current); loadUsers() }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setSearchOpen(true)} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  </button>
+                )}
                 <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', phoneNumber: '', jobTitle: '', department: '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
