@@ -244,20 +244,24 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: t.id === tenant?.id ? 600 : 400, color: '#1d1d1f', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
               </div>
-              {allTenants.length > 1 && (
+              {allTenants.length > 0 && (
                 <div
                   onClick={async (e) => {
                     e.stopPropagation()
                     if (!confirm(`Delete "${t.name}"?`)) return
                     try {
                       await apiFetch(`/api/tenants/${t.id}`, { method: 'DELETE' })
-                      setAllTenants((prev: any[]) => prev.filter((x: any) => x.id !== t.id))
-                      if (t.id === tenant?.id && allTenants.length > 1) {
-                        const next = allTenants.find((x: any) => x.id !== t.id)
-                        if (next) {
+                      const remaining = allTenants.filter((x: any) => x.id !== t.id)
+                      setAllTenants(remaining)
+                      if (t.id === tenant?.id) {
+                        if (remaining.length > 0) {
+                          const next = remaining[0]
                           await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: next.id }) })
                           setTenantId(next.id)
                           setTenant(next)
+                        } else {
+                          setTenantId('')
+                          setTenant(null)
                         }
                       }
                     } catch {}
