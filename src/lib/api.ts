@@ -95,8 +95,17 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
       res = await fetch(url, { ...options, headers })
     } catch {
       clearTokens()
-      window.location.reload()
+      localStorage.removeItem('hub-auth')
+      localStorage.removeItem('hub-tenant-id')
+      window.location.href = '/'
+      return new Response(null, { status: 401 })
     }
+  } else if (res.status === 401) {
+    clearTokens()
+    localStorage.removeItem('hub-auth')
+    localStorage.removeItem('hub-tenant-id')
+    window.location.href = '/'
+    return new Response(null, { status: 401 })
   }
 
   return res

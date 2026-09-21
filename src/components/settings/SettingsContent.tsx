@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock, Shield } from 'lucide-react'
+import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock, Shield, Phone, AlertTriangle } from 'lucide-react'
 import { usersApi, membersApi } from '../../lib/endpoints'
 import { apiFetch } from '../../lib/api'
 import './IDCard.css'
@@ -22,9 +22,20 @@ function GroupedRow({
   isLast?: boolean
 }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
+  const isValueEmpty = !value || value.trim() === ''
+  const displayValue = isValueEmpty ? 'Not set' : value
+
   return (
     <div
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onClick()
+        }
+      }}
       style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -33,7 +44,8 @@ function GroupedRow({
         borderBottom: isLast ? 'none' : '1px solid rgba(0,0,0,0.06)',
         minHeight: 38,
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'background 0.1s',
+        transition: 'background 0.12s ease',
+        outline: 'none',
       }}
       onMouseEnter={(e) => {
         if (onClick) e.currentTarget.style.background = 'rgba(0,0,0,0.03)'
@@ -65,7 +77,21 @@ function GroupedRow({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, justifyContent: 'flex-end' }}>
-        {value && <span style={{ fontSize: 13, color: editable ? '#8E8E93' : '#1d1d1f', fontFamily: SF, fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{value}</span>}
+        <span
+          style={{
+            fontSize: 13,
+            color: isValueEmpty || editable ? '#8E8E93' : '#1d1d1f',
+            fontStyle: isValueEmpty ? 'italic' : 'normal',
+            fontFamily: SF,
+            fontWeight: 400,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+          }}
+        >
+          {displayValue}
+        </span>
         {editable && (
           <span style={{ fontSize: 12, color: '#007AFF', fontFamily: SF, fontWeight: 500, cursor: 'pointer' }}>Edit</span>
         )}
@@ -106,6 +132,29 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [editMemberRole, setEditMemberRole] = useState('')
   const [editMemberForm, setEditMemberForm] = useState({ fullName: '', email: '', phoneNumber: '', jobTitle: '', department: '' })
   const [selectedMember, setSelectedMember] = useState<any>(null)
+
+  // Apple Modals for Member Actions
+  const [resetPasswordModalMember, setResetPasswordModalMember] = useState<any>(null)
+  const [resetPasswordNewPass, setResetPasswordNewPass] = useState('')
+  const [resetPasswordError, setResetPasswordError] = useState('')
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState(false)
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false)
+
+  const [removeTenantModalMember, setRemoveTenantModalMember] = useState<any>(null)
+  const [removeTenantLoading, setRemoveTenantLoading] = useState(false)
+
+  const handleOpenEditMember = (member: any) => {
+    if (!member) return
+    setEditMemberModal(member)
+    setEditMemberRole(member.role)
+    setEditMemberForm({
+      fullName: member.userFullName || '',
+      email: member.userEmail || '',
+      phoneNumber: member.userPhoneNumber || '',
+      jobTitle: member.jobTitle || '',
+      department: member.userDepartment || '',
+    })
+  }
 
   useEffect(() => {
     usersApi.getMe().then(data => {
@@ -370,7 +419,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
             <>
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', role: 'member', phoneNumber: '', jobTitle: '', department: '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', phoneNumber: '', jobTitle: '', department: '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
                 <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
@@ -623,7 +672,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                       </div>
                       <div className="id-photo" style={{ height: '55%' }}>
                         {selectedMember.userAvatarUrl ? (
-                          <img src={selectedMember.userAvatarUrl} alt="" />
+                          <img src={selectedMember.userAvatarUrl} alt={selectedMember.userFullName || 'User Avatar'} />
                         ) : (
                           <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, fontWeight: 700, color: 'white' }}>
                             {(selectedMember.userFullName || 'U').charAt(0).toUpperCase()}
@@ -642,7 +691,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           </div>
                           <div className="id-meta" style={{ fontSize: 10 }}>
                             <span className="id-role" style={{ fontSize: 9 }}>{selectedMember.role}</span>
-                            <span className="id-number" style={{ fontSize: 9 }}>{selectedMember.userEmail}</span>
+                            <span className="id-number" style={{ fontSize: 9 }} title={selectedMember.userEmail}>{selectedMember.userEmail}</span>
                           </div>
                         </div>
                       </div>
@@ -654,24 +703,24 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                         <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Contact</span>
                         </div>
-                        <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Full Name" value={selectedMember.userFullName} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
-                        <GroupedRow icon={<Key size={14} />} iconBg="#007aff" label="Email" value={selectedMember.userEmail} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
-                        <GroupedRow icon={<Building size={14} />} iconBg="#5856d6" label="Phone" value={selectedMember.userPhoneNumber} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} isLast />
+                        <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Full Name" value={selectedMember.userFullName} onClick={() => handleOpenEditMember(selectedMember)} />
+                        <GroupedRow icon={<Key size={14} />} iconBg="#007aff" label="Email" value={selectedMember.userEmail} onClick={() => handleOpenEditMember(selectedMember)} />
+                        <GroupedRow icon={<Phone size={14} />} iconBg="#5856d6" label="Phone" value={selectedMember.userPhoneNumber} onClick={() => handleOpenEditMember(selectedMember)} isLast />
                       </div>
 
                       <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                         <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Work</span>
                         </div>
-                        <GroupedRow icon={<Briefcase size={14} />} iconBg="#ff2d55" label="Job Title" value={selectedMember.jobTitle} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
-                        <GroupedRow icon={<Building size={14} />} iconBg="#30b0c7" label="Department" value={selectedMember.userDepartment} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} isLast />
+                        <GroupedRow icon={<Briefcase size={14} />} iconBg="#ff2d55" label="Job Title" value={selectedMember.jobTitle} onClick={() => handleOpenEditMember(selectedMember)} />
+                        <GroupedRow icon={<Building size={14} />} iconBg="#30b0c7" label="Department" value={selectedMember.userDepartment} onClick={() => handleOpenEditMember(selectedMember)} isLast />
                       </div>
 
                       <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                         <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Access</span>
                         </div>
-                        <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'hub-admin' ? '#af52de' : '#34c759'} label="Role" value={selectedMember.role} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
+                        <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'hub-admin' ? '#af52de' : '#34c759'} label="Role" value={selectedMember.role} onClick={() => handleOpenEditMember(selectedMember)} />
                         <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 24, height: 24, borderRadius: 6, background: selectedMember.userStatus === 'active' ? 'rgba(52,199,89,0.12)' : 'rgba(142,142,147,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -701,32 +750,34 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   </div>
 
                   <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                    <button onClick={async () => {
-                      const newPass = prompt('Enter new password for ' + selectedMember.userFullName + ':')
-                      if (!newPass || newPass.length < 6) { if (newPass !== null) alert('Password must be at least 6 characters'); return }
-                      try {
-                        await apiFetch(`/api/users/${selectedMember.userId}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: newPass }) })
-                        alert('Password reset successfully')
-                      } catch { alert('Failed to reset password') }
-                    }} style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)', background: 'white', color: '#007aff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center' }}>Reset Password</button>
+                    <button
+                      onClick={() => {
+                        setResetPasswordModalMember(selectedMember)
+                        setResetPasswordNewPass('')
+                        setResetPasswordError('')
+                        setResetPasswordSuccess(false)
+                      }}
+                      style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)', background: 'white', color: '#007aff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center', transition: 'all 0.15s ease' }}
+                    >
+                      Reset Password
+                    </button>
                     {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
-                      <button onClick={async () => {
-                        if (confirm(`Remove ${selectedMember.userFullName} from this tenant?`)) {
-                          await membersApi.remove(selectedMember.id)
-                          setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id))
-                          setSelectedMember(null)
-                        }
-                      }} style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,59,48,0.2)', background: 'white', color: '#ff3b30', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center' }}>Remove from Tenant</button>
+                      <button
+                        onClick={() => setRemoveTenantModalMember(selectedMember)}
+                        style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,59,48,0.2)', background: 'white', color: '#ff3b30', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center', transition: 'all 0.15s ease' }}
+                      >
+                        Remove from Tenant
+                      </button>
                     )}
                   </div>
                 </div>
               ) : (
                 /* Member List View */
-                <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%', width: '100%' }}>
+                <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
                   {members.length === 0 ? (
                     <div style={{ padding: 20, textAlign: 'center', color: '#8e8e93', fontSize: 13, fontFamily: SF }}>No members yet</div>
                   ) : (
-                    members.map((m: any, i: number) => (
+                    members.map((m: any) => (
                       <div key={m.id} onClick={() => setSelectedMember(m)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', cursor: 'pointer', transition: 'background 0.1s' }} onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                           {m.userAvatarUrl ? (
@@ -1016,6 +1067,115 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   setEditMemberModal(null)
                 } catch { alert('Failed to update') }
               }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apple-style Reset Password Modal */}
+      {resetPasswordModalMember && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' }} onClick={() => setResetPasswordModalMember(null)}>
+          <div style={{ background: 'white', width: 340, borderRadius: 16, padding: 20, boxShadow: '0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: 14 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(0,122,255,0.12)', color: '#007aff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Key size={18} />
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f' }}>Reset Password</div>
+                <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Set new password for {resetPasswordModalMember.userFullName}</div>
+              </div>
+            </div>
+
+            {resetPasswordError && <div style={{ fontSize: 12, color: '#ff3b30', background: 'rgba(255,59,48,0.08)', padding: '8px 10px', borderRadius: 6, fontFamily: SF }}>{resetPasswordError}</div>}
+            {resetPasswordSuccess && <div style={{ fontSize: 12, color: '#34c759', background: 'rgba(52,199,89,0.08)', padding: '8px 10px', borderRadius: 6, fontFamily: SF }}>Password updated successfully</div>}
+
+            <input
+              type="password"
+              placeholder="New password (min. 6 characters)"
+              value={resetPasswordNewPass}
+              onChange={e => setResetPasswordNewPass(e.target.value)}
+              style={{ padding: '9px 12px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.12)', background: '#f2f2f7', fontSize: 13, fontFamily: SF, outline: 'none', width: '100%', boxSizing: 'border-box' }}
+              autoFocus
+            />
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              <button
+                onClick={() => setResetPasswordModalMember(null)}
+                style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#e5e5ea', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={resetPasswordLoading}
+                onClick={async () => {
+                  if (!resetPasswordNewPass || resetPasswordNewPass.length < 6) {
+                    setResetPasswordError('Password must be at least 6 characters')
+                    return
+                  }
+                  setResetPasswordLoading(true)
+                  setResetPasswordError('')
+                  try {
+                    await apiFetch(`/api/users/${resetPasswordModalMember.userId}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: resetPasswordNewPass }) })
+                    setResetPasswordSuccess(true)
+                    setTimeout(() => {
+                      setResetPasswordModalMember(null)
+                    }, 1000)
+                  } catch (e: any) {
+                    setResetPasswordError(e?.message || 'Failed to reset password')
+                  } finally {
+                    setResetPasswordLoading(false)
+                  }
+                }}
+                style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: resetPasswordLoading ? 'not-allowed' : 'pointer', fontFamily: SF, opacity: resetPasswordLoading ? 0.7 : 1 }}
+              >
+                {resetPasswordLoading ? 'Updating...' : 'Update Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apple-style Remove Tenant Confirmation Modal */}
+      {removeTenantModalMember && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' }} onClick={() => setRemoveTenantModalMember(null)}>
+          <div style={{ background: 'white', width: 330, borderRadius: 16, padding: 20, boxShadow: '0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,59,48,0.12)', color: '#ff3b30', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AlertTriangle size={22} />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 4 }}>Remove from Tenant?</div>
+              <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, lineHeight: 1.4 }}>
+                Are you sure you want to remove <strong style={{ color: '#1d1d1f' }}>{removeTenantModalMember.userFullName}</strong>? They will lose access to this workspace.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, width: '100%', marginTop: 6 }}>
+              <button
+                onClick={() => setRemoveTenantModalMember(null)}
+                style={{ flex: 1, padding: '9px 14px', borderRadius: 8, border: 'none', background: '#e5e5ea', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={removeTenantLoading}
+                onClick={async () => {
+                  setRemoveTenantLoading(true)
+                  try {
+                    await membersApi.remove(removeTenantModalMember.id)
+                    setMembers(prev => prev.filter((x: any) => x.id !== removeTenantModalMember.id))
+                    setSelectedMember(null)
+                    setRemoveTenantModalMember(null)
+                  } catch {
+                    // handle error
+                  } finally {
+                    setRemoveTenantLoading(false)
+                  }
+                }}
+                style={{ flex: 1, padding: '9px 14px', borderRadius: 8, border: 'none', background: '#ff3b30', color: 'white', fontSize: 13, fontWeight: 500, cursor: removeTenantLoading ? 'not-allowed' : 'pointer', fontFamily: SF, opacity: removeTenantLoading ? 0.7 : 1 }}
+              >
+                {removeTenantLoading ? 'Removing...' : 'Remove'}
+              </button>
             </div>
           </div>
         </div>
