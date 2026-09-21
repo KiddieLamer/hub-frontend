@@ -54,7 +54,7 @@ function GroupedRow({
         if (onClick) e.currentTarget.style.background = 'transparent'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, minWidth: 100 }}>
         {icon && iconBg && (
           <div
             style={{
@@ -76,7 +76,7 @@ function GroupedRow({
         <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, fontWeight: 400 }}>{label}</span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, justifyContent: 'flex-end', paddingLeft: 12 }}>
         <span
           style={{
             fontSize: 13,
@@ -87,7 +87,7 @@ function GroupedRow({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            minWidth: 0,
+            textAlign: 'right',
           }}
         >
           {displayValue}
@@ -174,7 +174,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           const allUsers = (data?.users || []).map((u: any) => ({
             id: u.id,
             userId: u.id,
-            role: 'member',
+            role: u.role || 'user',
             jobTitle: u.jobTitle,
             createdAt: u.createdAt,
             userFullName: u.fullName,
@@ -682,41 +682,125 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 </div>
               ) : selectedMember ? (
                 /* Member Detail View */
-                <div style={{ padding: '0 4px', maxWidth: 640, margin: '0 auto' }}>
-                  <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                    {/* ID Card */}
-                    <div style={{ position: 'relative', width: 200, height: 310, flexShrink: 0, overflow: 'hidden', borderRadius: 12, background: '#d9d9d7', boxShadow: '0 8px 24px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)', fontFamily: SF, color: '#202124' }}>
-                      <div className="card-hook">
-                        <div className="hook-ring" />
+                <div style={{ padding: '0 4px', maxWidth: 660, margin: '0 auto' }}>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
+                    {/* Apple Profile Badge Card */}
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: 210,
+                        borderRadius: 16,
+                        background: 'white',
+                        border: '1px solid rgba(0,0,0,0.07)',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03)',
+                        fontFamily: SF,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {/* Header Banner Background */}
+                      <div
+                        style={{
+                          width: '100%',
+                          height: 72,
+                          background: 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)',
+                          position: 'relative',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          paddingTop: 8,
+                        }}
+                      >
+                        {/* Apple Slot Lanyard Notch */}
+                        <div
+                          style={{
+                            width: 28,
+                            height: 5,
+                            borderRadius: 3,
+                            background: 'rgba(255,255,255,0.45)',
+                            backdropFilter: 'blur(4px)',
+                          }}
+                        />
                       </div>
-                      <div className="id-photo" style={{ height: '55%' }}>
+
+                      {/* Circular Avatar Overlap */}
+                      <div
+                        style={{
+                          marginTop: -38,
+                          position: 'relative',
+                          width: 76,
+                          height: 76,
+                          borderRadius: '50%',
+                          border: '3.5px solid white',
+                          boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
+                          overflow: 'hidden',
+                          background: 'white',
+                          flexShrink: 0,
+                        }}
+                      >
                         {selectedMember.userAvatarUrl ? (
-                          <img src={selectedMember.userAvatarUrl} alt={selectedMember.userFullName || 'User Avatar'} />
+                          <img src={selectedMember.userAvatarUrl} alt={selectedMember.userFullName || 'User Avatar'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, fontWeight: 700, color: 'white' }}>
+                          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 700, color: 'white' }}>
                             {(selectedMember.userFullName || 'U').charAt(0).toUpperCase()}
                           </div>
                         )}
                       </div>
-                      <div className="id-bottom">
-                        <svg className="id-wave" viewBox="0 0 320 100" preserveAspectRatio="none">
-                          <path d="M0,55 C65,20 125,20 180,38 C235,56 275,62 320,48 L320,100 L0,100 Z" fill="#f8f8f7" />
-                        </svg>
-                        <div className="id-content">
-                          <div className="id-name" style={{ fontSize: 13 }}>
-                            {(selectedMember.userFullName || 'User').split(' ').map((word: string, i: number) => (
-                              <span key={i}>{word}</span>
-                            ))}
+
+                      {/* Profile Card Body */}
+                      <div style={{ padding: '10px 14px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '100%', boxSizing: 'border-box', flex: 1, justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                          <div style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={selectedMember.userFullName}>
+                            {selectedMember.userFullName || 'User'}
                           </div>
-                          <div className="id-meta" style={{ fontSize: 10 }}>
-                            <span className="id-role" style={{ fontSize: 9 }}>{selectedMember.role}</span>
-                            <span className="id-number" style={{ fontSize: 9 }} title={selectedMember.userEmail}>{selectedMember.userEmail}</span>
+
+                          <div style={{ fontSize: 11, color: '#8e8e93', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={selectedMember.userEmail}>
+                            {selectedMember.userEmail}
                           </div>
+
+                          {/* Role Badge Pill */}
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '3px 10px',
+                              borderRadius: 12,
+                              fontSize: 10,
+                              fontWeight: 600,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.04em',
+                              background: selectedMember.role === 'owner' ? 'rgba(255,149,0,0.12)' : selectedMember.role === 'hub-admin' ? 'rgba(175,82,222,0.12)' : 'rgba(0,122,255,0.12)',
+                              color: selectedMember.role === 'owner' ? '#d97706' : selectedMember.role === 'hub-admin' ? '#892ccd' : '#007aff',
+                            }}
+                          >
+                            {selectedMember.role}
+                          </div>
+                        </div>
+
+                        {/* Status Pill Indicator */}
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '4px 10px',
+                            borderRadius: 20,
+                            background: selectedMember.userStatus === 'active' ? 'rgba(52,199,89,0.1)' : 'rgba(142,142,147,0.1)',
+                            color: selectedMember.userStatus === 'active' ? '#34c759' : '#8e8e93',
+                            fontSize: 11,
+                            fontWeight: 500,
+                            marginTop: 12,
+                          }}
+                        >
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: selectedMember.userStatus === 'active' ? '#34c759' : '#8e8e93' }} />
+                          <span>{selectedMember.userStatus === 'active' ? 'Active Member' : 'Inactive'}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Info Cards */}
+                    {/* Info Cards Column */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
                       <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                         <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
@@ -768,7 +852,8 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  {/* Refined Apple Action Buttons */}
+                  <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                     <button
                       onClick={() => {
                         setResetPasswordModalMember(selectedMember)
@@ -776,14 +861,44 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                         setResetPasswordError('')
                         setResetPasswordSuccess(false)
                       }}
-                      style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.08)', background: 'white', color: '#007aff', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center', transition: 'all 0.15s ease' }}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: 'none',
+                        background: 'rgba(0,122,255,0.08)',
+                        color: '#007aff',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        fontFamily: SF,
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,122,255,0.14)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,122,255,0.08)'}
                     >
                       Reset Password
                     </button>
                     {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
                       <button
                         onClick={() => setRemoveTenantModalMember(selectedMember)}
-                        style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,59,48,0.2)', background: 'white', color: '#ff3b30', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF, textAlign: 'center', transition: 'all 0.15s ease' }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          borderRadius: 10,
+                          border: 'none',
+                          background: 'rgba(255,59,48,0.08)',
+                          color: '#ff3b30',
+                          fontSize: 13,
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          fontFamily: SF,
+                          textAlign: 'center',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,59,48,0.16)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,59,48,0.08)'}
                       >
                         Remove from Tenant
                       </button>
