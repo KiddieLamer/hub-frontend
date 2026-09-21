@@ -677,7 +677,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           setAddUserLoading(true); setAddUserError('')
                           try {
                             const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, jobTitle: addUserForm.jobTitle || undefined, department: addUserForm.department || undefined, role: 'user', status: 'active' })
-                            if (userRes.error) { setAddUserError(userRes.error); return }
+                            if (userRes.error) {
+                              const detail = userRes.details?.[0]?.message
+                              setAddUserError(detail ? `${userRes.error}: ${detail}` : userRes.error)
+                              return
+                            }
                             setShowAddUserForm(false)
                           } catch (e: any) { setAddUserError(e?.message || 'Gagal menambah user') } finally { setAddUserLoading(false) }
                         }}

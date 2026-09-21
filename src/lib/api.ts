@@ -140,3 +140,16 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   return res
 }
+
+export async function apiJson<T = any>(res: Response): Promise<T> {
+  const text = await res.text()
+  if (!text) return null as T
+  try {
+    return JSON.parse(text)
+  } catch {
+    if (res.status >= 400) {
+      return { error: 'Terjadi kesalahan server. Coba lagi.' } as T
+    }
+    return null as T
+  }
+}
