@@ -190,8 +190,20 @@ function LoginPage({ onClose, onSuccess }: { onClose: () => void; onSuccess: () 
         setShakeKey((k) => k + 1)
         return
       }
-      setSuccess(true)
-      setTimeout(() => { resetState(); onSuccess() }, 1200)
+      try {
+        const { authApi } = await import('./lib/endpoints')
+        const data = await authApi.login(email, password)
+        if (data.error) {
+          setError(data.error)
+          setShakeKey((k) => k + 1)
+          return
+        }
+        setSuccess(true)
+        setTimeout(() => { resetState(); onSuccess() }, 1200)
+      } catch {
+        setError('Gagal login, coba lagi')
+        setShakeKey((k) => k + 1)
+      }
     } else {
       if (!name || !email || !password) {
         setError('Semua field wajib diisi')

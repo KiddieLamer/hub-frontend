@@ -88,24 +88,33 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   let res = await fetch(url, { ...options, headers })
 
-  if (res.status === 401 && tokens.refreshToken) {
-    try {
-      const newToken = await refreshAccessToken()
-      headers['Authorization'] = `Bearer ${newToken}`
-      res = await fetch(url, { ...options, headers })
-    } catch {
+  if (res.status === 401) {
+    if (tokens.refreshToken) {
+      try {
+        const newToken = await refreshAccessToken()
+        headers['Authorization'] = `Bearer ${newToken}`
+        res = await fetch(url, { ...options, headers })
+      } catch {
+        clearTokens()
+        localStorage.removeItem('hub-auth')
+        localStorage.removeItem('hub-tenant-id')
+        window.location.href = '/'
+        return new Response(null, { status: 401 })
+      }
+    } else {
       clearTokens()
       localStorage.removeItem('hub-auth')
       localStorage.removeItem('hub-tenant-id')
       window.location.href = '/'
       return new Response(null, { status: 401 })
     }
-  } else if (res.status === 401) {
-    clearTokens()
-    localStorage.removeItem('hub-auth')
-    localStorage.removeItem('hub-tenant-id')
-    window.location.href = '/'
-    return new Response(null, { status: 401 })
+  }
+
+  if (res.status === 404 && path.includes('/api/')) {
+    const body = await res.clone().json().catch(() => null)
+    if (body?.error === 'Tenant not found') {
+      localStorage.removeItem('hub-tenant-id')
+    }
   }
 
   return res
