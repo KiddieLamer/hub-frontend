@@ -87,11 +87,13 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   const tenantId = getTenantId()
   const tenantPaths = ['/api/members', '/api/roles', '/api/hris', '/api/projects', '/api/inventory', '/api/finance']
-  if (tenantPaths.some(p => path.startsWith(p))) {
+  const tenantExempt = ['/api/members/me', '/api/users/me']
+  if (tenantPaths.some(p => path.startsWith(p)) && !tenantExempt.some(p => path === p)) {
     if (!tenantId) {
-      localStorage.removeItem('hub-tenant-id')
-      window.location.href = '/'
-      return new Response(null, { status: 400 })
+      return new Response(JSON.stringify({ members: [], roles: [], error: 'No tenant selected' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
     headers['X-Tenant-ID'] = tenantId
   }
