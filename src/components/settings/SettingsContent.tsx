@@ -107,7 +107,7 @@ function GroupedRow({
 export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: { onLogout: () => void; onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
   const [activeTab, setActiveTab] = useState<string>('general')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [categorySearch, setCategorySearch] = useState('')
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('hub-avatar-url') || '')
   const [showAvatarModal, setShowAvatarModal] = useState(false)
@@ -130,7 +130,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [addUserError, setAddUserError] = useState('')
   const [addUserLoading, setAddUserLoading] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [userSearchQuery, setUserSearchQuery] = useState('')
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [editMemberModal, setEditMemberModal] = useState<any>(null)
   const [editMemberRole, setEditMemberRole] = useState('')
@@ -228,7 +228,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     ...(user?.role === 'admin' ? [{ id: 'roles', label: 'Roles', icon: Shield, bg: 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)' }] : []),
   ]
 
-  const filteredCategories = categories.filter(c => c.label.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredCategories = categories.filter(c => c.label.toLowerCase().includes(categorySearch.toLowerCase()))
 
   const btnSize = 12
   const btnGap = 8
@@ -316,8 +316,8 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
             <input
               type="text"
               placeholder="Search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
               style={{
                 border: 'none', background: 'transparent', outline: 'none',
                 width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF,
@@ -460,9 +460,9 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     <Search size={12} color="#8e8e93" />
                     <input
                       autoFocus
-                      value={searchQuery}
+                      value={userSearchQuery}
                       onChange={(e) => {
-                        setSearchQuery(e.target.value)
+                        setUserSearchQuery(e.target.value)
                         if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
                         searchTimerRef.current = setTimeout(() => {
                           const q = e.target.value.trim()
@@ -488,11 +488,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           }
                         }, 3000)
                       }}
-                      onKeyDown={(e) => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); loadUsers() } }}
+                      onKeyDown={(e) => { if (e.key === 'Escape') { setSearchOpen(false); setUserSearchQuery(''); loadUsers() } }}
                       placeholder="Cari user... (3s)"
                       style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 11, fontFamily: SF, color: '#1d1d1f', width: 120 }}
                     />
-                    <button onClick={() => { setSearchOpen(false); setSearchQuery(''); if (searchTimerRef.current) clearTimeout(searchTimerRef.current); loadUsers() }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                    <button onClick={() => { setSearchOpen(false); setUserSearchQuery(''); if (searchTimerRef.current) clearTimeout(searchTimerRef.current); loadUsers() }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', padding: 0 }}>
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                   </div>
