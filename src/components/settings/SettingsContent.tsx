@@ -177,7 +177,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   }, [])
 
   const loadUsers = () => {
-    if (user?.platformRole === 'owner') {
+                          if (user?.platformRole === 'hub-admin') {
       usersApi.list().then(data => {
         const allUsers = (data?.users || []).map((u: any) => ({
           id: u.id,
@@ -467,7 +467,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                         searchTimerRef.current = setTimeout(() => {
                           const q = e.target.value.trim()
                           if (!q) { loadUsers(); return }
-                          if (user?.platformRole === 'owner') {
+    if (user?.platformRole === 'hub-admin') {
                             usersApi.list(q).then(data => {
                               const allUsers = (data?.users || []).map((u: any) => ({
                                 id: u.id, userId: u.id, role: u.role || 'user', jobTitle: u.jobTitle,

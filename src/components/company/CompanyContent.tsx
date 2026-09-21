@@ -123,7 +123,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     import('../../lib/endpoints').then(({ usersApi }) => {
       usersApi.getMe().then((data: any) => {
         const u = data.user || data
-        if (u.platformRole === 'owner') {
+        if (u.platformRole === 'hub-admin') {
           setIsOwner(true)
           tenantsApi.listAll().then((d: any) => setAllTenants(d?.tenants || [])).catch(() => {})
         }
