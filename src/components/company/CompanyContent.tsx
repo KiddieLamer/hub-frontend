@@ -107,7 +107,14 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         }
       }).catch(() => {})
       membersApi.list().then((data: any) => {
-        setStaffMembers(data?.members || [])
+        const sorted = (data?.members || []).sort((a: any, b: any) => {
+          if (a.role === 'owner') return -1
+          if (b.role === 'owner') return 1
+          if (a.role === 'admin') return -1
+          if (b.role === 'admin') return 1
+          return 0
+        })
+        setStaffMembers(sorted)
         setStaffLoading(false)
       }).catch(() => setStaffLoading(false))
     })
@@ -451,7 +458,15 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'hub-admin' ? 'rgba(175,82,222,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'hub-admin' ? '#af52de' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
+                    {m.role === 'owner' && (
+                      <span style={{ padding: '2px 8px', borderRadius: 10, background: 'rgba(255,149,0,0.15)', color: '#ff9500', fontSize: 10, fontWeight: 700, fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Owner</span>
+                    )}
+                    {m.role === 'hub-admin' && (
+                      <span style={{ padding: '2px 8px', borderRadius: 10, background: 'rgba(175,82,222,0.12)', color: '#af52de', fontSize: 10, fontWeight: 700, fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Hub Admin</span>
+                    )}
+                    {m.role !== 'owner' && m.role !== 'hub-admin' && (
+                      <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 10, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
+                    )}
                     {m.role !== 'owner' && m.role !== 'hub-admin' && (
                       <div
                         onClick={async (e) => {

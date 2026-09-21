@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock, Shield, Phone, AlertTriangle } from 'lucide-react'
-import { usersApi, membersApi } from '../../lib/endpoints'
+import { usersApi, membersApi, tenantsApi } from '../../lib/endpoints'
 import { apiFetch } from '../../lib/api'
 import './IDCard.css'
+import { IDCard } from './IDCard'
 
 function GroupedRow({
   icon,
@@ -142,6 +143,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
 
   const [removeTenantModalMember, setRemoveTenantModalMember] = useState<any>(null)
   const [removeTenantLoading, setRemoveTenantLoading] = useState(false)
+  const [currentTenant, setCurrentTenant] = useState<any>(null)
 
   const handleOpenEditMember = (member: any) => {
     if (!member) return
@@ -165,6 +167,10 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         localStorage.setItem('hub-avatar-url', u.avatarUrl)
       }
     }).catch(() => setError('Failed to load user data'))
+
+    tenantsApi.getCurrent().then(data => {
+      if (data?.tenant || data) setCurrentTenant(data.tenant || data)
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -441,11 +447,9 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', phoneNumber: '', jobTitle: '', department: '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
-                <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                </button>
-                <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.2 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                <button style={{ height: 24, borderRadius: 12, border: 'none', background: '#f5f5f7', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 10px', gap: 4, opacity: 0.6 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                  <span style={{ fontSize: 11, fontFamily: SF, color: '#1d1d1f' }}>Filter</span>
                 </button>
               </div>
             </>
@@ -684,120 +688,9 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 /* Member Detail View */
                 <div style={{ padding: '0 4px', maxWidth: 660, margin: '0 auto' }}>
                   <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
-                    {/* Apple Profile Badge Card */}
-                    <div
-                      style={{
-                        position: 'relative',
-                        width: 210,
-                        borderRadius: 16,
-                        background: 'white',
-                        border: '1px solid rgba(0,0,0,0.07)',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.06), 0 2px 6px rgba(0,0,0,0.03)',
-                        fontFamily: SF,
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {/* Header Banner Background */}
-                      <div
-                        style={{
-                          width: '100%',
-                          height: 72,
-                          background: 'linear-gradient(135deg, #007aff 0%, #5856d6 100%)',
-                          position: 'relative',
-                          display: 'flex',
-                          justifyContent: 'center',
-                          paddingTop: 8,
-                        }}
-                      >
-                        {/* Apple Slot Lanyard Notch */}
-                        <div
-                          style={{
-                            width: 28,
-                            height: 5,
-                            borderRadius: 3,
-                            background: 'rgba(255,255,255,0.45)',
-                            backdropFilter: 'blur(4px)',
-                          }}
-                        />
-                      </div>
-
-                      {/* Circular Avatar Overlap */}
-                      <div
-                        style={{
-                          marginTop: -38,
-                          position: 'relative',
-                          width: 76,
-                          height: 76,
-                          borderRadius: '50%',
-                          border: '3.5px solid white',
-                          boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
-                          overflow: 'hidden',
-                          background: 'white',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {selectedMember.userAvatarUrl ? (
-                          <img src={selectedMember.userAvatarUrl} alt={selectedMember.userFullName || 'User Avatar'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 700, color: 'white' }}>
-                            {(selectedMember.userFullName || 'U').charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Profile Card Body */}
-                      <div style={{ padding: '10px 14px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '100%', boxSizing: 'border-box', flex: 1, justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                          <div style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={selectedMember.userFullName}>
-                            {selectedMember.userFullName || 'User'}
-                          </div>
-
-                          <div style={{ fontSize: 11, color: '#8e8e93', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={selectedMember.userEmail}>
-                            {selectedMember.userEmail}
-                          </div>
-
-                          {/* Role Badge Pill */}
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              padding: '3px 10px',
-                              borderRadius: 12,
-                              fontSize: 10,
-                              fontWeight: 600,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.04em',
-                              background: selectedMember.role === 'owner' ? 'rgba(255,149,0,0.12)' : selectedMember.role === 'hub-admin' ? 'rgba(175,82,222,0.12)' : 'rgba(0,122,255,0.12)',
-                              color: selectedMember.role === 'owner' ? '#d97706' : selectedMember.role === 'hub-admin' ? '#892ccd' : '#007aff',
-                            }}
-                          >
-                            {selectedMember.role}
-                          </div>
-                        </div>
-
-                        {/* Status Pill Indicator */}
-                        <div
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '4px 10px',
-                            borderRadius: 20,
-                            background: selectedMember.userStatus === 'active' ? 'rgba(52,199,89,0.1)' : 'rgba(142,142,147,0.1)',
-                            color: selectedMember.userStatus === 'active' ? '#34c759' : '#8e8e93',
-                            fontSize: 11,
-                            fontWeight: 500,
-                            marginTop: 12,
-                          }}
-                        >
-                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: selectedMember.userStatus === 'active' ? '#34c759' : '#8e8e93' }} />
-                          <span>{selectedMember.userStatus === 'active' ? 'Active Member' : 'Inactive'}</span>
-                        </div>
-                      </div>
+                    {/* Physical Lanyard Name Tag Badge */}
+                    <div style={{ flexShrink: 0, position: 'relative', width: 240 }}>
+                      <IDCard member={selectedMember} tenant={currentTenant} scale={1} />
                     </div>
 
                     {/* Info Cards Column */}
