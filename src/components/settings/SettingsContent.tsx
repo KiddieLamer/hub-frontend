@@ -664,32 +664,50 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     </div>
                   </div>
 
-                  <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
+                  <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Contact</span>
+                    </div>
                     <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="Full Name" value={selectedMember.userFullName} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
                     <GroupedRow icon={<Key size={14} />} iconBg="#007aff" label="Email" value={selectedMember.userEmail} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
-                    <GroupedRow icon={<Building size={14} />} iconBg="#5856d6" label="Phone" value={selectedMember.userPhoneNumber} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
+                    <GroupedRow icon={<Building size={14} />} iconBg="#5856d6" label="Phone" value={selectedMember.userPhoneNumber} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} isLast />
+                  </div>
+
+                  <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Work</span>
+                    </div>
                     <GroupedRow icon={<Briefcase size={14} />} iconBg="#ff2d55" label="Job Title" value={selectedMember.jobTitle} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
-                    <GroupedRow icon={<Building size={14} />} iconBg="#30b0c7" label="Department" value={selectedMember.userDepartment} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
+                    <GroupedRow icon={<Building size={14} />} iconBg="#30b0c7" label="Department" value={selectedMember.userDepartment} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} isLast />
+                  </div>
+
+                  <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', width: '100%', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Access</span>
+                    </div>
                     <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'hub-admin' ? '#af52de' : '#34c759'} label="Role" value={selectedMember.role} onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} />
-                    <div style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
+                    <div style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ width: 24, height: 24, borderRadius: 6, background: selectedMember.userStatus === 'active' ? 'rgba(52,199,89,0.12)' : 'rgba(142,142,147,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedMember.userStatus === 'active' ? '#34c759' : '#8e8e93' }} />
                         </div>
                         <span style={{ fontSize: 13, fontFamily: SF, color: '#1d1d1f' }}>Status</span>
                       </div>
-                      <div
-                        onClick={() => {
-                          const newStatus = selectedMember.userStatus === 'active' ? 'inactive' : 'active'
-                          import('../../lib/endpoints').then(({ usersApi }) => {
-                            usersApi.update(selectedMember.userId, { status: newStatus })
-                            setSelectedMember({ ...selectedMember, userStatus: newStatus })
-                            setMembers(prev => prev.map((x: any) => x.id === selectedMember.id ? { ...x, userStatus: newStatus } : x))
-                          })
-                        }}
-                        style={{ width: 32, height: 18, borderRadius: 9, background: selectedMember.userStatus === 'active' ? '#34c759' : '#e5e5ea', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}
-                      >
-                        <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'white', position: 'absolute', top: 2, left: selectedMember.userStatus === 'active' ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 12, color: selectedMember.userStatus === 'active' ? '#34c759' : '#8e8e93', fontFamily: SF, fontWeight: 500 }}>{selectedMember.userStatus === 'active' ? 'Active' : 'Inactive'}</span>
+                        <div
+                          onClick={() => {
+                            const newStatus = selectedMember.userStatus === 'active' ? 'inactive' : 'active'
+                            import('../../lib/endpoints').then(({ usersApi }) => {
+                              usersApi.update(selectedMember.userId, { status: newStatus })
+                              setSelectedMember({ ...selectedMember, userStatus: newStatus })
+                              setMembers(prev => prev.map((x: any) => x.id === selectedMember.id ? { ...x, userStatus: newStatus } : x))
+                            })
+                          }}
+                          style={{ width: 32, height: 18, borderRadius: 9, background: selectedMember.userStatus === 'active' ? '#34c759' : '#e5e5ea', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}
+                        >
+                          <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'white', position: 'absolute', top: 2, left: selectedMember.userStatus === 'active' ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+                        </div>
                       </div>
                     </div>
                   </div>
