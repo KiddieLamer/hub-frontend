@@ -169,14 +169,33 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
 
   useEffect(() => {
     if (activeTab === 'users') {
-      membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
+      if (user?.platformRole === 'owner') {
+        usersApi.list().then(data => {
+          const allUsers = (data?.users || []).map((u: any) => ({
+            id: u.id,
+            userId: u.id,
+            role: 'member',
+            jobTitle: u.jobTitle,
+            createdAt: u.createdAt,
+            userFullName: u.fullName,
+            userEmail: u.email,
+            userAvatarUrl: u.avatarUrl,
+            userPhoneNumber: u.phoneNumber,
+            userDepartment: u.department,
+            userStatus: u.status,
+          }))
+          setMembers(allUsers)
+        }).catch(() => {})
+      } else {
+        membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
+      }
     }
     if (activeTab === 'roles') {
       import('../../lib/endpoints').then(({ rolesApi }) => {
         rolesApi.list().then(data => setRolesList(data?.roles || [])).catch(() => {})
       })
     }
-  }, [activeTab])
+  }, [activeTab, user?.platformRole])
 
   const getInitials = (name?: string) => {
     if (!name) return 'U'
