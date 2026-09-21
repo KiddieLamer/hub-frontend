@@ -193,7 +193,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           setMembers(allUsers)
         }).catch(() => {})
       } else {
-        membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
+        if (!localStorage.getItem('hub-tenant-id')) {
+          setMembers([])
+        } else {
+          membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
+        }
       }
     }
     if (activeTab === 'roles') {

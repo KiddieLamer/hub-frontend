@@ -106,6 +106,10 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           tenantsApi.listAll().then((d: any) => setAllTenants(d?.tenants || [])).catch(() => {})
         }
       }).catch(() => {})
+      if (!localStorage.getItem('hub-tenant-id')) {
+        setStaffLoading(false)
+        return
+      }
       membersApi.list().then((data: any) => {
         const sorted = (data?.members || []).sort((a: any, b: any) => {
           if (a.role === 'owner') return -1
