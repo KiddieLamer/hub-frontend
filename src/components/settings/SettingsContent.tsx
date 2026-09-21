@@ -339,7 +339,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 2 }}>
             {activeTab === 'users' && (selectedMember || showAddUserForm) ? (
-              <button onClick={() => { setSelectedMember(null); setShowAddUserForm(false); setShowAssignForm(false); setAssignSearch(''); setAssignResults([]) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+              <button onClick={() => { setSelectedMember(null); setShowAddUserForm(false) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
             ) : (
