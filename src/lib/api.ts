@@ -86,7 +86,13 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   }
 
   const tenantId = getTenantId()
-  if (tenantId) {
+  const tenantPaths = ['/api/members', '/api/roles', '/api/hris', '/api/projects', '/api/inventory', '/api/finance']
+  if (tenantPaths.some(p => path.startsWith(p))) {
+    if (!tenantId) {
+      localStorage.removeItem('hub-tenant-id')
+      window.location.href = '/'
+      return new Response(null, { status: 400 })
+    }
     headers['X-Tenant-ID'] = tenantId
   }
 
@@ -118,6 +124,15 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
     const body = await res.clone().json().catch(() => null)
     if (body?.error === 'Tenant not found') {
       localStorage.removeItem('hub-tenant-id')
+    }
+  }
+
+  if (res.status === 400 && path.includes('/api/') && !path.includes('/api/auth')) {
+    const body = await res.clone().json().catch(() => null)
+    if (body?.error?.includes('Tenant')) {
+      localStorage.removeItem('hub-tenant-id')
+      window.location.href = '/'
+      return res
     }
   }
 
