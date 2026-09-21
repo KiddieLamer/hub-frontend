@@ -77,7 +77,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [editError, setEditError] = useState('')
   const [saving, setSaving] = useState(false)
   const [allTenants, setAllTenants] = useState<any[]>([])
-  const [isOwner, setIsOwner] = useState(false)
+  const [isHubAdmin, setIsHubAdmin] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createForm, setCreateForm] = useState({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
   const [createError, setCreateError] = useState('')
@@ -124,7 +124,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
       usersApi.getMe().then((data: any) => {
         const u = data.user || data
         if (u.platformRole === 'hub-admin') {
-          setIsOwner(true)
+          setIsHubAdmin(true)
           tenantsApi.listAll().then((d: any) => setAllTenants(d?.tenants || [])).catch(() => {})
         }
       }).catch(() => {})
@@ -225,7 +225,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           <div style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>
             Companies
           </div>
-          {isOwner && (
+          {isHubAdmin && (
             <div
               onClick={() => { setCreateForm({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' }); setCreateError(''); setShowCreateModal(true) }}
               style={{ width: 20, height: 20, borderRadius: 5, background: '#34c759', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
@@ -237,7 +237,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
 
         {/* Company list */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 4px' }}>
-          {isOwner && allTenants.map((t: any) => (
+          {isHubAdmin && allTenants.map((t: any) => (
             <div
               key={t.id}
               onClick={async () => {
@@ -297,7 +297,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               )}
             </div>
           ))}
-          {!isOwner && (
+          {!isHubAdmin && (
             <div
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6,
