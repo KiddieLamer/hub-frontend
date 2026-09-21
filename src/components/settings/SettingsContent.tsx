@@ -627,39 +627,23 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               ) : selectedMember ? (
                 /* Member Detail View */
                 <div style={{ padding: '0 4px', maxWidth: 640, margin: '0 auto' }}>
-                  {/* ID Card */}
-                  <div style={{ position: 'relative', width: 320, height: 470, margin: '0 auto 20px', overflow: 'hidden', borderRadius: 16, background: '#d9d9d7', boxShadow: '0 20px 45px rgba(0,0,0,0.12), 0 5px 15px rgba(0,0,0,0.06)', fontFamily: SF, color: '#202124' }}>
-                    {/* Hook */}
-                    <div className="card-hook">
-                      <div className="hook-ring" />
-                    </div>
-
-                    {/* Photo */}
-                    <div className="id-photo">
+                  {/* Profile Header */}
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', marginBottom: 16 }}>
+                    <div style={{ width: 80, height: 80, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}>
                       {selectedMember.userAvatarUrl ? (
-                        <img src={selectedMember.userAvatarUrl} alt="" />
+                        <img src={selectedMember.userAvatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 72, fontWeight: 700, color: 'white' }}>
+                        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 700, color: 'white' }}>
                           {(selectedMember.userFullName || 'U').charAt(0).toUpperCase()}
                         </div>
                       )}
                     </div>
-
-                    {/* White wave bottom */}
-                    <div className="id-bottom">
-                      <svg className="id-wave" viewBox="0 0 320 100" preserveAspectRatio="none">
-                        <path d="M0,55 C65,20 125,20 180,38 C235,56 275,62 320,48 L320,100 L0,100 Z" fill="#f8f8f7" />
-                      </svg>
-                      <div className="id-content">
-                        <div className="id-name">
-                          {(selectedMember.userFullName || 'User').split(' ').map((word: string, i: number) => (
-                            <span key={i}>{word}</span>
-                          ))}
-                        </div>
-                        <div className="id-meta">
-                          <span className="id-role">{selectedMember.role}</span>
-                          <span className="id-number">{selectedMember.userEmail}</span>
-                        </div>
+                    <div style={{ flex: 1, paddingTop: 4 }}>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, marginBottom: 2 }}>{selectedMember.userFullName}</div>
+                      <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, marginBottom: 6 }}>{selectedMember.userEmail}</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <span style={{ padding: '2px 8px', borderRadius: 10, background: selectedMember.role === 'owner' ? 'rgba(255,149,0,0.12)' : selectedMember.role === 'hub-admin' ? 'rgba(175,82,222,0.12)' : selectedMember.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'hub-admin' ? '#af52de' : selectedMember.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{selectedMember.role}</span>
+                        <span style={{ padding: '2px 8px', borderRadius: 10, background: selectedMember.userStatus === 'active' ? 'rgba(52,199,89,0.12)' : 'rgba(142,142,147,0.12)', color: selectedMember.userStatus === 'active' ? '#34c759' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{selectedMember.userStatus || 'active'}</span>
                       </div>
                     </div>
                   </div>
