@@ -173,32 +173,36 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     }).catch(() => {})
   }, [])
 
+  const loadUsers = () => {
+    if (user?.platformRole === 'owner') {
+      usersApi.list().then(data => {
+        const allUsers = (data?.users || []).map((u: any) => ({
+          id: u.id,
+          userId: u.id,
+          role: u.role || 'user',
+          jobTitle: u.jobTitle,
+          createdAt: u.createdAt,
+          userFullName: u.fullName,
+          userEmail: u.email,
+          userAvatarUrl: u.avatarUrl,
+          userPhoneNumber: u.phoneNumber,
+          userDepartment: u.department,
+          userStatus: u.status,
+        }))
+        setMembers(allUsers)
+      }).catch(() => {})
+    } else {
+      if (!localStorage.getItem('hub-tenant-id')) {
+        setMembers([])
+      } else {
+        membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
+      }
+    }
+  }
+
   useEffect(() => {
     if (activeTab === 'users') {
-      if (user?.platformRole === 'owner') {
-        usersApi.list().then(data => {
-          const allUsers = (data?.users || []).map((u: any) => ({
-            id: u.id,
-            userId: u.id,
-            role: u.role || 'user',
-            jobTitle: u.jobTitle,
-            createdAt: u.createdAt,
-            userFullName: u.fullName,
-            userEmail: u.email,
-            userAvatarUrl: u.avatarUrl,
-            userPhoneNumber: u.phoneNumber,
-            userDepartment: u.department,
-            userStatus: u.status,
-          }))
-          setMembers(allUsers)
-        }).catch(() => {})
-      } else {
-        if (!localStorage.getItem('hub-tenant-id')) {
-          setMembers([])
-        } else {
-          membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
-        }
-      }
+      loadUsers()
     }
     if (activeTab === 'roles') {
       import('../../lib/endpoints').then(({ rolesApi }) => {
@@ -683,6 +687,8 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                               return
                             }
                             setShowAddUserForm(false)
+                            setAddUserForm({ fullName: '', email: '', password: '', phoneNumber: '', jobTitle: '', department: '' })
+                            loadUsers()
                           } catch (e: any) { setAddUserError(e?.message || 'Gagal menambah user') } finally { setAddUserLoading(false) }
                         }}
                         style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: addUserLoading ? '#8e8e93' : '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: addUserLoading ? 'not-allowed' : 'pointer', fontFamily: SF }}
