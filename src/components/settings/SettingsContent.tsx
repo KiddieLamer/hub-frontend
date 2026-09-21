@@ -99,7 +99,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [passwordSuccess, setPasswordSuccess] = useState('')
   const [members, setMembers] = useState<any[]>([])
   const [showAddUserForm, setShowAddUserForm] = useState(false)
-  const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', role: 'member' as string, phoneNumber: '', jobTitle: '', department: '' })
+  const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', phoneNumber: '', jobTitle: '', department: '' })
   const [addUserError, setAddUserError] = useState('')
   const [addUserLoading, setAddUserLoading] = useState(false)
   const [editMemberModal, setEditMemberModal] = useState<any>(null)
@@ -559,7 +559,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                       </div>
                       <div>
                         <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Add New User</div>
-                        <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>Create user and assign to this tenant</div>
+                        <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>Create a new user account</div>
                       </div>
                     </div>
 
@@ -590,14 +590,6 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           <input type="text" value={addUserForm.department} onChange={(e) => setAddUserForm(p => ({ ...p, department: e.target.value }))} placeholder="Engineering" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
                         </div>
                       </div>
-
-                      <div style={{ marginBottom: 0 }}>
-                        <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Role</label>
-                        <select value={addUserForm.role} onChange={(e) => setAddUserForm(p => ({ ...p, role: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }}>
-                          <option value="member">Member</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                      </div>
                     </div>
 
                     <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', gap: 8, justifyContent: 'flex-end', background: '#fafafa' }}>
@@ -610,11 +602,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           try {
                             const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, jobTitle: addUserForm.jobTitle || undefined, department: addUserForm.department || undefined, role: 'user', status: 'active' })
                             if (userRes.error) { setAddUserError(userRes.error); return }
-                            const memberRes = await membersApi.add({ userId: userRes.user.id, role: addUserForm.role })
-                            if (memberRes.error) { setAddUserError(memberRes.error); return }
                             setShowAddUserForm(false)
-                            const data = await membersApi.list()
-                            setMembers(data?.members || [])
                           } catch (e: any) { setAddUserError(e?.message || 'Gagal menambah user') } finally { setAddUserLoading(false) }
                         }}
                         style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: addUserLoading ? '#8e8e93' : '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: addUserLoading ? 'not-allowed' : 'pointer', fontFamily: SF }}
