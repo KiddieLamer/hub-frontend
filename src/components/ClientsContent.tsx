@@ -294,9 +294,26 @@ function QuotationsView({ onRefresh }: { onRefresh: () => void }) {
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pendingQuotes, setPendingQuotes] = useState<any[]>([])
+  const [myUserId, setMyUserId] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
-    try { const data = await quotationsApi.list(); setQuotations(data.quotations || []) } catch {
+    try {
+      const [qRes, aRes, meRes] = await Promise.allSettled([
+        quotationsApi.list(),
+        import('../lib/endpoints').then(m => m.approvalsApi.pending()),
+        import('../lib/endpoints').then(m => m.usersApi.getMe()),
+      ])
+      if (qRes.status === 'fulfilled') setQuotations((qRes.value as any).quotations || [])
+      if (aRes.status === 'fulfilled') {
+        const items = (aRes.value as any)?.items || []
+        setPendingQuotes(Array.isArray(items) ? items.filter((a: any) => a.kind === 'quotation') : [])
+      }
+      if (meRes.status === 'fulfilled') {
+        const u = (meRes.value as any)?.user || meRes.value || {}
+        setMyUserId(u.id || null)
+      }
+    } catch {
       setError('Gagal memuat data')
     } finally { setLoading(false) }
   }, [])
@@ -305,6 +322,24 @@ function QuotationsView({ onRefresh }: { onRefresh: () => void }) {
 
   const handleCreate = async () => {
     try { await quotationsApi.create(formValues); setShowForm(false); setFormValues({}); loadData(); onRefresh() } catch {}
+  }
+
+  const handleQuoteApproval = async (item: any, approved: boolean) => {
+    try {
+      await quotationsApi.approve(item.id, approved)
+      loadData(); onRefresh()
+    } catch (e: any) {
+      alert(e?.message || 'Gagal memproses persetujuan')
+    }
+  }
+
+  const handleSubmitQuote = async (id: string) => {
+    try {
+      await quotationsApi.status(id, 'pending_approval')
+      loadData(); onRefresh()
+    } catch (e: any) {
+      alert(e?.message || 'Gagal mengajukan')
+    }
   }
 
   if (loading) return <EmptyState text="Memuat data..." />
@@ -317,6 +352,23 @@ function QuotationsView({ onRefresh }: { onRefresh: () => void }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {pendingQuotes.length > 0 && (
+        <div style={{ background: 'rgb(255,248,240)', borderRadius: 10, border: '0.5px solid rgba(255,149,0,0.25)', overflow: 'hidden' }}>
+          <div style={{ padding: '10px 14px 4px', fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Perlu Persetujuan Kamu ({pendingQuotes.length})</div>
+          {pendingQuotes.map((a: any) => (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '9px 14px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF }}>{a.requesterName} · {a.title}</div>
+                <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{a.detail}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button onClick={() => handleQuoteApproval(a, true)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Setuju</button>
+                <button onClick={() => handleQuoteApproval(a, false)} style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', background: 'white', color: '#ff3b30', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Tolak</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {quotations.length === 0 ? <EmptyState text="Belum ada penawaran. Klik 'Buat Penawaran' untuk menambah." /> : (
         <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
           {quotations.map((q, i) => (
@@ -331,6 +383,9 @@ function QuotationsView({ onRefresh }: { onRefresh: () => void }) {
                   <span style={{ fontSize: 12, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, flexShrink: 0, marginLeft: 8 }}>Rp {Number(q.grandTotal || 0).toLocaleString('id-ID')}</span>
                 </div>
               </div>
+              {q.status === 'draft' && (myUserId === null || q.createdBy === myUserId) && (
+                <button onClick={(e) => { e.stopPropagation(); handleSubmitQuote(q.id) }} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', flexShrink: 0, fontFamily: SF }}>Ajukan</button>
+              )}
             </div>
           ))}
         </div>

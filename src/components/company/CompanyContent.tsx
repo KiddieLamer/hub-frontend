@@ -151,12 +151,16 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     setSaving(true)
     setEditError('')
     try {
-      const res: any = await tenantsApi.updateCurrent({ [editField]: editValue || null })
+      const payload: Record<string, unknown> =
+        editField === 'approvalThreshold'
+          ? { approvalThreshold: Number(editValue || 0) }
+          : { [editField]: editValue || null }
+      const res: any = await tenantsApi.updateCurrent(payload)
       if (res && res.error) {
         setEditError(res.error)
         return
       }
-      setTenant({ ...tenant, [editField]: editValue || null })
+      setTenant({ ...tenant, ...(res?.tenant || payload) })
       setShowEditModal(false)
     } catch {
       setEditError('Gagal menyimpan perubahan')
@@ -449,6 +453,13 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               onClick={() => openEdit('taxId', tenant?.taxId)}
             />
             <GroupedRow
+              icon={<FileText size={14} color="white" />}
+              iconBg="linear-gradient(135deg, #ff9500 0%, #c77400 100%)"
+              label="Batas Approval Owner"
+              value={tenant?.approvalThreshold != null ? `Rp ${Number(tenant.approvalThreshold).toLocaleString('id-ID')}` : 'Rp 10.000.000'}
+              onClick={() => openEdit('approvalThreshold', String(tenant?.approvalThreshold ?? 10000000))}
+            />
+            <GroupedRow
               icon={<Palette size={14} color="white" />}
               iconBg="linear-gradient(135deg, #af52de 0%, #892ab8 100%)"
               label="Plan"
@@ -465,7 +476,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'rgba(0, 0, 0, 0.1) 0px 1px 2px' }}>
                   <Users size={14} color="white" />
                 </div>
-                <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }} title="Owner & Admin bisa semua; role & jabatan mengatur akses staff">Staff ({staffMembers.length})</span>
+                <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }} title="Owner & Admin bisa semua; persetujuan mengikuti atasan di struktur jabatan">Staff ({staffMembers.length})</span>
               </div>
               <div
                 onClick={() => { setShowAssignModal(true); setAssignSearch(''); setAssignResults([]); setAssignRole('member'); setAssignJobTitle(''); setAssignPositionId('') }}
@@ -688,8 +699,14 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 16 }}>
-              Edit {editField === 'logoUrl' ? 'Logo' : editField === 'gmapLink' ? 'Google Maps Link' : editField === 'gdriveLink' ? 'Google Drive Link' : editField === 'taxId' ? 'NPWP' : editField === 'phoneNumber' ? 'Telepon' : editField.charAt(0).toUpperCase() + editField.slice(1)}
+              Edit {editField === 'approvalThreshold' ? 'Batas Approval Owner' : editField === 'logoUrl' ? 'Logo' : editField === 'gmapLink' ? 'Google Maps Link' : editField === 'gdriveLink' ? 'Google Drive Link' : editField === 'taxId' ? 'NPWP' : editField === 'phoneNumber' ? 'Telepon' : editField.charAt(0).toUpperCase() + editField.slice(1)}
             </div>
+
+            {editField === 'approvalThreshold' && (
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 10, lineHeight: 1.4 }}>
+                Pengajuan di atas nominal ini otomatis naik ke Owner dalam rantai persetujuan (PR/PO).
+              </div>
+            )}
 
             {editError && (
               <div style={{ background: '#fff2f2', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#ff3b30', marginBottom: 12 }}>
@@ -698,7 +715,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             )}
 
             <input
-              type={editField === 'email' ? 'email' : 'text'}
+              type={editField === 'email' ? 'email' : editField === 'approvalThreshold' ? 'number' : 'text'}
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               placeholder={
@@ -709,6 +726,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 editField === 'phoneNumber' ? '+62 812 3456 7890' :
                 editField === 'website' ? 'https://perusahaan.com' :
                 editField === 'taxId' ? '00.000.000.0-000.000' :
+                editField === 'approvalThreshold' ? '10000000' :
                 ''
               }
               style={{

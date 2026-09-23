@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Search } from 'lucide-react'
-import { vendorsApi, purchaseOrdersApi } from '../../lib/endpoints'
+import { vendorsApi, purchaseOrdersApi, purchaseRequestsApi, posApi, approvalsApi } from '../../lib/endpoints'
 
 export function ProcurementContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
@@ -11,6 +11,29 @@ export function ProcurementContent({ onClose, onMinimize, onMaximize }: { onClos
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([])
   const [_loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pendingItems, setPendingItems] = useState<any[]>([])
+
+  const loadPending = () => {
+    approvalsApi.pending().then((res: any) => {
+      const items = res?.items || []
+      setPendingItems(Array.isArray(items) ? items.filter((a: any) => a.kind === 'pr' || a.kind === 'po' || a.kind === 'cpo') : [])
+    }).catch(() => {})
+  }
+
+  const handleApproval = async (item: any, approved: boolean) => {
+    try {
+      if (item.kind === 'pr') {
+        await purchaseRequestsApi.approve(item.id, { approved })
+      } else if (item.kind === 'po') {
+        await posApi.updateStatus(item.id, { status: approved ? 'approved' : 'cancelled' })
+      } else {
+        await purchaseOrdersApi.update(item.id, { status: approved ? 'sent_to_vendor' : 'cancelled' })
+      }
+      loadPending()
+    } catch (e: any) {
+      alert(e?.message || 'Gagal memproses persetujuan')
+    }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -19,6 +42,7 @@ export function ProcurementContent({ onClose, onMinimize, onMaximize }: { onClos
       if (poRes.status === 'fulfilled') { const po = poRes.value?.orders || poRes.value || []; setPurchaseOrders(Array.isArray(po) ? po : []) }
       setLoading(false)
     }).catch(() => { setError('Gagal memuat data'); setLoading(false) })
+    loadPending()
   }, [])
 
   const iconBg: Record<string, string> = {
@@ -160,6 +184,23 @@ export function ProcurementContent({ onClose, onMinimize, onMaximize }: { onClos
             {/* Dashboard */}
             {activeTab === 'dashboard' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {pendingItems.length > 0 && (
+                  <div style={{ background: 'rgb(255,248,240)', borderRadius: 8, border: '0.5px solid rgba(255,149,0,0.25)', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px 4px', fontSize: 12, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Menunggu Persetujuan Saya ({pendingItems.length})</div>
+                    {pendingItems.map((a: any) => (
+                      <div key={`${a.kind}-${a.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '9px 14px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: '#1d1d1f', fontFamily: SF }}>{a.requesterName} · {a.title}</div>
+                          <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF }}>{a.detail}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          <button onClick={() => handleApproval(a, true)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#34c759', color: 'white', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Setuju</button>
+                          <button onClick={() => handleApproval(a, false)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(0,0,0,0.12)', background: 'white', color: '#ff3b30', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Tolak</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                   <div style={{ padding: 14, borderRadius: 8, background: '#f0fdf4', border: '0.5px solid rgba(0,0,0,0.08)' }}>
                     <div style={{ fontSize: 10, color: '#16a34a', fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>Active Suppliers</div>

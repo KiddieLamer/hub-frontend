@@ -267,14 +267,25 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
 
   const handleApproval = async (item: any, approved: boolean) => {
     try {
+      const { expenseClaimsApi, quotationsApi, purchaseRequestsApi, purchaseOrdersApi, posApi } = await import('../../lib/endpoints')
       if (item.kind === 'leave') {
         if (approved) await leavesApi.approveRequest(item.id)
         else await leavesApi.rejectRequest(item.id)
         loadLeaves()
-      } else {
+      } else if (item.kind === 'overtime') {
         if (approved) await overtimeApi.approve(item.id)
         else await overtimeApi.reject(item.id)
         loadOvertime()
+      } else if (item.kind === 'expense') {
+        await expenseClaimsApi.approve(item.id, { approved })
+      } else if (item.kind === 'quotation') {
+        await quotationsApi.approve(item.id, approved)
+      } else if (item.kind === 'pr') {
+        await purchaseRequestsApi.approve(item.id, { approved })
+      } else if (item.kind === 'po') {
+        await posApi.updateStatus(item.id, { status: approved ? 'approved' : 'cancelled' })
+      } else if (item.kind === 'cpo') {
+        await purchaseOrdersApi.update(item.id, { status: approved ? 'sent_to_vendor' : 'cancelled' })
       }
       loadApprovals()
       loadDashboard()
@@ -284,7 +295,7 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
   }
 
   useEffect(() => {
-    if (activeTab === 'dashboard') loadDashboard()
+    if (activeTab === 'dashboard') { loadDashboard(); loadApprovals() }
     if (activeTab === 'attendance') loadAttendance()
     if (activeTab === 'leaves') { loadLeaves(); loadApprovals() }
     if (activeTab === 'overtime') { loadOvertime(); loadApprovals() }
@@ -439,6 +450,26 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
                 <GroupedRow icon={<Calendar size={14} />} iconBg="#007aff" label="Sisa Cuti" value={`${paidLeaves.reduce((sum: number, lt: any) => sum + (lt.totalQuota || 0), 0)} hari`} />
                 <GroupedRow icon={<Hourglass size={14} />} iconBg="#ff9500" label="Lembur Bulan Ini" value={`${totalOvertimeHours} jam`} isLast />
               </div>
+
+              {pendingApprovals.length > 0 && (
+                <div style={{ background: 'rgb(255,248,240)', borderRadius: 10, border: '0.5px solid rgba(255,149,0,0.25)', overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px 4px', fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>
+                    Menunggu Persetujuan Saya ({pendingApprovals.length})
+                  </div>
+                  {pendingApprovals.map((a: any) => (
+                    <div key={`${a.kind}-${a.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '9px 14px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF }}>{a.requesterName} · {a.title}</div>
+                        <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{a.detail}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => handleApproval(a, true)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Setuju</button>
+                        <button onClick={() => handleApproval(a, false)} style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', background: 'white', color: '#ff3b30', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Tolak</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Monthly attendance heatmap */}
               {(() => {

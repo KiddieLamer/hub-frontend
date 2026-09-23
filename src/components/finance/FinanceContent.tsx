@@ -89,6 +89,8 @@ export function FinanceContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [showExpenseForm, setShowExpenseForm] = useState(false)
   const [expenseValues, setExpenseValues] = useState<Record<string, string>>({})
   const [categoriesList, setCategoriesList] = useState<any[]>([])
+  const [pendingExpenses, setPendingExpenses] = useState<any[]>([])
+  const [myUserId, setMyUserId] = useState<string | null>(null)
 
   // Budgets state
   const [budgetsList, setBudgetsList] = useState<any[]>([])
@@ -176,7 +178,7 @@ export function FinanceContent({ onClose, onMinimize, onMaximize }: { onClose: (
 
   const loadExpenses = useCallback(async () => {
     try {
-      const [expRes, catRes] = await Promise.allSettled([expenseClaimsApi.list(), expenseCategoriesApi.list()])
+      const [expRes, catRes, apprRes, meRes] = await Promise.allSettled([expenseClaimsApi.list(), expenseCategoriesApi.list(), import('../../lib/endpoints').then(m => m.approvalsApi.pending()), import('../../lib/endpoints').then(m => m.usersApi.getMe())])
       if (expRes.status === 'fulfilled') {
         const exp = expRes.value?.expenseClaims || expRes.value || []
         setExpensesList(Array.isArray(exp) ? exp : [])
@@ -185,8 +187,34 @@ export function FinanceContent({ onClose, onMinimize, onMaximize }: { onClose: (
         const cat = catRes.value?.categories || catRes.value || []
         setCategoriesList(Array.isArray(cat) ? cat : [])
       }
+      if (apprRes.status === 'fulfilled') {
+        const items = apprRes.value?.items || []
+        setPendingExpenses(Array.isArray(items) ? items.filter((a: any) => a.kind === 'expense') : [])
+      }
+      if (meRes.status === 'fulfilled') {
+        const u = (meRes.value as any)?.user || meRes.value || {}
+        setMyUserId(u.id || null)
+      }
     } catch { setError('Gagal memuat data') }
   }, [])
+
+  const handleExpenseApproval = async (item: any, approved: boolean) => {
+    try {
+      await expenseClaimsApi.approve(item.id, { approved })
+      loadExpenses()
+    } catch (e: any) {
+      alert(e?.message || 'Gagal memproses persetujuan')
+    }
+  }
+
+  const handleSubmitExpense = async (id: string) => {
+    try {
+      await expenseClaimsApi.submit(id)
+      loadExpenses()
+    } catch (e: any) {
+      alert(e?.message || 'Gagal mengajukan')
+    }
+  }
 
   const loadBudgets = useCallback(async () => {
     try {
@@ -581,6 +609,23 @@ export function FinanceContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 <h3 style={{ fontFamily: SF, fontWeight: 600, fontSize: 14, margin: 0, color: '#1d1d1f', letterSpacing: '-0.01em' }}>Expense Claims</h3>
                 <button onClick={() => setShowExpenseForm(true)} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', background: '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF, letterSpacing: '-0.01em' }}>+ Expense</button>
               </div>
+              {pendingExpenses.length > 0 && (
+                <div style={{ background: 'rgb(255,248,240)', borderRadius: 8, border: '0.5px solid rgba(255,149,0,0.25)', overflow: 'hidden' }}>
+                  <div style={{ padding: '8px 12px 4px', fontSize: 12, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Perlu Persetujuan Kamu ({pendingExpenses.length})</div>
+                  {pendingExpenses.map((a: any) => (
+                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 500, color: '#1d1d1f', fontFamily: SF }}>{a.requesterName} · {a.title}</div>
+                        <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF }}>{a.detail}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => handleExpenseApproval(a, true)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#34c759', color: 'white', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Setuju</button>
+                        <button onClick={() => handleExpenseApproval(a, false)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(0,0,0,0.12)', background: 'white', color: '#ff3b30', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Tolak</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               {expensesList.length === 0 ? (
                 <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Belum ada expense claim</div>
               ) : expensesList.map((exp: any) => (
@@ -593,9 +638,12 @@ export function FinanceContent({ onClose, onMinimize, onMaximize }: { onClose: (
                     <div style={{ fontSize: 10, color: '#8e8e93', fontFamily: SF, letterSpacing: '-0.01em' }}>{exp.expenseDate} · {exp.department || '-'}</div>
                   </div>
                    <div style={{ textAlign: 'right' }}>
-                     <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF }}>{formatRupiah(exp.amount)}</div>
-                     <span style={{ padding: '2px 6px', borderRadius: 8, background: (STATUS_COLORS[exp.status] || '#6b7280') + '18', color: STATUS_COLORS[exp.status] || '#6b7280', fontSize: 10, fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{exp.status || 'draft'}</span>
-                   </div>
+                      <div style={{ fontWeight: 600, fontSize: 12, color: '#1f2937', fontFamily: SF }}>{formatRupiah(exp.amount)}</div>
+                      <span style={{ padding: '2px 6px', borderRadius: 8, background: (STATUS_COLORS[exp.status] || '#6b7280') + '18', color: STATUS_COLORS[exp.status] || '#6b7280', fontSize: 10, fontWeight: 600, fontFamily: SF, letterSpacing: '-0.01em' }}>{exp.status || 'draft'}</span>
+                    </div>
+                    {exp.status === 'draft' && (myUserId === null || exp.submittedBy === myUserId) && (
+                      <button onClick={() => handleSubmitExpense(exp.id)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: '#007aff', color: 'white', fontSize: 11, fontWeight: 500, cursor: 'pointer', flexShrink: 0, fontFamily: SF }}>Ajukan</button>
+                    )}
                    <button onClick={() => { if (window.confirm('Hapus expense ini?')) { expenseClaimsApi.delete(exp.id).then(() => loadExpenses()) } }} style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12} color="#ff3b30" /></button>
                 </div>
               ))}

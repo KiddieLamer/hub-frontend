@@ -95,6 +95,10 @@ export const quotationsApi = {
   get: (id: string) => apiFetch(`/api/quotations/${id}`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/quotations', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/quotations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  status: (id: string, status: string, rejectionReason?: string) =>
+    apiFetch(`/api/quotations/${id}/status`, { method: 'POST', body: JSON.stringify({ status, rejectionReason }) }).then(r => apiJson(r)),
+  approve: (id: string, approved: boolean, rejectionReason?: string) =>
+    apiFetch(`/api/quotations/${id}/approve`, { method: 'POST', body: JSON.stringify({ approved, rejectionReason }) }).then(r => apiJson(r)),
 }
 
 // ============ CRM - WARRANTIES ============
@@ -235,6 +239,7 @@ export const expenseClaimsApi = {
   create: (data: Record<string, unknown>) => apiFetch('/api/finance/expense-claims', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/finance/expense-claims/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
   approve: (id: string, data: { approved: boolean; rejectionReason?: string }) => apiFetch(`/api/finance/expense-claims/${id}/approve`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  submit: (id: string) => apiFetch(`/api/finance/expense-claims/${id}/submit`, { method: 'POST', body: JSON.stringify({}) }).then(r => apiJson(r)),
   pay: (id: string, paymentDate: string) => apiFetch(`/api/finance/expense-claims/${id}/pay`, { method: 'POST', body: JSON.stringify({ paymentDate }) }).then(r => apiJson(r)),
   delete: (id: string) => apiFetch(`/api/finance/expense-claims/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
 }
@@ -443,10 +448,16 @@ export const vendorsApi = {
 export const purchaseRequestsApi = {
   list: () => apiFetch('/api/procurement/purchase-requests').then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/procurement/purchase-requests', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  approve: (id: string, data: { approved: boolean; rejectionReason?: string }) =>
+    apiFetch(`/api/procurement/purchase-requests/${id}/approve`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  submit: (id: string) =>
+    apiFetch(`/api/procurement/purchase-requests/${id}/submit`, { method: 'POST', body: JSON.stringify({}) }).then(r => apiJson(r)),
 }
 export const purchaseOrdersApi = {
   list: () => apiFetch('/api/procurement/purchase-orders').then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/procurement/purchase-orders', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  update: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/procurement/purchase-orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
 }
 export const goodsReceiptsApi = {
   list: () => apiFetch('/api/procurement/goods-receipts').then(r => apiJson(r)),
