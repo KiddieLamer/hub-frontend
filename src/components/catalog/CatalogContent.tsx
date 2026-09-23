@@ -35,7 +35,8 @@ export function CatalogContent({ onClose, onMinimize, onMaximize }: { onClose: (
     try { await catalogApi.update(id, { status: 'inactive' }); loadData() } catch {}
   }
 
-  const sidebarGroups = [
+  type SidebarTab = { id: string; label: string; count: number }
+  const sidebarGroups: { label: string; items: SidebarTab[] }[] = [
     { label: 'ITEMS', items: [
       { id: 'all' as const, label: 'All Items', count: items.length + subs.length },
       { id: 'service' as const, label: 'Services', count: items.filter((i: any) => i.type === 'service').length },

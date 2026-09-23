@@ -3,8 +3,6 @@ import { Building2, MapPin, Mail, Phone, Globe, FileText, Cloud, Palette, Plus, 
 import { tenantsApi } from '../../lib/endpoints'
 import { apiFetch, setTenantId } from '../../lib/api'
 
-const PLACEHOLDER_LOGO = 'https://cdn.jim-nielsen.com/macos/512/creativit-mood-board-vision-2023-09-29.png?rf=1024'
-
 function GroupedRow({
   icon,
   iconBg,
@@ -88,6 +86,17 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [assignSearch, setAssignSearch] = useState('')
   const [assignResults, setAssignResults] = useState<any[]>([])
   const [assignLoading, setAssignLoading] = useState(false)
+  const [assignRole, setAssignRole] = useState('member')
+  const [assignJobTitle, setAssignJobTitle] = useState('')
+  const [assignPositionId, setAssignPositionId] = useState('')
+  const [positions, setPositions] = useState<any[]>([])
+  const [tenantRoles, setTenantRoles] = useState<any[]>([])
+  const [editingJobId, setEditingJobId] = useState<string | null>(null)
+  const [editingJobValue, setEditingJobValue] = useState('')
+  const [showPositionModal, setShowPositionModal] = useState(false)
+  const [positionForm, setPositionForm] = useState({ name: '', level: '0', parentId: '', defaultRoleId: '' })
+  const [positionError, setPositionError] = useState('')
+  const [positionSaving, setPositionSaving] = useState(false)
 
   const loadStaff = () => {
     if (!localStorage.getItem('hub-tenant-id')) {
@@ -108,6 +117,10 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         setStaffMembers(sorted)
         setStaffLoading(false)
       }).catch(() => setStaffLoading(false))
+    })
+    import('../../lib/endpoints').then(({ positionsApi, rolesApi }) => {
+      positionsApi.list().then((data: any) => setPositions(data?.positions || [])).catch(() => {})
+      rolesApi.list().then((data: any) => setTenantRoles(data?.roles || [])).catch(() => {})
     })
   }
 
@@ -136,7 +149,11 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     setSaving(true)
     setEditError('')
     try {
-      await tenantsApi.updateCurrent({ [editField]: editValue || null })
+      const res: any = await tenantsApi.updateCurrent({ [editField]: editValue || null })
+      if (res && res.error) {
+        setEditError(res.error)
+        return
+      }
       setTenant({ ...tenant, [editField]: editValue || null })
       setShowEditModal(false)
     } catch {
@@ -449,7 +466,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>Staff ({staffMembers.length})</span>
               </div>
               <div
-                onClick={() => { setShowAssignModal(true); setAssignSearch(''); setAssignResults([]) }}
+                onClick={() => { setShowAssignModal(true); setAssignSearch(''); setAssignResults([]); setAssignRole('member'); setAssignJobTitle(''); setAssignPositionId('') }}
                 style={{ width: 20, height: 20, borderRadius: 5, background: '#34c759', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
                 <Plus size={12} color="white" />
@@ -469,18 +486,80 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.userFullName}</div>
-                      <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{m.userEmail}</div>
+                      {editingJobId === m.id ? (
+                        <input
+                          type="text"
+                          value={editingJobValue}
+                          autoFocus
+                          onChange={(e) => setEditingJobValue(e.target.value)}
+                          onBlur={async () => {
+                            const v = editingJobValue.trim()
+                            setEditingJobId(null)
+                            if (v !== (m.jobTitle || '')) {
+                              const res: any = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.updateJobTitle(m.id, v || null))
+                              if (!res?.error) setStaffMembers(prev => prev.map((x: any) => x.id === m.id ? { ...x, jobTitle: v || null } : x))
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                            if (e.key === 'Escape') setEditingJobId(null)
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          placeholder="Jabatan, cth. Finance Manager"
+                          style={{ fontSize: 11, color: '#1d1d1f', fontFamily: SF, border: '1px solid #d1d1d6', borderRadius: 4, padding: '1px 4px', outline: 'none', width: 170 }}
+                        />
+                      ) : (
+                        <div
+                          onClick={(e) => { e.stopPropagation(); setEditingJobId(m.id); setEditingJobValue(m.jobTitle || '') }}
+                          title="Klik untuk edit jabatan"
+                          style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        >
+                          {m.userEmail}{m.jobTitle ? ` · ${m.jobTitle}` : ''}{m.positionName ? ` · ${m.positionName}` : ''}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {m.role === 'owner' && (
-                      <span style={{ padding: '2px 8px', borderRadius: 10, background: 'rgba(255,149,0,0.15)', color: '#ff9500', fontSize: 10, fontWeight: 700, fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Owner</span>
-                    )}
-                    {m.role === 'hub-admin' && (
-                      <span style={{ padding: '2px 8px', borderRadius: 10, background: 'rgba(175,82,222,0.12)', color: '#af52de', fontSize: 10, fontWeight: 700, fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Hub Admin</span>
-                    )}
-                    {m.role !== 'owner' && m.role !== 'hub-admin' && (
-                      <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 10, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
+                    {(m.role !== 'owner' && m.role !== 'hub-admin') ? (
+                      <>
+                        <select
+                          value={m.role}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={async (e) => {
+                            const next = e.target.value
+                            const res: any = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.updateRole(m.id, next))
+                            if (!res?.error) setStaffMembers(prev => prev.map((x: any) => x.id === m.id ? { ...x, role: next } : x))
+                            else alert(res.error || 'Gagal mengubah role')
+                          }}
+                          title="Ubah role"
+                          style={{ padding: '2px 4px', borderRadius: 10, border: 'none', background: m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 10, fontWeight: 600, fontFamily: SF, cursor: 'pointer', outline: 'none' }}
+                        >
+                          <option value="member">Member</option>
+                          <option value="admin">Admin</option>
+                          <option value="owner">Owner</option>
+                        </select>
+                        {positions.length > 0 && (
+                          <select
+                            value={m.positionId || ''}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={async (e) => {
+                              const next = e.target.value || null
+                              const res: any = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.updatePosition(m.id, next))
+                              if (!res?.error) {
+                                const pos = positions.find((p: any) => p.id === next)
+                                setStaffMembers(prev => prev.map((x: any) => x.id === m.id ? { ...x, positionId: next, positionName: pos?.name || null } : x))
+                              } else alert(res.error || 'Gagal mengubah posisi')
+                            }}
+                            title="Ubah posisi struktural"
+                            style={{ maxWidth: 110, padding: '2px 4px', borderRadius: 10, border: 'none', background: 'rgba(52,199,89,0.12)', color: '#248a3d', fontSize: 10, fontWeight: 600, fontFamily: SF, cursor: 'pointer', outline: 'none' }}
+                          >
+                            <option value="">No posisi</option>
+                            {positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
+                        )}
+                      </>
+                    ) : (
+                      <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.15)' : 'rgba(175,82,222,0.12)', color: m.role === 'owner' ? '#ff9500' : '#af52de', fontSize: 10, fontWeight: 700, fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{m.role === 'hub-admin' ? 'Hub Admin' : m.role}</span>
                     )}
                     {m.role !== 'owner' && m.role !== 'hub-admin' && (
                       <div
@@ -499,6 +578,71 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                         <Trash2 size={10} color="#ff3b30" />
                       </div>
                     )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Positions (Jabatan struktural) */}
+          <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
+            <div style={{ padding: '10px 14px', borderBottom: positions.length > 0 ? '1px solid rgb(229, 229, 234)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #af52de 0%, #892ab8 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'rgba(0, 0, 0, 0.1) 0px 1px 2px' }}>
+                  <Building2 size={14} color="white" />
+                </div>
+                <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>Jabatan ({positions.length})</span>
+              </div>
+              <div
+                onClick={() => { setPositionForm({ name: '', level: '0', parentId: '', defaultRoleId: '' }); setPositionError(''); setShowPositionModal(true) }}
+                style={{ width: 20, height: 20, borderRadius: 5, background: '#34c759', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <Plus size={12} color="white" />
+              </div>
+            </div>
+            {positions.length === 0 ? (
+              <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Belum ada jabatan. Tambah cth. Direktur, Manager, Staff.</div>
+            ) : (
+              positions.map((p: any, i: number) => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', borderBottom: i < positions.length - 1 ? '1px solid rgb(229, 229, 234)' : 'none' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>{p.name}</div>
+                    <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>
+                      Level {p.level}{p.defaultRoleName ? ` · Role: ${p.defaultRoleName}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {tenantRoles.length > 0 && (
+                      <select
+                        value={p.defaultRoleId || ''}
+                        onChange={async (e) => {
+                          const next = e.target.value || null
+                          const res: any = await import('../../lib/endpoints').then(({ positionsApi }) => positionsApi.update(p.id, { defaultRoleId: next }))
+                          if (!res?.error) {
+                            const rn = tenantRoles.find((r: any) => r.id === next)?.name || null
+                            setPositions(prev => prev.map((x: any) => x.id === p.id ? { ...x, defaultRoleId: next, defaultRoleName: rn } : x))
+                          } else alert(res.error || 'Gagal mengubah role default')
+                        }}
+                        title="Role akses default untuk jabatan ini"
+                        style={{ maxWidth: 120, padding: '2px 4px', borderRadius: 10, border: 'none', background: 'rgba(0,122,255,0.12)', color: '#007aff', fontSize: 10, fontWeight: 600, fontFamily: SF, cursor: 'pointer', outline: 'none' }}
+                      >
+                        <option value="">No role</option>
+                        {tenantRoles.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      </select>
+                    )}
+                    <div
+                      onClick={async () => {
+                        if (!confirm(`Delete posisi "${p.name}"?`)) return
+                        const res: any = await import('../../lib/endpoints').then(({ positionsApi }) => positionsApi.remove(p.id))
+                        if (res?.error) alert(res.error)
+                        else setPositions(prev => prev.filter((x: any) => x.id !== p.id))
+                      }}
+                      style={{ width: 20, height: 20, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: 0.4 }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}
+                    >
+                      <Trash2 size={10} color="#ff3b30" />
+                    </div>
                   </div>
                 </div>
               ))
@@ -671,6 +815,38 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 16 }}>Assign Staff</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role</div>
+                <select
+                  value={assignRole}
+                  onChange={(e) => setAssignRole(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: 'white' }}
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                  <option value="owner">Owner</option>
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Posisi</div>
+                <select
+                  value={assignPositionId}
+                  onChange={(e) => setAssignPositionId(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: 'white' }}
+                >
+                  <option value="">Tanpa posisi</option>
+                  {positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <input
+              type="text"
+              value={assignJobTitle}
+              onChange={(e) => setAssignJobTitle(e.target.value)}
+              placeholder="Jabatan, cth. Finance Manager (opsional)"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d1d6', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', marginBottom: 10 }}
+            />
             <input
               type="text"
               value={assignSearch}
@@ -708,7 +884,8 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                     </div>
                     <button onClick={async () => {
                       try {
-                        await import('../../lib/endpoints').then(({ membersApi }) => membersApi.add({ userId: u.id, role: 'member' }))
+                        const res: any = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.add({ userId: u.id, role: assignRole, jobTitle: assignJobTitle.trim() || undefined, positionId: assignPositionId || undefined }))
+                        if (res?.error) { alert(res.error); return }
                         const data = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.list())
                         setStaffMembers(data?.members || [])
                         setAssignResults(prev => prev.filter((x: any) => x.id !== u.id))
@@ -724,6 +901,95 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
               <button onClick={() => setShowAssignModal(false)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: '#f8f8f8ff', fontSize: 13, fontWeight: 500, color: '#1d1d1f', cursor: 'pointer', fontFamily: SF }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Position Modal */}
+      {showPositionModal && (
+        <div
+          style={{
+            position: 'absolute', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={() => setShowPositionModal(false)}
+        >
+          <div
+            style={{
+              background: 'white', borderRadius: 14, padding: 24, width: 400,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 16 }}>Tambah Jabatan</div>
+            {positionError && <div style={{ background: '#fff2f2', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#ff3b30', marginBottom: 12 }}>{positionError}</div>}
+            <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Nama jabatan *</div>
+            <input
+              type="text"
+              value={positionForm.name}
+              onChange={(e) => setPositionForm(p => ({ ...p, name: e.target.value }))}
+              placeholder="cth. Finance Manager"
+              autoFocus
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', marginBottom: 10 }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Level (besar = tinggi)</div>
+                <input
+                  type="number"
+                  min={0}
+                  value={positionForm.level}
+                  onChange={(e) => setPositionForm(p => ({ ...p, level: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }}
+                />
+              </div>
+              <div style={{ flex: 2 }}>
+                <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Atasan (opsional)</div>
+                <select
+                  value={positionForm.parentId}
+                  onChange={(e) => setPositionForm(p => ({ ...p, parentId: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: 'white' }}
+                >
+                  <option value="">Tanpa atasan</option>
+                  {positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Role akses default (opsional)</div>
+            <select
+              value={positionForm.defaultRoleId}
+              onChange={(e) => setPositionForm(p => ({ ...p, defaultRoleId: e.target.value }))}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: 'white' }}
+            >
+              <option value="">Tanpa role</option>
+              {tenantRoles.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => setShowPositionModal(false)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: '#f8f8f8ff', fontSize: 13, fontWeight: 500, color: '#1d1d1f', cursor: 'pointer', fontFamily: SF }}>Batal</button>
+              <button
+                disabled={positionSaving}
+                onClick={async () => {
+                  if (!positionForm.name.trim()) { setPositionError('Nama jabatan wajib diisi'); return }
+                  setPositionSaving(true); setPositionError('')
+                  try {
+                    const res: any = await import('../../lib/endpoints').then(({ positionsApi }) => positionsApi.create({
+                      name: positionForm.name.trim(),
+                      level: Math.max(0, parseInt(positionForm.level || '0', 10) || 0),
+                      parentId: positionForm.parentId || null,
+                      defaultRoleId: positionForm.defaultRoleId || null,
+                    }))
+                    if (res?.error) { setPositionError(res.error); return }
+                    setShowPositionModal(false)
+                    const d: any = await import('../../lib/endpoints').then(({ positionsApi }) => positionsApi.list())
+                    setPositions(d?.positions || [])
+                  } catch (e: any) { setPositionError(e?.message || 'Gagal menyimpan') } finally { setPositionSaving(false) }
+                }}
+                style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: positionSaving ? '#8e8e93' : '#34c759', fontSize: 13, fontWeight: 500, color: 'white', cursor: positionSaving ? 'default' : 'pointer', fontFamily: SF }}
+              >
+                {positionSaving ? 'Menyimpan...' : 'Simpan'}
+              </button>
             </div>
           </div>
         </div>

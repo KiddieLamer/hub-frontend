@@ -372,7 +372,7 @@ function LoginPage({ onClose, onSuccess }: { onClose: () => void; onSuccess: () 
   )
 }
 
-function LandingPage({ onLogin, onSuccess }: { onLogin: () => void; onSuccess: () => void }) {
+function LandingPage({ onSuccess }: { onSuccess: () => void }) {
   const [showLogin, setShowLogin] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -588,7 +588,7 @@ function App() {
     <>
       <AnimatePresence mode="wait">
         {authState === 'landing' && (
-          <LandingPage key="landing" onLogin={() => setAuthState('login')} onSuccess={() => setAuthState('portfolio')} />
+          <LandingPage key="landing" onSuccess={() => setAuthState('portfolio')} />
         )}
       </AnimatePresence>
 

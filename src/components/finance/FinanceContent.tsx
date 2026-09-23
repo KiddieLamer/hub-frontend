@@ -68,7 +68,7 @@ function DonutChart({ segs, centerTop, centerSub }: {
 
 export function FinanceContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'invoices' | 'expenses' | 'budgets' | 'payments'>('dashboard')
+  const [activeTab, setActiveTab] = useState<string>('dashboard')
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 

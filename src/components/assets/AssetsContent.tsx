@@ -34,7 +34,8 @@ export function AssetsContent({ onClose, onMinimize, onMaximize }: { onClose: ()
     try { await assetsApi.update(id, { status: 'disposed' }); loadData() } catch {}
   }
 
-  const sidebarGroups = [
+  type SidebarTab = { id: string; label: string; count: number }
+  const sidebarGroups: { label: string; items: SidebarTab[] }[] = [
     { label: 'STATUS', items: [
       { id: 'all' as const, label: 'All Assets', count: assets.length },
       { id: 'available' as const, label: 'Available', count: assets.filter(a => a.status === 'available').length },

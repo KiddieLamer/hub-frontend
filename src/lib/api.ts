@@ -86,7 +86,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   }
 
   const tenantId = getTenantId()
-  const tenantPaths = ['/api/members', '/api/roles', '/api/hris', '/api/projects', '/api/inventory', '/api/finance']
+  const tenantPaths = ['/api/members', '/api/roles', '/api/positions', '/api/hris', '/api/projects', '/api/inventory', '/api/finance']
   const tenantExempt = ['/api/members/me', '/api/users/me']
   if (tenantPaths.some(p => path.startsWith(p)) && !tenantExempt.some(p => path === p)) {
     if (!tenantId) {

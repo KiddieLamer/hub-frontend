@@ -949,8 +949,8 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   </div>
                 </div>
 
-              {[
-                { name: 'hub-admin', label: 'Hub Admin', color: '#af52de', bg: 'rgba(175,82,222,0.12)', description: 'Platform administrator. Full access across all tenants and system settings.', system: true, icon: 'crown' },
+              {([
+                { name: 'hub-admin', label: 'Hub Admin', color: '#af52de', bg: 'rgba(175,82,222,0.12)', description: 'Platform administrator. Full access across all tenants and system settings.', system: true, icon: 'crown', id: '' },
                 ...rolesList.map((r: any) => ({
                   name: r.name,
                   label: r.name.charAt(0).toUpperCase() + r.name.slice(1),
@@ -958,9 +958,10 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   bg: 'rgba(0,122,255,0.12)',
                   description: r.description || 'Tenant role',
                   system: false,
+                  icon: '',
                   id: r.id,
                 })),
-              ].map((r) => (
+              ] as { name: string; label: string; color: string; bg: string; description: string; system: boolean; icon: string; id: string }[]).map((r) => (
                 <div key={r.name} style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 2 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: r.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     {r.icon === 'crown' ? (

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Search, X, Clock, Calendar, Hourglass, CreditCard, Shield, User, Users, Smartphone } from 'lucide-react'
+import { Search, X, Clock, Calendar, Hourglass, CreditCard, Shield, User } from 'lucide-react'
 import { usersApi, attendancesApi, overtimeApi, leavesApi, payrollApi, shiftsApi } from '../../lib/endpoints'
 
 function GroupedRow({
@@ -278,7 +278,7 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
     try { await leavesApi.createRequest(leaveValues); setShowLeaveForm(false); setLeaveValues({}); loadLeaves(); loadDashboard() } catch {}
   }
   const handleCreateOvertime = async () => {
-    try { await overtimeApi.create(overtimeValues); setShowOvertimeForm(false); setOvertimeValues({}); loadOvertime(); loadDashboard() } catch {}
+    try { await overtimeApi.create(overtimeValues); setOvertimeValues({}); loadOvertime(); loadDashboard() } catch {}
   }
   const handleCreateShift = async () => {
     try { await shiftsApi.create(shiftValues); setShowShiftForm(false); setShiftValues({}); loadShifts() } catch {}

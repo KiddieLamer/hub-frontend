@@ -21,7 +21,8 @@ export function AuditContent({ onClose, onMinimize, onMaximize }: { onClose: () 
     }).catch(() => { setError('Gagal memuat data'); setLoading(false) })
   }, [])
 
-  const sidebarGroups = [
+  type SidebarTab = { id: string; label: string; count: number }
+  const sidebarGroups: { label: string; items: SidebarTab[] }[] = [
     { label: 'ACTIVITY', items: [
       { id: 'all' as const, label: 'All Activity', count: logs.length },
       { id: 'create' as const, label: 'Created', count: logs.filter(l => l.action === 'create').length },

@@ -240,7 +240,7 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
 
   const dockItems = DOCK_ITEMS.map((item) => ({
     ...item,
-    onClick: item.href ? undefined : () => handleDockClick(item.label),
+    onClick: (item as { href?: string }).href ? undefined : () => handleDockClick(item.label),
       isActive: item.label === 'HRIS' ? openHRIS : item.label === 'CRM' ? openClients : item.label === 'Projects' ? openProjects : item.label === 'Finance' ? openFinance : item.label === 'Procurement' ? openProcurement : item.label === 'Settings' ? openSettings : item.label === 'Support' ? openSupport : item.label === 'Assets' ? openAssets : item.label === 'Audit' ? openAudit : item.label === 'Catalog' ? openCatalog : item.label === 'Browser' ? openBrowser : item.label === 'Notes' ? openOverlay === 'notes' : item.label === 'Ranpo AI' ? openRanpoAI : item.label === 'POS' ? openPOS : false,
   }))
 

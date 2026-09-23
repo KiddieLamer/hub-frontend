@@ -158,12 +158,27 @@ export const shiftsApi = {
 export const membersApi = {
   list: () => apiFetch('/api/members').then(r => apiJson(r)),
   getMe: () => apiFetch('/api/members/me').then(r => apiJson(r)),
-  add: (data: { userId: string; role?: string }) =>
+  add: (data: { userId: string; role?: string; jobTitle?: string; positionId?: string }) =>
     apiFetch('/api/members', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   updateRole: (id: string, role: string) =>
     apiFetch(`/api/members/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }).then(r => apiJson(r)),
+  updateJobTitle: (id: string, jobTitle: string | null) =>
+    apiFetch(`/api/members/${id}/job-title`, { method: 'PATCH', body: JSON.stringify({ jobTitle }) }).then(r => apiJson(r)),
+  updatePosition: (id: string, positionId: string | null) =>
+    apiFetch(`/api/members/${id}/position`, { method: 'PATCH', body: JSON.stringify({ positionId }) }).then(r => apiJson(r)),
   remove: (id: string) =>
     apiFetch(`/api/members/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
+}
+
+// ============ POSITIONS (JABATAN) ============
+export const positionsApi = {
+  list: () => apiFetch('/api/positions').then(r => apiJson(r)),
+  create: (data: { name: string; level?: number; parentId?: string | null; defaultRoleId?: string | null }) =>
+    apiFetch('/api/positions', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  update: (id: string, data: { name?: string; level?: number; parentId?: string | null; defaultRoleId?: string | null }) =>
+    apiFetch(`/api/positions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  remove: (id: string) =>
+    apiFetch(`/api/positions/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
 }
 
 // ============ ROLES ============
@@ -174,6 +189,10 @@ export const rolesApi = {
   remove: (id: string) =>
     apiFetch(`/api/roles/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
   permissions: () => apiFetch('/api/roles/permissions').then(r => apiJson(r)),
+  assign: (roleId: string, userId: string) =>
+    apiFetch(`/api/roles/${roleId}/assign`, { method: 'POST', body: JSON.stringify({ userId }) }).then(r => apiJson(r)),
+  unassign: (roleId: string, userId: string) =>
+    apiFetch(`/api/roles/${roleId}/assign/${userId}`, { method: 'DELETE' }).then(r => apiJson(r)),
 }
 
 // ============ FINANCE - EXPENSE CATEGORIES ============
