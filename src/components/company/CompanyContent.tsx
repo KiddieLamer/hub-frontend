@@ -465,7 +465,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'rgba(0, 0, 0, 0.1) 0px 1px 2px' }}>
                   <Users size={14} color="white" />
                 </div>
-                <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>Staff ({staffMembers.length})</span>
+                <span style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }} title="Owner & Admin bisa semua; role & jabatan mengatur akses staff">Staff ({staffMembers.length})</span>
               </div>
               <div
                 onClick={() => { setShowAssignModal(true); setAssignSearch(''); setAssignResults([]); setAssignRole('member'); setAssignJobTitle(''); setAssignPositionId('') }}

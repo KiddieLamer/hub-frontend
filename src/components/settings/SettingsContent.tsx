@@ -159,6 +159,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [removeTenantModalMember, setRemoveTenantModalMember] = useState<any>(null)
   const [removeTenantLoading, setRemoveTenantLoading] = useState(false)
   const [cardTenant, setCardTenant] = useState<any>(null)
+  const [cardTenants, setCardTenants] = useState<any[]>([])
 
   const handleOpenEditMember = (member: any) => {
     if (!member) return
@@ -188,15 +189,17 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
 
   useEffect(() => {
     const uid = selectedMember?.userId
-    if (!uid) { setCardTenant(null); return }
+    if (!uid) { setCardTenant(null); setCardTenants([]); return }
     // Resolve the card logo from the *member's own* memberships, never the
     // viewer's active tenant: no membership -> placeholder; otherwise their
     // tenant (prefer the active one when they belong to it).
     let cancelled = false
     setCardTenant(null)
+    setCardTenants([])
     usersApi.get(uid).then((data: any) => {
       if (cancelled) return
       const list: any[] = data?.tenants || []
+      setCardTenants(list)
       if (list.length === 0) return
       const active = getTenantId()
       const match = list.find(t => t.id === active)
@@ -213,7 +216,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         const allUsers = (data?.users || []).map((u: any) => ({
           id: u.id,
           userId: u.id,
-          role: u.role || 'user',
+          isPlatformUser: true,
           jobTitle: u.jobTitle,
           createdAt: u.createdAt,
           userFullName: u.fullName,
@@ -259,7 +262,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     { id: 'appearance', label: 'Appearance', icon: Palette, bg: 'linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%)' },
     { id: 'security', label: 'Privacy & Security', icon: ShieldCheck, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
     { id: 'users', label: 'Users & Groups', icon: Users, bg: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' },
-    ...(user?.role === 'admin' || canAccessPerm('roles:read', access) ? [{ id: 'roles', label: 'Roles', icon: Shield, bg: 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)' }] : []),
+    ...(canAccessPerm('roles:read', access) ? [{ id: 'roles', label: 'Roles', icon: Shield, bg: 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)' }] : []),
   ]
 
   const filteredCategories = categories.filter(c => c.label.toLowerCase().includes(categorySearch.toLowerCase()))
@@ -504,7 +507,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     if (user?.platformRole === 'hub-admin') {
                             usersApi.list(q).then(data => {
                               const allUsers = (data?.users || []).map((u: any) => ({
-                                id: u.id, userId: u.id, role: u.role || 'user', jobTitle: u.jobTitle,
+                                id: u.id, userId: u.id, isPlatformUser: true, jobTitle: u.jobTitle,
                                 createdAt: u.createdAt, userFullName: u.fullName, userEmail: u.email,
                                 userAvatarUrl: u.avatarUrl, userPhoneNumber: u.phoneNumber,
                                 userDepartment: u.department, userStatus: u.status,
@@ -578,7 +581,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               {activeTab === 'security' && 'Manage privacy permissions, security keys, passkeys, and encryption settings.'}
               {activeTab === 'appearance' && 'Customize theme colors, accent styles, and window appearance.'}
               {activeTab === 'users' && 'Manage team members, roles, and access permissions for this tenant.'}
-              {activeTab === 'roles' && 'View available roles and their permissions within this tenant.'}
+              {activeTab === 'roles' && 'Hak akses fitur per company. Owner & Admin otomatis punya semua akses; staff lain sesuai role-nya.'}
             </div>
           </div>
         )}
@@ -763,7 +766,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           if (!addUserForm.fullName || !addUserForm.email || !addUserForm.password) { setAddUserError('Semua field wajib diisi'); return }
                           setAddUserLoading(true); setAddUserError('')
                           try {
-                            const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, jobTitle: addUserForm.jobTitle || undefined, department: addUserForm.department || undefined, role: 'user', status: 'active' })
+                            const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, jobTitle: addUserForm.jobTitle || undefined, department: addUserForm.department || undefined, status: 'active' })
                             if (userRes.error) {
                               const detail = userRes.details?.[0]?.message
                               setAddUserError(detail ? `${userRes.error}: ${detail}` : userRes.error)
@@ -813,7 +816,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                         <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Access</span>
                         </div>
-                        <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'hub-admin' ? '#af52de' : '#34c759'} label="Role" value={selectedMember.role} onClick={() => handleOpenEditMember(selectedMember)} />
+                        <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'hub-admin' ? '#af52de' : '#34c759'} label={selectedMember.isPlatformUser ? 'Perusahaan' : 'Role'} value={selectedMember.isPlatformUser ? (cardTenants.length > 0 ? cardTenants.map((t: any) => `${t.name} (${t.role})`).join(', ') : 'Belum ada company') : selectedMember.role} onClick={selectedMember.isPlatformUser ? undefined : () => handleOpenEditMember(selectedMember)} />
                         <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 24, height: 24, borderRadius: 6, background: selectedMember.userStatus === 'active' ? 'rgba(52,199,89,0.12)' : 'rgba(142,142,147,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -929,7 +932,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           >
                             <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'white', position: 'absolute', top: 2, left: m.userStatus === 'active' ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
                           </div>
-                          <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'hub-admin' ? 'rgba(175,82,222,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'hub-admin' ? '#af52de' : m.role === 'admin' ? '#007aff' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{m.role}</span>
+                          <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'hub-admin' ? 'rgba(175,82,222,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : m.role === 'member' ? 'rgba(52,199,89,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'hub-admin' ? '#af52de' : m.role === 'admin' ? '#007aff' : m.role === 'member' ? '#248a3d' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{['owner', 'admin', 'member', 'hub-admin'].includes(m.role) ? m.role : (m.userStatus || '-')}</span>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                         </div>
                       </div>

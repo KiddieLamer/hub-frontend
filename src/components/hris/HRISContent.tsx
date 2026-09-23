@@ -742,7 +742,6 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
                         { key: 'employeeId', label: 'NIP / ID Karyawan', type: 'text', placeholder: 'EMP-001' },
                         { key: 'jobTitle', label: 'Jabatan', type: 'text', placeholder: 'Staff HR' },
                         { key: 'department', label: 'Departemen', type: 'text', placeholder: 'Human Resources' },
-                        { key: 'role', label: 'Role', type: 'select', options: [{ value: 'admin', label: 'Admin' }, { value: 'user', label: 'User' }, { value: 'viewer', label: 'Viewer' }] },
                         { key: 'status', label: 'Status', type: 'select', options: [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }] },
                       ].map((f) => (
                         <div key={f.key}>
