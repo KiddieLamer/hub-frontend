@@ -522,7 +522,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {(m.role !== 'owner' && m.role !== 'hub-admin') ? (
+                    {(isHubAdmin || (m.role !== 'owner' && m.role !== 'hub-admin')) ? (
                       <>
                         <select
                           value={m.role}
@@ -563,13 +563,14 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                     ) : (
                       <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.15)' : 'rgba(175,82,222,0.12)', color: m.role === 'owner' ? '#ff9500' : '#af52de', fontSize: 10, fontWeight: 700, fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{m.role === 'hub-admin' ? 'Hub Admin' : m.role}</span>
                     )}
-                    {m.role !== 'owner' && m.role !== 'hub-admin' && (
+                    {(isHubAdmin || (m.role !== 'owner' && m.role !== 'hub-admin')) && (
                       <div
                         onClick={async (e) => {
                           e.stopPropagation()
                           if (!confirm(`Remove ${m.userFullName} from this company?`)) return
                           try {
-                            await import('../../lib/endpoints').then(({ membersApi }) => membersApi.remove(m.id))
+                            const res: any = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.remove(m.id))
+                            if (res?.error) { alert(res.error); return }
                             setStaffMembers(prev => prev.filter((x: any) => x.id !== m.id))
                           } catch {}
                         }}
