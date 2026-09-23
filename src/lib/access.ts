@@ -34,7 +34,8 @@ export function canAccessModule(label: string, ctx: AccessCtx): boolean {
   // Fail-open while loading or on error; the backend is the real gate.
   if (!ctx.loaded) return true
   if (ctx.platformRole === 'hub-admin') return true
-  if (ctx.tenantRole === 'owner' || ctx.tenantRole === 'hub-admin') return true
+  // Owner & Admin bisa semua (Fase 1).
+  if (ctx.tenantRole === 'owner' || ctx.tenantRole === 'admin' || ctx.tenantRole === 'hub-admin') return true
   const need = MODULE_PERM[label]
   if (!need) return true
   return ctx.permissions.includes(need)
@@ -43,7 +44,8 @@ export function canAccessModule(label: string, ctx: AccessCtx): boolean {
 export function canAccessPerm(perm: string, ctx: AccessCtx): boolean {
   if (!ctx.loaded) return true
   if (ctx.platformRole === 'hub-admin') return true
-  if (ctx.tenantRole === 'owner' || ctx.tenantRole === 'hub-admin') return true
+  // Owner & Admin bisa semua (Fase 1).
+  if (ctx.tenantRole === 'owner' || ctx.tenantRole === 'admin' || ctx.tenantRole === 'hub-admin') return true
   return ctx.permissions.includes(perm)
 }
 
