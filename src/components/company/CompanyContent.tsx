@@ -77,7 +77,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [allTenants, setAllTenants] = useState<any[]>([])
   const [isHubAdmin, setIsHubAdmin] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [createForm, setCreateForm] = useState({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' })
+  const [createForm, setCreateForm] = useState({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '', category: 'umum' })
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
   const [staffMembers, setStaffMembers] = useState<any[]>([])
@@ -246,7 +246,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           </div>
           {isHubAdmin && (
             <div
-              onClick={() => { setCreateForm({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '' }); setCreateError(''); setShowCreateModal(true) }}
+              onClick={() => { setCreateForm({ name: '', slug: '', website: '', email: '', phoneNumber: '', address: '', category: 'umum' }); setCreateError(''); setShowCreateModal(true) }}
               style={{ width: 20, height: 20, borderRadius: 5, background: '#34c759', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
             >
               <Plus size={12} color="white" />
@@ -604,13 +604,28 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             </div>
             {positions.length === 0 ? (
               <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Belum ada jabatan. Tambah cth. Direktur, Manager, Staff.</div>
-            ) : (
-              positions.map((p: any, i: number) => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', borderBottom: i < positions.length - 1 ? '1px solid rgb(229, 229, 234)' : 'none' }}>
+            ) : ((() => {
+                const byId = new Map(positions.map((p: any) => [p.id, p]))
+                const depthOf = (p: any) => {
+                  let d = 0
+                  let cur: any = p
+                  const seen = new Set<string>()
+                  while (cur?.parentId && byId.has(cur.parentId) && !seen.has(cur.parentId)) {
+                    seen.add(cur.parentId)
+                    d++
+                    cur = byId.get(cur.parentId)
+                  }
+                  return d
+                }
+                return positions.map((p: any, i: number) => {
+                  const depth = depthOf(p)
+                  const parentName = p.parentId ? (byId.get(p.parentId) as any)?.name || null : null
+                  return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', paddingLeft: 14 + depth * 18, borderBottom: i < positions.length - 1 ? '1px solid rgb(229, 229, 234)' : 'none' }}>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>{p.name}</div>
+                    <div style={{ fontSize: 13, color: '#1d1d1f', fontFamily: SF }}>{depth > 0 ? '↳ ' : ''}{p.name}</div>
                     <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>
-                      Level {p.level}{p.defaultRoleName ? ` · Role: ${p.defaultRoleName}` : ''}
+                      Level {p.level}{parentName ? ` · Atasan: ${parentName}` : ''}{p.defaultRoleName ? ` · Role: ${p.defaultRoleName}` : ''}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -647,8 +662,9 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                     </div>
                   </div>
                 </div>
-              ))
-            )}
+                  )
+                })
+              })())}
           </div>
         </div>
       </div>
@@ -750,6 +766,20 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           >
             <div style={{ fontSize: 15, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 16 }}>New Company</div>
             {createError && <div style={{ background: '#fff2f2', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#ff3b30', marginBottom: 12 }}>{createError}</div>}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Kategori usaha *</div>
+              <select
+                value={(createForm as any).category || 'umum'}
+                onChange={(e) => setCreateForm(p => ({ ...p, category: e.target.value }))}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: 'white' }}
+              >
+                <option value="jasa-lapangan">Jasa Lapangan (pest control, kanopi, servis)</option>
+                <option value="hotel">Hotel / Penginapan</option>
+                <option value="konsultan">Konsultan / Arsitek</option>
+                <option value="umum">Umum / Lainnya</option>
+              </select>
+              <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF, marginTop: 4 }}>Menentukan role & jabatan bawaan. Bisa diubah setelah dibuat.</div>
+            </div>
             {[
               { key: 'name', label: 'Company Name', placeholder: 'PT Maju Jaya', required: true },
               { key: 'slug', label: 'Slug', placeholder: 'pt-maju-jaya', required: true },
