@@ -87,7 +87,11 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   const tenantId = getTenantId()
   const tenantPaths = ['/api/members', '/api/roles', '/api/positions', '/api/hris', '/api/projects', '/api/inventory', '/api/finance']
-  const tenantExempt = ['/api/members/me', '/api/users/me']
+  // NOTE: /api/members/me is intentionally NOT exempt: the backend resolves
+  // it inside tenant context (X-Tenant-ID). Exempting it makes the call
+  // fail with 400 'X-Tenant-ID header required', which the handler below
+  // treats as a tenant problem and force-redirects to '/' -> reload loop.
+  const tenantExempt = ['/api/users/me']
   if (tenantPaths.some(p => path.startsWith(p)) && !tenantExempt.some(p => path === p)) {
     if (!tenantId) {
       return new Response(JSON.stringify({ members: [], roles: [], error: 'No tenant selected' }), {
