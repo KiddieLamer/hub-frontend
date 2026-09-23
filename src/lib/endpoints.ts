@@ -190,11 +190,15 @@ export const positionsApi = {
 // ============ ROLES ============
 export const rolesApi = {
   list: () => apiFetch('/api/roles').then(r => apiJson(r)),
-  create: (data: { name: string; description?: string }) =>
+  create: (data: { name: string; description?: string; permissionIds?: string[] }) =>
     apiFetch('/api/roles', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   remove: (id: string) =>
     apiFetch(`/api/roles/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
   permissions: () => apiFetch('/api/roles/permissions').then(r => apiJson(r)),
+  updatePermissions: (roleId: string, permissionIds: string[]) =>
+    apiFetch(`/api/roles/${roleId}/permissions`, { method: 'PATCH', body: JSON.stringify({ permissionIds }) }).then(r => apiJson(r)),
+  roleMembers: (roleId: string) =>
+    apiFetch(`/api/roles/${roleId}/members`).then(r => apiJson(r)),
   assign: (roleId: string, userId: string) =>
     apiFetch(`/api/roles/${roleId}/assign`, { method: 'POST', body: JSON.stringify({ userId }) }).then(r => apiJson(r)),
   unassign: (roleId: string, userId: string) =>

@@ -102,6 +102,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     if (!localStorage.getItem('hub-tenant-id')) {
       setStaffMembers([])
       setStaffLoading(false)
+      window.dispatchEvent(new Event('hub-tenant-changed'))
       return
     }
     setStaffLoading(true)
@@ -122,6 +123,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
       positionsApi.list().then((data: any) => setPositions(data?.positions || [])).catch(() => {})
       rolesApi.list().then((data: any) => setTenantRoles(data?.roles || [])).catch(() => {})
     })
+    window.dispatchEvent(new Event('hub-tenant-changed'))
   }
 
   useEffect(() => {

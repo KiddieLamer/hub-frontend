@@ -10,6 +10,7 @@ import { POSContent } from './POSContent'
 import { BrowserContent } from './BrowserContent'
 import { Bell } from 'lucide-react'
 import { notificationsApi } from '../lib/endpoints'
+import { fetchAccess, canAccessModule, FALLBACK_ACCESS, type AccessCtx } from '../lib/access'
 
 import { HRISContent } from './hris/HRISContent'
 import { FinanceContent } from './finance/FinanceContent'
@@ -135,6 +136,15 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
   const [notifications, setNotifications] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const notifRef = useRef<HTMLDivElement>(null)
+  const [access, setAccess] = useState<AccessCtx>(FALLBACK_ACCESS)
+
+  useEffect(() => {
+    let on = true
+    const load = () => fetchAccess().then(a => { if (on) setAccess(a) })
+    load()
+    window.addEventListener('hub-tenant-changed', load)
+    return () => { on = false; window.removeEventListener('hub-tenant-changed', load) }
+  }, [])
 
   useEffect(() => {
     const token = localStorage.getItem('hub-access-token')
@@ -238,7 +248,7 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
     if (id) bringToFront(id)
   }
 
-  const dockItems = DOCK_ITEMS.map((item) => ({
+  const dockItems = DOCK_ITEMS.filter((item) => canAccessModule(item.label, access)).map((item) => ({
     ...item,
     onClick: (item as { href?: string }).href ? undefined : () => handleDockClick(item.label),
       isActive: item.label === 'HRIS' ? openHRIS : item.label === 'CRM' ? openClients : item.label === 'Projects' ? openProjects : item.label === 'Finance' ? openFinance : item.label === 'Procurement' ? openProcurement : item.label === 'Settings' ? openSettings : item.label === 'Support' ? openSupport : item.label === 'Assets' ? openAssets : item.label === 'Audit' ? openAudit : item.label === 'Catalog' ? openCatalog : item.label === 'Browser' ? openBrowser : item.label === 'Notes' ? openOverlay === 'notes' : item.label === 'Ranpo AI' ? openRanpoAI : item.label === 'POS' ? openPOS : false,

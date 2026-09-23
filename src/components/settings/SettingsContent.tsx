@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock, Shield, Phone, AlertTriangle } from 'lucide-react'
 import { usersApi, membersApi } from '../../lib/endpoints'
 import { apiFetch, getTenantId } from '../../lib/api'
+import { fetchAccess, canAccessPerm, FALLBACK_ACCESS, type AccessCtx } from '../../lib/access'
 import './IDCard.css'
 import { IDCard } from './IDCard'
 
@@ -114,10 +115,21 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [avatarInput, setAvatarInput] = useState('')
   const [user, setUser] = useState<any>(null)
   const [error, setError] = useState('')
+  const [access, setAccess] = useState<AccessCtx>(FALLBACK_ACCESS)
   const [rolesList, setRolesList] = useState<any[]>([])
   const [showAddRole, setShowAddRole] = useState(false)
   const [newRoleName, setNewRoleName] = useState('')
   const [newRoleDesc, setNewRoleDesc] = useState('')
+  const [newRolePerms, setNewRolePerms] = useState<string[]>([])
+  const [allPermissions, setAllPermissions] = useState<any[]>([])
+  const [expandedRoleId, setExpandedRoleId] = useState<string | null>(null)
+  const [roleMembers, setRoleMembers] = useState<Record<string, any[]>>({})
+  const [roleAssignPick, setRoleAssignPick] = useState<Record<string, string>>({})
+  const [savingPerms, setSavingPerms] = useState(false)
+  const [editingPerms, setEditingPerms] = useState<Record<string, string[]>>({})
+  const [roleTenantMembers, setRoleTenantMembers] = useState<any[]>([])
+  const [myMembership, setMyMembership] = useState<any>(null)
+  const canManageRoles = user?.platformRole === 'hub-admin' || ['owner', 'admin'].includes(myMembership?.role)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [profileForm, setProfileForm] = useState({ fullName: '', email: '', phoneNumber: '', jobTitle: '', department: '' })
   const [showPasswordModal, setShowPasswordModal] = useState(false)
@@ -170,6 +182,8 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         localStorage.setItem('hub-avatar-url', u.avatarUrl)
       }
     }).catch(() => setError('Failed to load user data'))
+
+    fetchAccess().then(setAccess).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -225,8 +239,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
       loadUsers()
     }
     if (activeTab === 'roles') {
-      import('../../lib/endpoints').then(({ rolesApi }) => {
+      import('../../lib/endpoints').then(({ rolesApi, membersApi }) => {
         rolesApi.list().then(data => setRolesList(data?.roles || [])).catch(() => {})
+        rolesApi.permissions().then(data => setAllPermissions(data?.permissions || [])).catch(() => {})
+        membersApi.getMe().then(data => setMyMembership(data?.membership || null)).catch(() => {})
+        membersApi.list().then(data => setRoleTenantMembers(data?.members || [])).catch(() => {})
       })
     }
   }, [activeTab, user?.platformRole])
@@ -242,7 +259,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     { id: 'appearance', label: 'Appearance', icon: Palette, bg: 'linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%)' },
     { id: 'security', label: 'Privacy & Security', icon: ShieldCheck, bg: 'linear-gradient(135deg, #007aff 0%, #0051a8 100%)' },
     { id: 'users', label: 'Users & Groups', icon: Users, bg: 'linear-gradient(135deg, #34c759 0%, #248a3d 100%)' },
-    ...(user?.role === 'admin' ? [{ id: 'roles', label: 'Roles', icon: Shield, bg: 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)' }] : []),
+    ...(user?.role === 'admin' || canAccessPerm('roles:read', access) ? [{ id: 'roles', label: 'Roles', icon: Shield, bg: 'linear-gradient(135deg, #af52de 0%, #8944ab 100%)' }] : []),
   ]
 
   const filteredCategories = categories.filter(c => c.label.toLowerCase().includes(categorySearch.toLowerCase()))
@@ -936,17 +953,39 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>Description</div>
                     <input value={newRoleDesc} onChange={(e) => setNewRoleDesc(e.target.value)} placeholder="What can this role do?" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} onKeyDown={(e) => { if (e.key === 'Enter' && newRoleName.trim()) document.getElementById('save-role-btn')?.click() }} />
                   </div>
+                  {allPermissions.length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 6 }}>Permissions ({newRolePerms.length} dipilih)</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', padding: '10px 12px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: 'white' }}>
+                        {Array.from(new Set(allPermissions.map((p: any) => p.name.split(':')[0]))).map((mod: string) => (
+                          <div key={mod}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>{mod}</div>
+                            {allPermissions.filter((p: any) => p.name.split(':')[0] === mod).map((p: any) => (
+                              <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#1d1d1f', fontFamily: SF, padding: '3px 0', cursor: 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={newRolePerms.includes(p.id)}
+                                  onChange={() => setNewRolePerms(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])}
+                                />
+                                <span>{p.name} <span style={{ color: '#8e8e93' }}>— {p.description || ''}</span></span>
+                              </label>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <button onClick={() => { setShowAddRole(false); setNewRoleName(''); setNewRoleDesc('') }} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
-                    <button id="save-role-btn" onClick={async () => {
-                      if (!newRoleName.trim()) return
-                      try {
-                        const { rolesApi } = await import('../../lib/endpoints')
-                        const data = await rolesApi.create({ name: newRoleName.trim(), description: newRoleDesc.trim() || undefined })
-                        if (data?.role) setRolesList(prev => [...prev, { ...data.role, rolePermissions: [] }])
-                        setShowAddRole(false); setNewRoleName(''); setNewRoleDesc('')
-                      } catch { alert('Failed to create role') }
-                    }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Save</button>
+                      <button id="save-role-btn" onClick={async () => {
+                        if (!newRoleName.trim()) return
+                        try {
+                          const { rolesApi } = await import('../../lib/endpoints')
+                          const data = await rolesApi.create({ name: newRoleName.trim(), description: newRoleDesc.trim() || undefined, permissionIds: newRolePerms.length > 0 ? newRolePerms : undefined })
+                          if (data?.role) setRolesList(prev => [...prev, { ...data.role, permissions: allPermissions.filter((p: any) => newRolePerms.includes(p.id)), permissionIds: newRolePerms, memberCount: 0 }])
+                          setShowAddRole(false); setNewRoleName(''); setNewRoleDesc(''); setNewRolePerms([])
+                        } catch { alert('Failed to create role') }
+                      }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Save</button>
                   </div>
                 </div>
               ) : null}
@@ -977,14 +1016,37 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   system: false,
                   icon: '',
                   id: r.id,
+                  permissions: r.permissions || [],
+                  permissionIds: r.permissionIds || [],
+                  memberCount: r.memberCount || 0,
                 })),
-              ] as { name: string; label: string; color: string; bg: string; description: string; system: boolean; icon: string; id: string }[]).map((r) => (
-                <div key={r.name} style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 2 }}>
+              ] as { name: string; label: string; color: string; bg: string; description: string; system: boolean; icon: string; id: string; permissions: any[]; permissionIds: string[]; memberCount: number }[]).map((r) => (
+                <div key={r.name}>
+                <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, marginBottom: 2, cursor: r.system ? 'default' : 'pointer' }} onClick={async () => {
+                  if (r.system) return
+                  const next = expandedRoleId === r.id ? null : r.id
+                  setExpandedRoleId(next)
+                  if (next) {
+                    setEditingPerms(prev => prev[next] ? prev : ({ ...prev, [next]: [...(r.permissionIds || [])] }))
+                    if (!roleMembers[next]) {
+                      const { rolesApi } = await import('../../lib/endpoints')
+                      const d: any = await rolesApi.roleMembers(next).catch(() => null)
+                      setRoleMembers(prev => ({ ...prev, [next]: d?.members || [] }))
+                    }
+                  }
+                }}>
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: r.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     {r.icon === 'crown' ? (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={r.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7z"/><path d="M3 20h18"/></svg>
                     ) : (
                       <Shield size={18} color={r.color} />
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF, marginBottom: 2 }}>{r.label} {!r.system && <span style={{ fontSize: 11, fontWeight: 400, color: '#8e8e93' }}>· {r.memberCount} anggota · {r.permissionIds.length} akses</span>}</div>
+                    <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, lineHeight: 1.4 }}>{r.description}</div>
+                    {!r.system && r.permissions.length > 0 && (
+                      <div style={{ fontSize: 11, color: '#007aff', fontFamily: SF, marginTop: 4 }}>{r.permissions.map((p: any) => p.name).join(', ')}</div>
                     )}
                   </div>
                   <div style={{ flex: 1 }}>
@@ -1011,6 +1073,116 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                       </div>
                     )}
                   </div>
+                </div>
+                {!r.system && expandedRoleId === r.id && (
+                  <div style={{ background: 'white', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', padding: '14px 16px', marginBottom: 8 }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, marginBottom: 8 }}>Hak akses</div>
+                    {allPermissions.length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF }}>Belum ada katalog permission.</div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto', marginBottom: 10 }}>
+                          {Array.from(new Set(allPermissions.map((p: any) => p.name.split(':')[0]))).map((mod: string) => (
+                            <div key={mod}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{mod}</div>
+                              {allPermissions.filter((p: any) => p.name.split(':')[0] === mod).map((p: any) => (
+                                <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#1d1d1f', fontFamily: SF, padding: '2px 0', cursor: canManageRoles ? 'pointer' : 'default', opacity: canManageRoles ? 1 : 0.7 }}>
+                                  <input
+                                    type="checkbox"
+                                    disabled={!canManageRoles}
+                                    checked={(editingPerms[r.id] || []).includes(p.id)}
+                                    onChange={() => setEditingPerms(prev => {
+                                      const cur = prev[r.id] || []
+                                      return { ...prev, [r.id]: cur.includes(p.id) ? cur.filter(x => x !== p.id) : [...cur, p.id] }
+                                    })}
+                                  />
+                                  <span>{p.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                        {canManageRoles && (
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                            <button
+                              disabled={savingPerms}
+                              onClick={async () => {
+                                setSavingPerms(true)
+                                try {
+                                  const { rolesApi } = await import('../../lib/endpoints')
+                                  const res: any = await rolesApi.updatePermissions(r.id, editingPerms[r.id] || [])
+                                  if (res?.error) { alert(res.error); return }
+                                  const perms = allPermissions.filter((p: any) => (editingPerms[r.id] || []).includes(p.id))
+                                  setRolesList(prev => prev.map((x: any) => x.id === r.id ? { ...x, permissions: perms, permissionIds: perms.map((p: any) => p.id) } : x))
+                                } finally { setSavingPerms(false) }
+                              }}
+                              style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: savingPerms ? '#8e8e93' : '#007aff', color: 'white', fontSize: 12, fontWeight: 500, cursor: savingPerms ? 'default' : 'pointer', fontFamily: SF }}
+                            >
+                              {savingPerms ? 'Menyimpan...' : 'Simpan akses'}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#1d1d1f', fontFamily: SF, margin: '10px 0 8px' }}>Anggota ({(roleMembers[r.id] || []).length})</div>
+                    {(roleMembers[r.id] || []).length === 0 ? (
+                      <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 8 }}>Belum ada anggota dengan role ini.</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                        {(roleMembers[r.id] || []).map((m: any) => (
+                          <div key={m.userId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, fontFamily: SF, color: '#1d1d1f', background: '#f8f8f8', borderRadius: 7, padding: '6px 10px' }}>
+                            <span>{m.userFullName || m.userEmail} <span style={{ color: '#8e8e93' }}>· {m.userEmail}</span></span>
+                            {canManageRoles && (
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`Cabut role "${r.label}" dari ${m.userFullName || m.userEmail}?`)) return
+                                  const { rolesApi } = await import('../../lib/endpoints')
+                                  const res: any = await rolesApi.unassign(r.id, m.userId)
+                                  if (res?.error) { alert(res.error); return }
+                                  setRoleMembers(prev => ({ ...prev, [r.id]: (prev[r.id] || []).filter((x: any) => x.userId !== m.userId) }))
+                                  setRolesList(prev => prev.map((x: any) => x.id === r.id ? { ...x, memberCount: Math.max(0, (x.memberCount || 1) - 1) } : x))
+                                }}
+                                style={{ border: 'none', background: 'none', color: '#ff3b30', fontSize: 11, cursor: 'pointer', fontFamily: SF }}
+                              >
+                                Cabut
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {canManageRoles && (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <select
+                          value={roleAssignPick[r.id] || ''}
+                          onChange={(e) => setRoleAssignPick(prev => ({ ...prev, [r.id]: e.target.value }))}
+                          style={{ flex: 1, padding: '7px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 12, fontFamily: SF, outline: 'none', background: 'white', color: '#1d1d1f' }}
+                        >
+                          <option value="">Pilih staff...</option>
+                          {roleTenantMembers
+                            .filter((s: any) => !(roleMembers[r.id] || []).some((x: any) => x.userId === s.userId))
+                            .map((s: any) => <option key={s.userId} value={s.userId}>{s.userFullName || s.userEmail} · {s.role}</option>)}
+                        </select>
+                        <button
+                          onClick={async () => {
+                            const uid = roleAssignPick[r.id]
+                            if (!uid) return
+                            const { rolesApi } = await import('../../lib/endpoints')
+                            const res: any = await rolesApi.assign(r.id, uid)
+                            if (res?.error) { alert(res.error); return }
+                            const who = roleTenantMembers.find((s: any) => s.userId === uid)
+                            setRoleMembers(prev => ({ ...prev, [r.id]: [...(prev[r.id] || []), { userId: uid, userFullName: who?.userFullName, userEmail: who?.userEmail }] }))
+                            setRoleAssignPick(prev => ({ ...prev, [r.id]: '' }))
+                            setRolesList(prev => prev.map((x: any) => x.id === r.id ? { ...x, memberCount: (x.memberCount || 0) + 1 } : x))
+                          }}
+                          style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}
+                        >
+                          Tambah
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 </div>
               ))}
               </div>
