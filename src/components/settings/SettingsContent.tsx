@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock, Shield, Phone, AlertTriangle } from 'lucide-react'
-import { usersApi, membersApi, tenantsApi } from '../../lib/endpoints'
-import { apiFetch } from '../../lib/api'
+import { usersApi, membersApi } from '../../lib/endpoints'
+import { apiFetch, getTenantId } from '../../lib/api'
 import './IDCard.css'
 import { IDCard } from './IDCard'
 
@@ -146,7 +146,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
 
   const [removeTenantModalMember, setRemoveTenantModalMember] = useState<any>(null)
   const [removeTenantLoading, setRemoveTenantLoading] = useState(false)
-  const [currentTenant, setCurrentTenant] = useState<any>(null)
+  const [cardTenant, setCardTenant] = useState<any>(null)
 
   const handleOpenEditMember = (member: any) => {
     if (!member) return
@@ -170,11 +170,25 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         localStorage.setItem('hub-avatar-url', u.avatarUrl)
       }
     }).catch(() => setError('Failed to load user data'))
-
-    tenantsApi.getCurrent().then(data => {
-      if (data?.tenant || data) setCurrentTenant(data.tenant || data)
-    }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const uid = selectedMember?.userId
+    if (!uid) { setCardTenant(null); return }
+    // Resolve the card logo from the *member's own* memberships, never the
+    // viewer's active tenant: no membership -> placeholder; otherwise their
+    // tenant (prefer the active one when they belong to it).
+    setCardTenant(null)
+    usersApi.get(uid).then((data: any) => {
+      const list: any[] = data?.tenants || []
+      if (list.length === 0) return
+      const active = getTenantId()
+      const match = list.find(t => t.id === active)
+        || list.find(t => t.id === data?.user?.currentTenantId)
+        || list[0]
+      setCardTenant({ name: match.name, logoUrl: match.logoUrl })
+    }).catch(() => {})
+  }, [selectedMember?.userId])
 
   const loadUsers = () => {
                           if (user?.platformRole === 'hub-admin') {
@@ -753,7 +767,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
                     {/* Physical Lanyard Name Tag Badge */}
                     <div style={{ flexShrink: 0, position: 'relative', width: 240 }}>
-                      <IDCard member={selectedMember} tenant={currentTenant} scale={1} />
+                      <IDCard member={selectedMember} tenant={cardTenant} scale={1} />
                     </div>
 
                     {/* Info Cards Column */}
