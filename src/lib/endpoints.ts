@@ -1,4 +1,4 @@
-import { apiFetch, apiJson, setTokens, clearTokens, setTenantId } from './api'
+import { apiFetch, apiJson, setTokens, clearTokens, setTenantId, getTenantId } from './api'
 
 // ============ AUTH ============
 export const authApi = {
@@ -49,7 +49,13 @@ export const authApi = {
 export const usersApi = {
   list: (search?: string) => apiFetch(`/api/users${search ? `?search=${search}` : ''}`).then(r => apiJson(r)),
   get: (id: string) => apiFetch(`/api/users/${id}`).then(r => apiJson(r)),
-  create: (data: Record<string, unknown>) => apiFetch('/api/users', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  create: (data: Record<string, unknown>) => {
+    // Tenant admins must create users inside a tenant they manage.
+    // Auto-attach the active tenant so the new user lands in this company.
+    const tid = getTenantId()
+    const payload = tid && data.tenantId === undefined ? { ...data, tenantId: tid } : data
+    return apiFetch('/api/users', { method: 'POST', body: JSON.stringify(payload) }).then(r => apiJson(r))
+  },
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
   getMe: () => apiFetch('/api/users/me').then(r => apiJson(r)),
   updateMe: (data: Record<string, unknown>) => apiFetch('/api/users/me', { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
