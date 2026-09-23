@@ -160,6 +160,11 @@ export const shiftsApi = {
   delete: (id: string) => apiFetch(`/api/hris/shifts/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
 }
 
+// ============ APPROVALS (RACI QUEUE) ============
+export const approvalsApi = {
+  pending: () => apiFetch('/api/approvals/pending').then(r => apiJson(r)),
+}
+
 // ============ HRIS - MEMBERS ============
 export const membersApi = {
   list: () => apiFetch('/api/members').then(r => apiJson(r)),

@@ -86,7 +86,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   }
 
   const tenantId = getTenantId()
-  const tenantPaths = ['/api/members', '/api/roles', '/api/positions', '/api/hris', '/api/projects', '/api/inventory', '/api/finance']
+  const tenantPaths = ['/api/members', '/api/roles', '/api/positions', '/api/approvals', '/api/hris', '/api/projects', '/api/inventory', '/api/finance']
   // NOTE: /api/members/me is intentionally NOT exempt: the backend resolves
   // it inside tenant context (X-Tenant-ID). Exempting it makes the call
   // fail with 400 'X-Tenant-ID header required', which the handler below

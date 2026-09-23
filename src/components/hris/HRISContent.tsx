@@ -257,15 +257,41 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
     } catch { setError('Gagal memuat data') }
   }, [])
 
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([])
+  const loadApprovals = useCallback(async () => {
+    try {
+      const res = await import('../../lib/endpoints').then(m => m.approvalsApi.pending())
+      setPendingApprovals(res?.items || [])
+    } catch {}
+  }, [])
+
+  const handleApproval = async (item: any, approved: boolean) => {
+    try {
+      if (item.kind === 'leave') {
+        if (approved) await leavesApi.approveRequest(item.id)
+        else await leavesApi.rejectRequest(item.id)
+        loadLeaves()
+      } else {
+        if (approved) await overtimeApi.approve(item.id)
+        else await overtimeApi.reject(item.id)
+        loadOvertime()
+      }
+      loadApprovals()
+      loadDashboard()
+    } catch (e: any) {
+      alert(e?.message || 'Gagal memproses persetujuan')
+    }
+  }
+
   useEffect(() => {
     if (activeTab === 'dashboard') loadDashboard()
     if (activeTab === 'attendance') loadAttendance()
-    if (activeTab === 'leaves') loadLeaves()
-    if (activeTab === 'overtime') loadOvertime()
+    if (activeTab === 'leaves') { loadLeaves(); loadApprovals() }
+    if (activeTab === 'overtime') { loadOvertime(); loadApprovals() }
     if (activeTab === 'payroll') loadPayroll()
     if (activeTab === 'shifts') loadShifts()
     if (activeTab === 'profile') loadProfile()
-  }, [activeTab, loadDashboard, loadAttendance, loadLeaves, loadOvertime, loadPayroll, loadShifts, loadProfile])
+  }, [activeTab, loadDashboard, loadAttendance, loadLeaves, loadOvertime, loadPayroll, loadShifts, loadProfile, loadApprovals])
 
   // ============ ACTIONS ============
   const handleCheckIn = async () => {
@@ -531,6 +557,23 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
           {/* ============ LEAVES ============ */}
           {activeTab === 'leaves' && (
             <>
+              {pendingApprovals.filter((a: any) => a.kind === 'leave').length > 0 && (
+                <div style={{ background: 'rgb(255,248,240)', borderRadius: 10, border: '0.5px solid rgba(255,149,0,0.25)', overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px 4px', fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Perlu Persetujuan Kamu</div>
+                  {pendingApprovals.filter((a: any) => a.kind === 'leave').map((a: any) => (
+                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '9px 14px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF }}>{a.requesterName} · {a.title}</div>
+                        <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{a.detail}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => handleApproval(a, true)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Setuju</button>
+                        <button onClick={() => handleApproval(a, false)} style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', background: 'white', color: '#ff3b30', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Tolak</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
                 {paidLeaves.length === 0 ? (
                   <div style={{ padding: '16px 14px', fontSize: 12, color: '#8e8e93', fontFamily: SF, textAlign: 'center' }}>Belum ada tipe cuti</div>
@@ -586,6 +629,23 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
           {/* ============ OVERTIME ============ */}
           {activeTab === 'overtime' && (
             <>
+              {pendingApprovals.filter((a: any) => a.kind === 'overtime').length > 0 && (
+                <div style={{ background: 'rgb(255,248,240)', borderRadius: 10, border: '0.5px solid rgba(255,149,0,0.25)', overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px 4px', fontSize: 13, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>Perlu Persetujuan Kamu</div>
+                  {pendingApprovals.filter((a: any) => a.kind === 'overtime').map((a: any) => (
+                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '9px 14px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#1d1d1f', fontFamily: SF }}>{a.requesterName} · {a.title}</div>
+                        <div style={{ fontSize: 11, color: '#8e8e93', fontFamily: SF }}>{a.detail}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => handleApproval(a, true)} style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#34c759', color: 'white', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Setuju</button>
+                        <button onClick={() => handleApproval(a, false)} style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', background: 'white', color: '#ff3b30', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Tolak</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div style={{ background: 'rgb(242, 242, 247)', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 0.5px 2px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
                 <GroupedRow icon={<Hourglass size={14} />} iconBg="#ff9500" label="Total Bulan Ini" value={`${totalOvertimeHours} jam`} isLast />
               </div>
