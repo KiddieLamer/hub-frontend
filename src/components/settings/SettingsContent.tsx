@@ -178,8 +178,10 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     // Resolve the card logo from the *member's own* memberships, never the
     // viewer's active tenant: no membership -> placeholder; otherwise their
     // tenant (prefer the active one when they belong to it).
+    let cancelled = false
     setCardTenant(null)
     usersApi.get(uid).then((data: any) => {
+      if (cancelled) return
       const list: any[] = data?.tenants || []
       if (list.length === 0) return
       const active = getTenantId()
@@ -188,6 +190,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         || list[0]
       setCardTenant({ name: match.name, logoUrl: match.logoUrl })
     }).catch(() => {})
+    return () => { cancelled = true }
   }, [selectedMember?.userId])
 
   const loadUsers = () => {
