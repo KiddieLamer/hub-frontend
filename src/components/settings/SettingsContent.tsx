@@ -245,7 +245,12 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
       import('../../lib/endpoints').then(({ rolesApi, membersApi }) => {
         rolesApi.list().then(data => setRolesList(data?.roles || [])).catch(() => {})
         rolesApi.permissions().then(data => setAllPermissions(data?.permissions || [])).catch(() => {})
-        membersApi.getMe().then(data => setMyMembership(data?.membership || null)).catch(() => {})
+        // Hub-admin needs no membership lookup (would only 404-noise).
+        if (user?.platformRole !== 'hub-admin') {
+          membersApi.getMe().then(data => setMyMembership(data?.membership || null)).catch(() => {})
+        } else {
+          setMyMembership(null)
+        }
         membersApi.list().then(data => setRoleTenantMembers(data?.members || [])).catch(() => {})
       })
     }

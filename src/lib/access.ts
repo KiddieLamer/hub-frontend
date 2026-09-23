@@ -51,13 +51,17 @@ export function canAccessPerm(perm: string, ctx: AccessCtx): boolean {
 
 export async function fetchAccess(): Promise<AccessCtx> {
   try {
-    const [me, membership] = await Promise.all([
-      apiFetch('/api/users/me').then((r) => apiJson(r)).catch(() => null),
-      apiFetch('/api/members/me').then((r) => apiJson(r)).catch(() => null),
-    ])
+    const me = await apiFetch('/api/users/me').then((r) => apiJson(r)).catch(() => null)
     const u = (me as any)?.user || me
+    const platformRole = (u as any)?.platformRole ?? null
+    // Hub-admin manages from outside any tenant: no membership lookup needed
+    // (it would just 404-noise). Bypass covers all access.
+    if (platformRole === 'hub-admin') {
+      return { platformRole, tenantRole: 'hub-admin', permissions: [], loaded: true }
+    }
+    const membership = await apiFetch('/api/members/me').then((r) => apiJson(r)).catch(() => null)
     return {
-      platformRole: (u as any)?.platformRole ?? null,
+      platformRole,
       tenantRole: (membership as any)?.membership?.role ?? null,
       permissions: (membership as any)?.permissions ?? [],
       loaded: true,
