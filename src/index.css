@@ -5,6 +5,21 @@
 @theme {
   --font-heading: 'SK Reykjavik Rounded Regular', sans-serif;
   --font-sans: 'Inter', sans-serif;
+  --color-primary: #FF855E;
+  --color-bg-dark: #0A0A0A;
+  --color-card-dark: #141414;
+  --color-card-light: #1E1E1E;
+  /* Finance dashboard tokens */
+  --color-lime: #b7f565;
+  --color-lime-deep: #9ce94d;
+  --color-forest: #145b1f;
+  --color-muted: #717171;
+  --color-canvas: #f0f1ef;
+  --color-ink: #171717;
+  --color-gain: #13933b;
+  --color-loss: #df4a4a;
+  --color-track: #e4e4e1;
+  --color-ember: #ef6d42;
 }
 
 html, body {
@@ -45,4 +60,31 @@ html {
 
 .fade-in-up {
   animation: fadeInUp 0.5s ease forwards;
+}
+
+/* Finance dashboard helpers (custom classes, bukan bawaan Tailwind) */
+.soft-shadow {
+  box-shadow: 0 1px 2px rgba(16, 24, 16, 0.05), 0 8px 24px rgba(16, 24, 16, 0.06);
+}
+
+@keyframes float-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.animate-float-in {
+  animation: float-in 0.55s cubic-bezier(0.22, 0.68, 0.36, 1) both;
+}
+
+.delay-1 { animation-delay: 0.08s; }
+.delay-2 { animation-delay: 0.16s; }
+.delay-3 { animation-delay: 0.24s; }
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

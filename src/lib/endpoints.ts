@@ -47,7 +47,14 @@ export const authApi = {
 
 // ============ USERS ============
 export const usersApi = {
-  list: (search?: string) => apiFetch(`/api/users${search ? `?search=${search}` : ''}`).then(r => apiJson(r)),
+  list: (search?: string, page?: number, limit?: number) => {
+    const q = new URLSearchParams()
+    if (search) q.set('search', search)
+    if (page) q.set('page', String(page))
+    if (limit) q.set('limit', String(limit))
+    const qs = q.toString()
+    return apiFetch(`/api/users${qs ? `?${qs}` : ''}`).then(r => apiJson(r))
+  },
   get: (id: string) => apiFetch(`/api/users/${id}`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => {
     // Tenant admins must create users inside a tenant they manage.
@@ -171,7 +178,14 @@ export const approvalsApi = {
 
 // ============ HRIS - MEMBERS ============
 export const membersApi = {
-  list: () => apiFetch('/api/members').then(r => apiJson(r)),
+  list: (params?: { search?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.search) q.set('search', params.search)
+    if (params?.page) q.set('page', String(params.page))
+    if (params?.limit) q.set('limit', String(params.limit))
+    const qs = q.toString()
+    return apiFetch(`/api/members${qs ? `?${qs}` : ''}`).then(r => apiJson(r))
+  },
   getMe: () => apiFetch('/api/members/me').then(r => apiJson(r)),
   add: (data: { userId: string; role?: string; jobTitle?: string; positionId?: string }) =>
     apiFetch('/api/members', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),

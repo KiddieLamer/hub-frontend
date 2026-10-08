@@ -3,7 +3,7 @@ import { ProjectCard } from './ProjectCard'
 import { DockBar } from './DockBar'
 import { WindowShell } from './WindowShell'
 import { ClientsContent } from './ClientsContent'
-import { ProjectsContent } from './ProjectsContent'
+import { TasksBoardContent } from './TasksBoardContent'
 import { DashboardWidgets } from './DashboardWidget'
 import { RanpoAIContent } from './RanpoAIContent'
 import { POSContent } from './POSContent'
@@ -13,7 +13,7 @@ import { notificationsApi } from '../lib/endpoints'
 import { fetchAccess, canAccessModule, FALLBACK_ACCESS, type AccessCtx } from '../lib/access'
 
 import { HRISContent } from './hris/HRISContent'
-import { FinanceContent } from './finance/FinanceContent'
+import { FinanceDashboardContent } from './finance/FinanceDashboardContent'
 import { SupportContent } from './support/SupportContent'
 import { AssetsContent } from './assets/AssetsContent'
 import { AuditContent } from './audit/AuditContent'
@@ -448,11 +448,10 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           onClose={() => setOpenProjects(false)}
           wide
           fill
-          noToolbar
           zIndex={zIndices['projects'] || 50}
           onFocus={() => bringToFront('projects')}
         >
-          <ProjectsContent onClose={() => setOpenProjects(false)} onMinimize={() => setOpenProjects(false)} />
+          <TasksBoardContent />
         </WindowShell>
       )}
 
@@ -468,7 +467,7 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           zIndex={zIndices['finance'] || 50}
           onFocus={() => bringToFront('finance')}
         >
-          <FinanceContent onClose={() => setOpenFinance(false)} onMinimize={() => setOpenFinance(false)} />
+          <FinanceDashboardContent />
         </WindowShell>
       )}
 

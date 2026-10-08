@@ -6,6 +6,8 @@ import { fetchAccess, canAccessPerm, FALLBACK_ACCESS, type AccessCtx } from '../
 import './IDCard.css'
 import { IDCard } from './IDCard'
 
+const USERS_PAGE_SIZE = 20
+
 function GroupedRow({
   icon,
   iconBg,
@@ -138,15 +140,17 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [passwordSuccess, setPasswordSuccess] = useState('')
   const [members, setMembers] = useState<any[]>([])
   const [showAddUserForm, setShowAddUserForm] = useState(false)
-  const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', phoneNumber: '', jobTitle: '', department: '' })
+  const [addUserForm, setAddUserForm] = useState({ fullName: '', email: '', password: '', phoneNumber: '', department: '', employeeId: '', ktpNumber: '', dateOfBirth: '', address: '' })
   const [addUserError, setAddUserError] = useState('')
   const [addUserLoading, setAddUserLoading] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [membersPage, setMembersPage] = useState(1)
+  const [membersTotal, setMembersTotal] = useState(0)
   const [editMemberModal, setEditMemberModal] = useState<any>(null)
   const [editMemberRole, setEditMemberRole] = useState('')
-  const [editMemberForm, setEditMemberForm] = useState({ fullName: '', email: '', phoneNumber: '', jobTitle: '', department: '' })
+  const [editMemberForm, setEditMemberForm] = useState({ fullName: '', email: '', phoneNumber: '', department: '', employeeId: '', ktpNumber: '', dateOfBirth: '', address: '' })
   const [selectedMember, setSelectedMember] = useState<any>(null)
 
   // Apple Modals for Member Actions
@@ -161,6 +165,15 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [cardTenant, setCardTenant] = useState<any>(null)
   const [cardTenants, setCardTenants] = useState<any[]>([])
 
+  const isoDate = (v: any) => {
+    if (!v) return ''
+    try {
+      const d = v instanceof Date ? v : new Date(v)
+      if (Number.isNaN(d.getTime())) return ''
+      return d.toISOString().slice(0, 10)
+    } catch { return '' }
+  }
+
   const handleOpenEditMember = (member: any) => {
     if (!member) return
     setEditMemberModal(member)
@@ -169,8 +182,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
       fullName: member.userFullName || '',
       email: member.userEmail || '',
       phoneNumber: member.userPhoneNumber || '',
-      jobTitle: member.jobTitle || '',
       department: member.userDepartment || '',
+      employeeId: member.userEmployeeId || '',
+      ktpNumber: member.userKtpNumber || '',
+      dateOfBirth: isoDate(member.userDateOfBirth),
+      address: member.userAddress || '',
     })
   }
 
@@ -210,9 +226,16 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
     return () => { cancelled = true }
   }, [selectedMember?.userId])
 
-  const loadUsers = () => {
-                          if (user?.platformRole === 'hub-admin') {
-      usersApi.list().then(data => {
+  const loadUsers = (page = 1, search?: string) => {
+    const q = (search ?? '').trim() || undefined
+    const clamp = (gotPage: number, list: any[], total: number) => {
+      if (list.length === 0 && gotPage > 1) { loadUsers(gotPage - 1, q); return }
+      setMembers(list)
+      setMembersTotal(total)
+      setMembersPage(gotPage)
+    }
+    if (user?.platformRole === 'hub-admin') {
+      usersApi.list(q, page, USERS_PAGE_SIZE).then(data => {
         const allUsers = (data?.users || []).map((u: any) => ({
           id: u.id,
           userId: u.id,
@@ -226,13 +249,18 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
           userDepartment: u.department,
           userStatus: u.status,
         }))
-        setMembers(allUsers)
+        clamp(data?.page ?? page, allUsers, data?.total ?? allUsers.length)
       }).catch(() => {})
     } else {
       if (!localStorage.getItem('hub-tenant-id')) {
         setMembers([])
+        setMembersTotal(0)
+        setMembersPage(1)
       } else {
-        membersApi.list().then(data => setMembers(data?.members || [])).catch(() => {})
+        membersApi.list({ page, limit: USERS_PAGE_SIZE, search: q }).then(data => {
+          const list = data?.members || []
+          clamp(data?.page ?? page, list, data?.total ?? list.length)
+        }).catch(() => {})
       }
     }
   }
@@ -483,11 +511,11 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               <span style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>{selectedMember.userFullName}</span>
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', jobTitle: selectedMember.jobTitle || '', department: selectedMember.userDepartment || '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                <button onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', department: selectedMember.userDepartment || '', employeeId: selectedMember.userEmployeeId || '', ktpNumber: selectedMember.userKtpNumber || '', dateOfBirth: isoDate(selectedMember.userDateOfBirth), address: selectedMember.userAddress || '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                 </button>
                 {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
-                  <button onClick={async () => { if (confirm(`Delete ${selectedMember.userFullName}?`)) { await membersApi.remove(selectedMember.id); setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id)); setSelectedMember(null) } }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                  <button onClick={async () => { if (confirm(`Delete ${selectedMember.userFullName}?`)) { await membersApi.remove(selectedMember.id); setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id)); setMembersTotal(t => Math.max(0, t - 1)); setSelectedMember(null) } }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                   </button>
                 )}
@@ -507,34 +535,14 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                         setUserSearchQuery(e.target.value)
                         if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
                         searchTimerRef.current = setTimeout(() => {
-                          const q = e.target.value.trim()
-                          if (!q) { loadUsers(); return }
-    if (user?.platformRole === 'hub-admin') {
-                            usersApi.list(q).then(data => {
-                              const allUsers = (data?.users || []).map((u: any) => ({
-                                id: u.id, userId: u.id, isPlatformUser: true, jobTitle: u.jobTitle,
-                                createdAt: u.createdAt, userFullName: u.fullName, userEmail: u.email,
-                                userAvatarUrl: u.avatarUrl, userPhoneNumber: u.phoneNumber,
-                                userDepartment: u.department, userStatus: u.status,
-                              }))
-                              setMembers(allUsers)
-                            }).catch(() => {})
-                          } else {
-                            membersApi.list().then(data => {
-                              const q2 = q.toLowerCase()
-                              setMembers((data?.members || []).filter((m: any) =>
-                                (m.userFullName || '').toLowerCase().includes(q2) ||
-                                (m.userEmail || '').toLowerCase().includes(q2)
-                              ))
-                            }).catch(() => {})
-                          }
+                          loadUsers(1, e.target.value)
                         }, 3000)
                       }}
-                      onKeyDown={(e) => { if (e.key === 'Escape') { setSearchOpen(false); setUserSearchQuery(''); loadUsers() } }}
+                      onKeyDown={(e) => { if (e.key === 'Escape') { setSearchOpen(false); setUserSearchQuery(''); loadUsers(1) } }}
                       placeholder="Cari user... (3s)"
                       style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 11, fontFamily: SF, color: '#1d1d1f', width: 120 }}
                     />
-                    <button onClick={() => { setSearchOpen(false); setUserSearchQuery(''); if (searchTimerRef.current) clearTimeout(searchTimerRef.current); loadUsers() }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                    <button onClick={() => { setSearchOpen(false); setUserSearchQuery(''); if (searchTimerRef.current) clearTimeout(searchTimerRef.current); loadUsers(1) }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', padding: 0 }}>
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                   </div>
@@ -543,7 +551,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                   </button>
                 )}
-                <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', phoneNumber: '', jobTitle: '', department: '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                <button onClick={() => { setShowAddUserForm(true); setAddUserError(''); setAddUserForm({ fullName: '', email: '', password: '', phoneNumber: '', department: '', employeeId: '', ktpNumber: '', dateOfBirth: '', address: '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
                 <button style={{ height: 24, borderRadius: 12, border: 'none', background: '#f5f5f7', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 10px', gap: 4, opacity: 0.6 }}>
@@ -753,12 +761,24 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           <input type="tel" value={addUserForm.phoneNumber} onChange={(e) => setAddUserForm(p => ({ ...p, phoneNumber: e.target.value }))} placeholder="+62 812 3456 7890" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
                         </div>
                         <div>
-                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Job Title</label>
-                          <input type="text" value={addUserForm.jobTitle} onChange={(e) => setAddUserForm(p => ({ ...p, jobTitle: e.target.value }))} placeholder="Software Engineer" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
-                        </div>
-                        <div>
                           <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Department</label>
                           <input type="text" value={addUserForm.department} onChange={(e) => setAddUserForm(p => ({ ...p, department: e.target.value }))} placeholder="Engineering" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Employee ID</label>
+                          <input type="text" value={addUserForm.employeeId} onChange={(e) => setAddUserForm(p => ({ ...p, employeeId: e.target.value }))} placeholder="EMP-001" style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>No. KTP</label>
+                          <input type="text" value={addUserForm.ktpNumber} onChange={(e) => setAddUserForm(p => ({ ...p, ktpNumber: e.target.value }))} placeholder="3174..." style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Tanggal Lahir</label>
+                          <input type="date" value={addUserForm.dateOfBirth} onChange={(e) => setAddUserForm(p => ({ ...p, dateOfBirth: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#8e8e93', fontFamily: SF, display: 'block', marginBottom: 6 }}>Alamat</label>
+                          <input type="text" value={addUserForm.address} onChange={(e) => setAddUserForm(p => ({ ...p, address: e.target.value }))} placeholder="Jl. ..." style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f', background: '#fafafa' }} />
                         </div>
                       </div>
                     </div>
@@ -771,14 +791,14 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           if (!addUserForm.fullName || !addUserForm.email || !addUserForm.password) { setAddUserError('Semua field wajib diisi'); return }
                           setAddUserLoading(true); setAddUserError('')
                           try {
-                            const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, jobTitle: addUserForm.jobTitle || undefined, department: addUserForm.department || undefined, status: 'active' })
+                            const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, department: addUserForm.department || undefined, employeeId: addUserForm.employeeId || undefined, ktpNumber: addUserForm.ktpNumber || undefined, dateOfBirth: addUserForm.dateOfBirth || undefined, address: addUserForm.address || undefined, status: 'active' })
                             if (userRes.error) {
                               const detail = userRes.details?.[0]?.message
                               setAddUserError(detail ? `${userRes.error}: ${detail}` : userRes.error)
                               return
                             }
                             setShowAddUserForm(false)
-                            setAddUserForm({ fullName: '', email: '', password: '', phoneNumber: '', jobTitle: '', department: '' })
+                            setAddUserForm({ fullName: '', email: '', password: '', phoneNumber: '', department: '', employeeId: '', ktpNumber: '', dateOfBirth: '', address: '' })
                             loadUsers()
                           } catch (e: any) { setAddUserError(e?.message || 'Gagal menambah user') } finally { setAddUserLoading(false) }
                         }}
@@ -813,8 +833,19 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                         <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Work</span>
                         </div>
-                        <GroupedRow icon={<Briefcase size={14} />} iconBg="#ff2d55" label="Job Title" value={selectedMember.jobTitle} onClick={() => handleOpenEditMember(selectedMember)} />
+                        <GroupedRow icon={<Briefcase size={14} />} iconBg="#ff2d55" label="Job Title" value={selectedMember.jobTitle} editable={false} />
                         <GroupedRow icon={<Building size={14} />} iconBg="#30b0c7" label="Department" value={selectedMember.userDepartment} onClick={() => handleOpenEditMember(selectedMember)} isLast />
+                        <div style={{ padding: '8px 14px', fontSize: 11, color: '#8e8e93', fontFamily: SF, background: 'rgba(0,0,0,0.02)' }}>Jabatan & posisi diatur dari halaman Company</div>
+                      </div>
+
+                      <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                        <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Identitas</span>
+                        </div>
+                        <GroupedRow icon={<User size={14} />} iconBg="#5856d6" label="Employee ID" value={selectedMember.userEmployeeId} onClick={() => handleOpenEditMember(selectedMember)} />
+                        <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="No. KTP" value={selectedMember.userKtpNumber} onClick={() => handleOpenEditMember(selectedMember)} />
+                        <GroupedRow icon={<User size={14} />} iconBg="#30b0c7" label="Tanggal Lahir" value={isoDate(selectedMember.userDateOfBirth)} onClick={() => handleOpenEditMember(selectedMember)} />
+                        <GroupedRow icon={<User size={14} />} iconBg="#34c759" label="Alamat" value={selectedMember.userAddress} onClick={() => handleOpenEditMember(selectedMember)} isLast />
                       </div>
 
                       <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -905,6 +936,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 </div>
               ) : (
                 /* Member List View */
+                <>
                 <div style={{ background: '#f8f8f8', borderRadius: 10, overflow: 'hidden', width: '100%' }}>
                   {members.length === 0 ? (
                     <div style={{ padding: 20, textAlign: 'center', color: '#8e8e93', fontSize: 13, fontFamily: SF }}>No members yet</div>
@@ -944,6 +976,25 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     ))
                   )}
                 </div>
+                {membersTotal > USERS_PAGE_SIZE && (() => {
+                  const totalPages = Math.max(1, Math.ceil(membersTotal / USERS_PAGE_SIZE))
+                  const searchParam = userSearchQuery.trim() || undefined
+                  const pageBtnStyle = (disabled: boolean): React.CSSProperties => ({
+                    height: 26, padding: '0 12px', borderRadius: 13, border: 'none',
+                    background: '#f5f5f7', color: disabled ? '#c7c7cc' : '#007aff',
+                    fontSize: 12, fontWeight: 500, fontFamily: SF, cursor: disabled ? 'default' : 'pointer',
+                  })
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 4px 2px' }}>
+                      <button disabled={membersPage <= 1} onClick={() => loadUsers(membersPage - 1, searchParam)} style={pageBtnStyle(membersPage <= 1)}>Prev</button>
+                      <span style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF }}>
+                        Page {membersPage} of {totalPages} · {membersTotal} {membersTotal === 1 ? 'user' : 'users'}
+                      </span>
+                      <button disabled={membersPage >= totalPages} onClick={() => loadUsers(membersPage + 1, searchParam)} style={pageBtnStyle(membersPage >= totalPages)}>Next</button>
+                    </div>
+                  )
+                })()}
+                </>
               )}
             </>
           )}
@@ -1319,18 +1370,21 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
       {/* Add User Modal */}
       {editMemberModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setEditMemberModal(null)}>
-          <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 400, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 14 }}>Edit {editMemberModal.userFullName}</div>
             {[
-              { key: 'fullName', label: 'Full Name', value: editMemberForm.fullName },
-              { key: 'email', label: 'Email', value: editMemberForm.email },
-              { key: 'phoneNumber', label: 'Phone', value: editMemberForm.phoneNumber },
-              { key: 'jobTitle', label: 'Job Title', value: editMemberForm.jobTitle },
-              { key: 'department', label: 'Department', value: editMemberForm.department },
+              { key: 'fullName', label: 'Full Name', value: editMemberForm.fullName, type: 'text' },
+              { key: 'email', label: 'Email', value: editMemberForm.email, type: 'text' },
+              { key: 'phoneNumber', label: 'Phone', value: editMemberForm.phoneNumber, type: 'text' },
+              { key: 'department', label: 'Department', value: editMemberForm.department, type: 'text' },
+              { key: 'employeeId', label: 'Employee ID', value: editMemberForm.employeeId, type: 'text' },
+              { key: 'ktpNumber', label: 'No. KTP', value: editMemberForm.ktpNumber, type: 'text' },
+              { key: 'dateOfBirth', label: 'Tanggal Lahir', value: editMemberForm.dateOfBirth, type: 'date' },
+              { key: 'address', label: 'Alamat', value: editMemberForm.address, type: 'text' },
             ].map(f => (
               <div key={f.key} style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 12, color: '#8e8e93', fontFamily: SF, marginBottom: 4 }}>{f.label}</div>
-                <input type="text" value={f.value} onChange={(e) => setEditMemberForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
+                <input type={f.type} value={f.value} onChange={(e) => setEditMemberForm(p => ({ ...p, [f.key]: e.target.value }))} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 13, fontFamily: SF, outline: 'none', boxSizing: 'border-box', color: '#1d1d1f' }} />
               </div>
             ))}
             {editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin' && (
@@ -1346,12 +1400,33 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               <button onClick={() => setEditMemberModal(null)} style={{ padding: '7px 16px', borderRadius: 7, border: '0.5px solid rgba(0,0,0,0.12)', background: '#f5f5f5', color: '#1d1d1f', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Batal</button>
               <button onClick={async () => {
                 try {
-                  await usersApi.update(editMemberModal.userId, { fullName: editMemberForm.fullName, email: editMemberForm.email, phoneNumber: editMemberForm.phoneNumber || undefined, jobTitle: editMemberForm.jobTitle || undefined, department: editMemberForm.department || undefined })
+                  const payload = {
+                    fullName: editMemberForm.fullName,
+                    email: editMemberForm.email,
+                    phoneNumber: editMemberForm.phoneNumber || undefined,
+                    department: editMemberForm.department || undefined,
+                    employeeId: editMemberForm.employeeId || undefined,
+                    ktpNumber: editMemberForm.ktpNumber || undefined,
+                    dateOfBirth: editMemberForm.dateOfBirth || undefined,
+                    address: editMemberForm.address || undefined,
+                  }
+                  await usersApi.update(editMemberModal.userId, payload)
                   if (editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin') {
                     await membersApi.updateRole(editMemberModal.id, editMemberRole)
                   }
-                  setMembers(prev => prev.map((x: any) => x.id === editMemberModal.id ? { ...x, ...editMemberForm, role: editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin' ? editMemberRole : x.role } : x))
-                  setSelectedMember((prev: any) => prev ? { ...prev, ...editMemberForm, role: prev.role !== 'owner' && prev.role !== 'hub-admin' ? editMemberRole : prev.role } : prev)
+                  const memberPatch = {
+                    userFullName: editMemberForm.fullName,
+                    userEmail: editMemberForm.email,
+                    userPhoneNumber: editMemberForm.phoneNumber,
+                    userDepartment: editMemberForm.department,
+                    userEmployeeId: editMemberForm.employeeId,
+                    userKtpNumber: editMemberForm.ktpNumber,
+                    userDateOfBirth: editMemberForm.dateOfBirth,
+                    userAddress: editMemberForm.address,
+                    role: editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin' ? editMemberRole : editMemberModal.role,
+                  }
+                  setMembers(prev => prev.map((x: any) => x.id === editMemberModal.id ? { ...x, ...memberPatch } : x))
+                  setSelectedMember((prev: any) => prev ? { ...prev, ...memberPatch } : prev)
                   setEditMemberModal(null)
                 } catch { alert('Failed to update') }
               }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Save</button>
@@ -1452,6 +1527,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   try {
                     await membersApi.remove(removeTenantModalMember.id)
                     setMembers(prev => prev.filter((x: any) => x.id !== removeTenantModalMember.id))
+                    setMembersTotal(t => Math.max(0, t - 1))
                     setSelectedMember(null)
                     setRemoveTenantModalMember(null)
                   } catch {
