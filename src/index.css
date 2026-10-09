@@ -20,6 +20,13 @@
   --color-loss: #df4a4a;
   --color-track: #e4e4e1;
   --color-ember: #ef6d42;
+  /* CRM dashboard tokens */
+  --color-rail: #e8ebf0;
+  --color-zest: #ecfa8f;
+  --color-zest-strong: #e4f66f;
+  --color-brand: #13a68c;
+  --color-brand-deep: #0f8f79;
+  --radius-card: 28px;
 }
 
 html, body {
@@ -51,6 +58,15 @@ html {
 
 .spring-in {
   animation: springIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s ease forwards;
 }
 
 @keyframes fadeInUp {

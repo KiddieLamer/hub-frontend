@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ProjectCard } from './ProjectCard'
 import { DockBar } from './DockBar'
 import { WindowShell } from './WindowShell'
-import { ClientsContent } from './ClientsContent'
+import { CrmDashboardContent } from './crm/CrmDashboardContent'
 import { TasksBoardContent } from './TasksBoardContent'
 import { DashboardWidgets } from './DashboardWidget'
 import { RanpoAIContent } from './RanpoAIContent'
@@ -436,7 +436,7 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           zIndex={zIndices['clients'] || 50}
           onFocus={() => bringToFront('clients')}
         >
-          <ClientsContent onClose={() => setOpenClients(false)} onMinimize={() => setOpenClients(false)} />
+          <CrmDashboardContent />
         </WindowShell>
       )}
 
