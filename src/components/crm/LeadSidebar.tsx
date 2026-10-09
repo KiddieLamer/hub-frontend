@@ -150,9 +150,9 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }:
   const hasAnyResults = filteredLeads.length > 0
 
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-[#F2F5F8]/70 p-4 shadow-sm backdrop-blur-md lg:col-span-3">
+    <div className="flex h-full flex-col gap-4 overflow-hidden rounded-3xl border border-white/70 bg-[#F2F5F8]/70 p-4 shadow-sm backdrop-blur-md lg:col-span-3 max-lg:h-auto">
       {/* Header Sidebar */}
-      <div className="flex h-10 items-center justify-between px-1">
+      <div className="flex h-10 shrink-0 items-center justify-between px-1">
         {!isSearchOpen ? (
           <>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Work</h1>
@@ -217,8 +217,8 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }:
         )}
       </div>
 
-      {/* List Leads / Hasil Pencarian */}
-      <div className="max-h-[calc(100vh-140px)] space-y-4 overflow-y-auto pr-1">
+      {/* DIBUAT FLEX-1 MIN-H-0 OVERFLOW-Y-AUTO DENGAN INTERNAL SCROLL */}
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
         {hasAnyResults ? (
           <>
             {renderLeadGroup('Today')}

@@ -22,10 +22,10 @@ export function LocationMapCard({ address, className = '' }: LocationMapCardProp
           href={externalMapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-full bg-slate-100 p-2 text-slate-600 transition-colors hover:bg-slate-200/80"
+          className="text-slate-500 transition-colors hover:text-slate-800"
           title="Buka di Google Maps"
         >
-          <ExternalLink className="h-3.5 w-3.5" />
+          <ExternalLink className="h-4 w-4" />
         </a>
       </div>
 
@@ -40,8 +40,8 @@ export function LocationMapCard({ address, className = '' }: LocationMapCardProp
           loading="lazy"
         />
 
-        {/* Floating Badge Alamat di Atas Map */}
-        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2 rounded-xl border border-white/80 bg-white/90 p-2 shadow-xs backdrop-blur-md">
+        {/* Badge Alamat (menutup strip footer Google Maps) */}
+        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 rounded-t-xl border-x-0 border-b-0 border-t border-white/80 bg-white p-2 shadow-xs">
           <div className="flex min-w-0 items-center gap-1.5">
             <Navigation className="h-3.5 w-3.5 shrink-0 text-[#0d9488]" />
             <p className="truncate text-[11px] font-semibold text-slate-800">

@@ -2,8 +2,6 @@ import { useState } from 'react'
 import {
   RotateCcw,
   Search,
-  Mail,
-  Phone,
   Save,
   Plus,
   Trash2,
@@ -13,17 +11,21 @@ import {
   Receipt,
   MoreHorizontal,
   Filter,
-  MapPin,
   Network,
-  PhoneCall
 } from 'lucide-react'
 import type { LeadItem } from './types'
 import { initialLeads } from './data/mockLeads'
 import { OpportunityStepper } from './OpportunityStepper'
 import { LeadScoreCard } from './LeadScoreCard'
+import { WarrantyCard } from './WarrantyCard'
 import { LeadSidebar } from './LeadSidebar'
 import { CustomerModal } from './CustomerModal'
 import { LocationMapCard } from './LocationMapCard'
+import { ContactCard } from './ContactCard'
+import { CompanyCard } from './CompanyCard'
+import { SocialMediaCard } from './SocialMediaCard'
+import { UpNextCard } from './UpNextCard'
+import { ActivityLogCard } from './ActivityLogCard'
 
 export function CrmDashboardContent() {
   const [leads, setLeads] = useState<LeadItem[]>(initialLeads)
@@ -73,6 +75,7 @@ export function CrmDashboardContent() {
       const newLead: LeadItem = {
         id: Date.now().toString(),
         name: customerData.name || 'New Customer',
+        jobTitle: customerData.jobTitle || 'Purchasing Manager',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
         subtitle: 'New customer lead',
         type: 'Lead',
@@ -89,6 +92,8 @@ export function CrmDashboardContent() {
         topic: customerData.topic || '',
         phone: customerData.phone || '',
         mobile: customerData.mobile || '',
+        identityType: customerData.identityType,
+        identityNumber: customerData.identityNumber,
         address: customerData.address || '',
         email: customerData.email || '',
         company: customerData.company || '',
@@ -112,8 +117,8 @@ export function CrmDashboardContent() {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-gradient-to-br from-[#EBF1F5] via-[#E8ECEF] to-[#E3E8EC] p-3 font-sans text-slate-800 md:p-6">
-      <div className="mx-auto grid max-w-[1600px] grid-cols-1 gap-5 lg:grid-cols-12">
+    <div className="h-full overflow-hidden bg-gradient-to-br from-[#EBF1F5] via-[#E8ECEF] to-[#E3E8EC] p-3 font-sans text-slate-800 md:p-6 max-lg:h-auto max-lg:overflow-y-auto">
+      <div className="mx-auto grid h-full max-w-[1600px] grid-cols-1 gap-5 lg:grid-cols-12 max-lg:h-auto">
 
         {/* Modular Sidebar Component */}
         <LeadSidebar
@@ -123,8 +128,8 @@ export function CrmDashboardContent() {
           onAddClick={handleOpenCreateModal}
         />
 
-        {/* Main Content Area */}
-        <div className="space-y-4 lg:col-span-9">
+        {/* Main Content Area - hanya area ini yang scroll */}
+        <div className="h-full space-y-4 overflow-y-auto pr-1.5 lg:col-span-9 max-lg:h-auto max-lg:overflow-visible">
 
           {/* Top Command Bar */}
           <div className="flex items-center justify-between gap-2 overflow-x-auto rounded-2xl border border-white/70 bg-[#F2F5F8]/70 p-2.5 shadow-xs backdrop-blur-md">
@@ -177,7 +182,7 @@ export function CrmDashboardContent() {
           </div>
 
           {/* Profile Header Card */}
-          <div className="rounded-3xl border border-white/80 bg-gradient-to-r from-[#ECF8BD]/60 via-[#E8F6EE]/60 to-[#FDF4EA]/60 p-5 shadow-xs backdrop-blur-md">
+          <div className="rounded-3xl border border-white/80 bg-gradient-to-r from-[#ECF8BD]/60 via-[#E8FCFE]/60 to-[#FDF4EA]/60 p-5 shadow-xs backdrop-blur-md">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <img
@@ -257,144 +262,53 @@ export function CrmDashboardContent() {
           {/* Grid Layout 3 Columns */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
-            {/* COLUMN 1: Contact & Company */}
+            {/* COLUMN 1: Contact, Company & Location */}
             <div className="space-y-4">
-              <div className="space-y-4 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md">
-                <h3 className="text-lg font-bold text-slate-900">Contact</h3>
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <span className="block font-medium text-slate-400">Topic</span>
-                    <p className="mt-0.5 text-sm font-semibold text-slate-900">{selectedLead.topic}</p>
-                  </div>
-                  <div>
-                    <span className="block font-medium text-slate-400">First Name</span>
-                    <p className="text-sm font-semibold text-slate-900">{selectedLead.name.split(' ')[0]}</p>
-                  </div>
-                  <div>
-                    <span className="block font-medium text-slate-400">Last Name</span>
-                    <p className="text-sm font-semibold text-slate-900">{selectedLead.name.split(' ')[1] || ''}</p>
-                  </div>
-                  <div>
-                    <span className="block font-medium text-slate-400">Job Title</span>
-                    <p className="text-sm font-semibold text-slate-900">Purchasing Manager</p>
-                  </div>
 
-                  <div>
-                    <span className="block font-medium text-slate-400">Address</span>
-                    <div className="mt-0.5 flex items-start justify-between gap-2">
-                      <p className="text-xs font-semibold leading-snug text-slate-900">
-                        {selectedLead.address || 'Sudirman Central Business District, Jakarta'}
-                      </p>
-                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                    </div>
-                  </div>
+              <ContactCard
+                lead={selectedLead}
+                onSave={(updatedData) =>
+                  setLeads((prevLeads) =>
+                    prevLeads.map((item) =>
+                      item.id === selectedLead.id ? { ...item, ...updatedData } : item
+                    )
+                  )
+                }
+              />
 
-                  <div className="pt-1">
-                    <span className="block font-medium text-slate-400">Business Phone</span>
-                    <div className="mt-0.5 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-900">{selectedLead.phone}</p>
-                      <Phone className="h-4 w-4 text-slate-400" />
-                    </div>
-                  </div>
-                  <div>
-                    <span className="block font-medium text-slate-400">Mobile Phone</span>
-                    <div className="mt-0.5 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-900">{selectedLead.mobile}</p>
-                      <Phone className="h-4 w-4 text-slate-400" />
-                    </div>
-                  </div>
-                  <div>
-                    <span className="block font-medium text-slate-400">Email</span>
-                    <div className="mt-0.5 flex items-center justify-between">
-                      <p className="max-w-[190px] truncate text-xs font-semibold text-slate-900">{selectedLead.email}</p>
-                      <Mail className="h-4 w-4 text-slate-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md">
-                <h3 className="text-lg font-bold text-slate-900">Company</h3>
-                <div className="space-y-2 text-xs">
-                  <div>
-                    <span className="block font-medium text-slate-400">Company</span>
-                    <p className="text-sm font-semibold text-slate-900">{selectedLead.company}</p>
-                  </div>
-                  <div>
-                    <span className="block font-medium text-slate-400">Website</span>
-                    <p className="cursor-pointer text-xs font-semibold text-slate-900 underline">{selectedLead.website}</p>
-                  </div>
-                </div>
-              </div>
+              <CompanyCard
+                lead={selectedLead}
+                onSave={(updatedData) =>
+                  setLeads((prevLeads) =>
+                    prevLeads.map((item) =>
+                      item.id === selectedLead.id ? { ...item, ...updatedData } : item
+                    )
+                  )
+                }
+              />
 
               <LocationMapCard address={selectedLead.address} />
+
+              <SocialMediaCard
+                socials={selectedLead.socialMedia}
+                customerName={selectedLead.name}
+              />
             </div>
 
             {/* COLUMN 2: Up Next & Timeline */}
             <div className="space-y-4">
-              <div className="space-y-4 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-slate-900">Up Next</h3>
-                  <button className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100">
-                    <RotateCcw className="h-4 w-4" />
-                  </button>
-                </div>
 
-                <div className="rounded-2xl border border-slate-200/50 bg-slate-100/80 px-3 py-2 text-center">
-                  <span className="text-xs font-semibold text-slate-800">
-                    Sequence: New Lead Nurturing
-                  </span>
-                </div>
+              <UpNextCard
+                tasks={selectedLead.tasks}
+                customerName={selectedLead.name}
+                onUpdateTasks={(updatedTasks) =>
+                  setLeads((prev) =>
+                    prev.map((l) => (l.id === selectedLead.id ? { ...l, tasks: updatedTasks } : l))
+                  )
+                }
+              />
 
-                <div className="space-y-3 rounded-3xl border border-white/80 bg-gradient-to-b from-[#EBF8BD] to-[#E2F5A6] p-4 shadow-xs">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white bg-white/90 text-slate-800 shadow-2xs">
-                      <PhoneCall className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900">First Customer Call</h4>
-                      <p className="text-[11px] font-medium text-slate-600">Step 1 - Due 8/4/23 7:30 pm</p>
-                    </div>
-                  </div>
-
-                  <p className="pl-1 text-xs font-medium text-slate-700">
-                    Call to introduce yourself
-                  </p>
-
-                  <div className="flex items-center gap-2 pt-1">
-                    <button className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-black py-2 text-xs font-semibold text-white shadow-xs hover:bg-slate-800">
-                      <Phone className="h-3.5 w-3.5 fill-current" /> Call
-                    </button>
-                    <button className="flex-1 rounded-full border border-slate-200/80 bg-white/90 py-2 text-xs font-semibold text-slate-800 shadow-2xs hover:bg-white">
-                      Mark Complete
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-1">
-                  <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-white/60 p-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-                      <Mail className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-slate-900">Follow Up</h5>
-                      <p className="text-[10px] font-medium text-slate-400">Step 2</p>
-                      <p className="mt-1 text-xs text-slate-600">Follow up email after call</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-white/60 p-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-                      <Phone className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-slate-900">Second Customer Call</h5>
-                      <p className="text-[10px] font-medium text-slate-400">Step 3 - Due 8/4/23 8:30 pm</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
+              {/* Timeline (placeholder, akan dipakai nanti) */}
               <div className="space-y-3 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900">Timeline</h3>
@@ -420,6 +334,7 @@ export function CrmDashboardContent() {
                   />
                 </div>
               </div>
+
             </div>
 
             {/* COLUMN 3: Modular Dynamic Lead Score Card */}
@@ -432,6 +347,33 @@ export function CrmDashboardContent() {
                 insights={selectedLead.insights}
               />
 
+              <WarrantyCard
+                warranty={selectedLead.warranty}
+                customerName={selectedLead.name}
+                onUpdateWarranty={(updatedWarranty) =>
+                  setLeads((prev) =>
+                    prev.map((l) => (l.id === selectedLead.id ? { ...l, warranty: updatedWarranty } : l))
+                  )
+                }
+              />
+
+              <ActivityLogCard
+                activities={selectedLead.activities}
+                currentUser={{
+                  name: selectedLead.owner || 'Kenny Smith',
+                  avatar: selectedLead.ownerAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+                }}
+                onAddActivity={(newActivity) =>
+                  setLeads((prev) =>
+                    prev.map((l) =>
+                      l.id === selectedLead.id
+                        ? { ...l, activities: [newActivity, ...(l.activities || [])] }
+                        : l
+                    )
+                  )
+                }
+              />
+
               <div className="space-y-4 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900">Who Knows Whom</h3>
@@ -439,7 +381,6 @@ export function CrmDashboardContent() {
                     <Network className="h-4 w-4" />
                   </button>
                 </div>
-
                 <div className="space-y-3">
                   <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white/60 p-2.5">
                     <div className="flex items-center gap-3">
@@ -473,18 +414,18 @@ export function CrmDashboardContent() {
                         <p className="text-[10px] text-slate-400">mia@laconsoliddad.com</p>
                       </div>
                     </div>
-                    <div className="flex h-3 items-end gap-0.5">
-                      <div className="h-2 w-1 rounded-xs bg-teal-500"></div>
-                      <div className="h-2.5 w-1 rounded-xs bg-teal-500"></div>
-                      <div className="h-2 w-1 rounded-xs bg-slate-300"></div>
-                      <div className="h-1.5 w-1 rounded-xs bg-slate-300"></div>
-                    </div>
+                     <div className="flex h-3 items-end gap-0.5">
+                       <div className="h-2 w-1 rounded-xs bg-teal-500"></div>
+                       <div className="h-2.5 w-1 rounded-xs bg-teal-500"></div>
+                       <div className="h-2 w-1 rounded-xs bg-slate-300"></div>
+                       <div className="h-1.5 w-1 rounded-xs bg-slate-300"></div>
+                     </div>
+                   </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-          </div>
+            </div>
 
         </div>
 

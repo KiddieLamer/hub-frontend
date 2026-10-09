@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { X, UserPlus, UserCheck, Building, Mail, Phone, Globe, DollarSign, Tag, MapPin } from 'lucide-react'
+import { X, UserPlus, UserCheck, Building, Mail, Phone, Globe, DollarSign, Tag, MapPin, CreditCard, Briefcase } from 'lucide-react'
 import type { LeadItem } from './types'
 
 interface CustomerModalProps {
@@ -10,11 +10,31 @@ interface CustomerModalProps {
   onSave: (customerData: Partial<LeadItem>) => void
 }
 
-const emptyForm = {
+interface CustomerForm {
+  name: string
+  jobTitle: string
+  email: string
+  phone: string
+  mobile: string
+  identityType: 'KTP' | 'SIM' | 'Passport'
+  identityNumber: string
+  address: string
+  company: string
+  website: string
+  topic: string
+  leadSource: string
+  rating: string
+  budget: string
+}
+
+const emptyForm: CustomerForm = {
   name: '',
+  jobTitle: 'Purchasing Manager',
   email: '',
   phone: '',
   mobile: '',
+  identityType: 'KTP',
+  identityNumber: '',
   address: '',
   company: '',
   website: '',
@@ -39,9 +59,12 @@ export function CustomerModal({
       if (mode === 'edit' && initialData) {
         setFormData({
           name: initialData.name || '',
+          jobTitle: initialData.jobTitle || 'Purchasing Manager',
           email: initialData.email || '',
           phone: initialData.phone || '',
           mobile: initialData.mobile || '',
+          identityType: initialData.identityType || 'KTP',
+          identityNumber: initialData.identityNumber || '',
           address: initialData.address || '',
           company: initialData.company || '',
           website: initialData.website || '',
@@ -65,9 +88,12 @@ export function CustomerModal({
 
     onSave({
       name: formData.name,
+      jobTitle: formData.jobTitle,
       email: formData.email,
       phone: formData.phone || '920-555-0100',
       mobile: formData.mobile || formData.phone || '920-555-0101',
+      identityType: formData.identityType,
+      identityNumber: formData.identityNumber,
       address: formData.address || '',
       company: formData.company || 'Independent',
       website: formData.website || 'example.com',
@@ -158,17 +184,31 @@ export function CustomerModal({
             </div>
 
             <div>
-              <label className="mb-1 block font-semibold text-slate-600">Topik / Produk</label>
+              <label className="mb-1 block font-semibold text-slate-600">Jabatan / Job Title</label>
               <div className="relative">
-                <Tag className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Briefcase className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Espresso Machine Lease"
-                  value={formData.topic}
-                  onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                  placeholder="Purchasing Manager"
+                  value={formData.jobTitle}
+                  onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
                   className="w-full rounded-xl border border-slate-200 bg-slate-100/80 py-2 pl-3 pr-8 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
                 />
               </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block font-semibold text-slate-600">Topik / Produk</label>
+            <div className="relative">
+              <Tag className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Espresso Machine Lease"
+                value={formData.topic}
+                onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 bg-slate-100/80 py-2 pl-3 pr-8 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+              />
             </div>
           </div>
 
@@ -213,6 +253,35 @@ export function CustomerModal({
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className="w-full rounded-xl border border-slate-200 bg-slate-100/80 py-2 pl-3 pr-8 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block font-semibold text-slate-600">Jenis Identitas</label>
+              <select
+                value={formData.identityType}
+                onChange={(e) => setFormData({ ...formData, identityType: e.target.value as 'KTP' | 'SIM' | 'Passport' })}
+                className="w-full rounded-xl border border-slate-200 bg-slate-100/80 px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+              >
+                <option value="KTP">KTP</option>
+                <option value="SIM">SIM</option>
+                <option value="Passport">Passport</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="mb-1 block font-semibold text-slate-600">Nomor Identitas</label>
+              <div className="relative">
+                <CreditCard className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="3171234567890001 / A1234567"
+                  value={formData.identityNumber}
+                  onChange={(e) => setFormData({ ...formData, identityNumber: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-100/80 py-2 pl-3 pr-8 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                />
+              </div>
             </div>
           </div>
 
