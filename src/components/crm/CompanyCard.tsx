@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Check, X, Building, Globe } from 'lucide-react'
+import { Pencil, Check, X, Building, Globe, Tags } from 'lucide-react'
 import type { LeadItem } from './types'
+
+const DEFAULT_TAGS = ['Lead', 'Sales Insight']
 
 interface CompanyCardProps {
   lead: LeadItem
@@ -13,12 +15,14 @@ export function CompanyCard({ lead, onSave, className = '' }: CompanyCardProps) 
   const [formData, setFormData] = useState({
     company: '',
     website: '',
+    tags: '',
   })
 
   useEffect(() => {
     setFormData({
       company: lead.company || '',
       website: lead.website || '',
+      tags: (lead.tags || DEFAULT_TAGS).join(', '),
     })
     setIsEditing(false)
   }, [lead])
@@ -27,6 +31,7 @@ export function CompanyCard({ lead, onSave, className = '' }: CompanyCardProps) 
     onSave({
       company: formData.company,
       website: formData.website,
+      tags: formData.tags.split(',').map((t) => t.trim()).filter(Boolean),
     })
     setIsEditing(false)
   }
@@ -97,6 +102,33 @@ export function CompanyCard({ lead, onSave, className = '' }: CompanyCardProps) 
                 value={formData.website}
                 onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                 className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+              />
+            </div>
+          )}
+        </div>
+
+        <div>
+          <span className="block font-medium text-slate-400">Tags</span>
+          {!isEditing ? (
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {(lead.tags || DEFAULT_TAGS).map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-slate-200/60 bg-white/80 px-3 py-0.5 text-xs font-semibold text-slate-800 shadow-2xs"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="relative mt-1">
+              <Tags className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Lead, Sales Insight"
+                value={formData.tags}
+                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-medium text-slate-800 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
               />
             </div>
           )}

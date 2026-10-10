@@ -86,7 +86,11 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   }
 
   const tenantId = getTenantId()
-  const tenantPaths = ['/api/members', '/api/roles', '/api/positions', '/api/approvals', '/api/hris', '/api/projects', '/api/inventory', '/api/finance']
+  // Semua route yang di-guard tenantMiddleware di backend (butuh X-Tenant-ID).
+  // Kalau path baru tidak didaftarkan di sini, backend balas 400
+  // 'X-Tenant-ID header required' dan handler di bawah akan
+  // menghapus tenant + reload halaman.
+  const tenantPaths = ['/api/members', '/api/roles', '/api/positions', '/api/approvals', '/api/hris', '/api/projects', '/api/inventory', '/api/finance', '/api/clients', '/api/bookings', '/api/quotations', '/api/warranties']
   // NOTE: /api/members/me is intentionally NOT exempt: the backend resolves
   // it inside tenant context (X-Tenant-ID). Exempting it makes the call
   // fail with 400 'X-Tenant-ID header required', which the handler below

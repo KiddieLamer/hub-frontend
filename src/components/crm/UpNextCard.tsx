@@ -8,24 +8,30 @@ import {
   Trash2,
   X,
   Clock,
-  Check
+  Check,
+  Loader2,
 } from 'lucide-react'
 import type { TaskItem } from './types'
 
 interface UpNextCardProps {
   tasks?: TaskItem[]
-  customerName: string
-  onUpdateTasks: (updatedTasks: TaskItem[]) => void
+  onAddTask: (task: { title: string; type: TaskItem['type']; dueDate: string; description: string }) => void | Promise<void>
+  onToggleTask: (taskId: string, isCompleted: boolean) => void | Promise<void>
+  onDeleteTask: (taskId: string) => void | Promise<void>
   className?: string
 }
 
 export function UpNextCard({
   tasks = [],
-  onUpdateTasks,
+  onAddTask,
+  onToggleTask,
+  onDeleteTask,
   className = '',
 }: UpNextCardProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [showCompleted, setShowCompleted] = useState(false)
+  const [pendingId, setPendingId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   // Form State untuk Task Baru
   const [newTask, setNewTask] = useState({
@@ -35,69 +41,50 @@ export function UpNextCard({
     description: '',
   })
 
-  // Default initial tasks jika belum ada data
-  const taskList: TaskItem[] = tasks.length > 0 ? tasks : [
-    {
-      id: '1',
-      title: 'First Customer Call',
-      step: 'Step 1',
-      dueDate: 'Due 8/4/23 7:30 pm',
-      description: 'Call to introduce yourself and qualify customer requirements.',
-      isCompleted: false,
-      type: 'call',
-    },
-    {
-      id: '2',
-      title: 'Send Product Lease Proposal',
-      step: 'Step 2',
-      dueDate: 'Due 8/6/23 10:00 am',
-      description: 'Email detailed quote for espresso machine lease.',
-      isCompleted: false,
-      type: 'email',
-    },
-  ]
-
-  // Toggle Selesai / Belum
-  const handleToggleComplete = (taskId: string) => {
-    const updated = taskList.map((t) =>
-      t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t
-    )
-    onUpdateTasks(updated)
+  const runAction = async (action: () => void | Promise<void>, id?: string) => {
+    if (id) setPendingId(id)
+    try {
+      await action()
+    } finally {
+      setPendingId(null)
+    }
   }
 
-  // Hapus Task
+  const handleToggleComplete = (taskId: string, current: boolean) => {
+    runAction(() => onToggleTask(taskId, !current), taskId)
+  }
+
   const handleDeleteTask = (taskId: string) => {
-    const updated = taskList.filter((t) => t.id !== taskId)
-    onUpdateTasks(updated)
+    runAction(() => onDeleteTask(taskId), taskId)
   }
 
   // Tambah Task Baru
-  const handleAddTask = (e: FormEvent) => {
+  const handleAddTask = async (e: FormEvent) => {
     e.preventDefault()
-    if (!newTask.title.trim()) return
+    if (!newTask.title.trim() || saving) return
 
-    const created: TaskItem = {
-      id: Date.now().toString(),
-      title: newTask.title,
-      step: `Step ${taskList.length + 1}`,
-      dueDate: newTask.dueDate || 'Due soon',
-      description: newTask.description || 'No description provided.',
-      isCompleted: false,
-      type: newTask.type,
+    setSaving(true)
+    try {
+      await onAddTask({
+        title: newTask.title.trim(),
+        type: newTask.type,
+        dueDate: newTask.dueDate || 'Due soon',
+        description: newTask.description.trim() || 'No description provided.',
+      })
+      setNewTask({
+        title: '',
+        type: 'call',
+        dueDate: 'Due tomorrow at 5:00 PM',
+        description: '',
+      })
+      setIsAdding(false)
+    } finally {
+      setSaving(false)
     }
-
-    onUpdateTasks([created, ...taskList])
-    setNewTask({
-      title: '',
-      type: 'call',
-      dueDate: 'Due tomorrow at 5:00 PM',
-      description: '',
-    })
-    setIsAdding(false)
   }
 
-  const activeTasks = taskList.filter((t) => !t.isCompleted)
-  const completedTasks = taskList.filter((t) => t.isCompleted)
+  const activeTasks = tasks.filter((t) => !t.isCompleted)
+  const completedTasks = tasks.filter((t) => t.isCompleted)
 
   const getTaskIcon = (type: TaskItem['type']) => {
     switch (type) {
@@ -210,9 +197,11 @@ export function UpNextCard({
             </button>
             <button
               type="submit"
-              className="rounded-full bg-slate-900 px-4 py-1 font-semibold text-white"
+              disabled={saving}
+              className="flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-1 font-semibold text-white disabled:opacity-50"
             >
-              Simpan Task
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {saving ? 'Menyimpan...' : 'Simpan Task'}
             </button>
           </div>
         </form>
@@ -224,6 +213,7 @@ export function UpNextCard({
           activeTasks.map((task, idx) => {
             // Task paling atas = highlight (fokus), sisanya flat/muted
             const isPrimary = idx === 0
+            const isPending = pendingId === task.id
             return (
               <div
                 key={task.id}
@@ -248,10 +238,11 @@ export function UpNextCard({
 
                   <button
                     onClick={() => handleDeleteTask(task.id)}
-                    className="rounded-full p-1 text-slate-400 transition-colors hover:bg-white/60 hover:text-red-600"
+                    disabled={isPending}
+                    className="rounded-full p-1 text-slate-400 transition-colors hover:bg-white/60 hover:text-red-600 disabled:opacity-50"
                     title="Hapus Task"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   </button>
                 </div>
 
@@ -266,10 +257,11 @@ export function UpNextCard({
                     </button>
                   )}
                   <button
-                    onClick={() => handleToggleComplete(task.id)}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-slate-200/80 bg-white/90 py-2 text-xs font-semibold text-slate-800 shadow-2xs transition-colors hover:bg-white"
+                    onClick={() => handleToggleComplete(task.id, task.isCompleted)}
+                    disabled={isPending}
+                    className="flex flex-1 items-center justify-center gap-1 rounded-full border border-slate-200/80 bg-white/90 py-2 text-xs font-semibold text-slate-800 shadow-2xs transition-colors hover:bg-white disabled:opacity-50"
                   >
-                    <Check className="h-3.5 w-3.5 text-emerald-600" /> Mark Complete
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" /> : <Check className="h-3.5 w-3.5 text-emerald-600" />} Mark Complete
                   </button>
                 </div>
               </div>
@@ -277,7 +269,7 @@ export function UpNextCard({
           })
         ) : (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-6 text-center text-xs font-medium text-slate-400">
-            Semua task aktif telah selesai! 🎉
+            Belum ada task aktif. Tambahkan aktivitas follow-up di atas.
           </div>
         )}
       </div>
@@ -304,7 +296,7 @@ export function UpNextCard({
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <button
-                      onClick={() => handleToggleComplete(task.id)}
+                      onClick={() => handleToggleComplete(task.id, task.isCompleted)}
                       className="shrink-0 text-emerald-600"
                       title="Tandai belum selesai"
                     >
@@ -317,7 +309,6 @@ export function UpNextCard({
                       <p className="text-[10px] text-slate-400">{task.dueDate}</p>
                     </div>
                   </div>
-
                   <button
                     onClick={() => handleDeleteTask(task.id)}
                     className="p-1 text-slate-400 hover:text-red-600"

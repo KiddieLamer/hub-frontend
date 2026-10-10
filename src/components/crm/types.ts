@@ -78,9 +78,13 @@ export interface LeadItem {
   leadSource: string
   rating: string
   statusTag: string
+  budget?: string
   owner: string
   ownerAvatar: string
   insights: LeadScoreInsight[]
+
+  // Tags (misal: Lead, Sales Insight)
+  tags?: string[]
 
   // Media Sosial
   socialMedia?: SocialHandles

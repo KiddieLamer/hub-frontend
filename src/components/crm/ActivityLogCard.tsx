@@ -1,11 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import { MessageSquare, Phone, Mail, Calendar, Send, FileText } from 'lucide-react'
+import { MessageSquare, Phone, Mail, Calendar, Send, FileText, Loader2 } from 'lucide-react'
 import type { ActivityNote } from './types'
 
 interface ActivityLogCardProps {
   activities?: ActivityNote[]
-  currentUser: { name: string; avatar: string }
-  onAddActivity: (newActivity: ActivityNote) => void
+  onAddActivity: (activity: { type: ActivityNote['type']; content: string }) => void | Promise<void>
   className?: string
 }
 
@@ -16,49 +15,33 @@ const TYPE_LABELS: Record<ActivityNote['type'], string> = {
   meeting: 'Meeting',
 }
 
+const FALLBACK_AVATAR = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#0d9488"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="18" fill="#fff">U</text></svg>'
+)
+
 export function ActivityLogCard({
   activities = [],
-  currentUser,
   onAddActivity,
   className = '',
 }: ActivityLogCardProps) {
   const [content, setContent] = useState('')
   const [activityType, setActivityType] = useState<ActivityNote['type']>('note')
+  const [saving, setSaving] = useState(false)
 
-  // Default mock activity jika data belum ada
-  const activityList: ActivityNote[] = activities.length > 0 ? activities : [
-    {
-      id: '1',
-      type: 'call',
-      author: 'Kenny Smith',
-      authorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-      content: 'Telepon singkat dengan customer. Tertarik dengan mesin tipe Commercial Espresso A1.',
-      timestamp: 'Hari ini, 10:30 AM',
-    },
-    {
-      id: '2',
-      type: 'note',
-      author: 'Kenny Smith',
-      authorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-      content: 'Customer meminta garansi diperpanjang menjadi 2 tahun.',
-      timestamp: 'Kemarin, 04:15 PM',
-    },
-  ]
-
-  // Kirim langsung dengan tipe yang dipilih dari dropdown
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!content.trim()) return
+    if (!content.trim() || saving) return
 
-    onAddActivity({
-      id: Date.now().toString(),
-      type: activityType,
-      author: currentUser.name || 'You',
-      authorAvatar: currentUser.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-      content: content.trim(),
-      timestamp: 'Baru saja',
-    })
-    setContent('')
+    setSaving(true)
+    try {
+      await onAddActivity({
+        type: activityType,
+        content: content.trim(),
+      })
+      setContent('')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const getTypeIcon = (type: ActivityNote['type']) => {
@@ -78,7 +61,7 @@ export function ActivityLogCard({
     <div className={`space-y-4 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-slate-900">Activity Log & Notes</h3>
+        <h3 className="text-sm font-bold text-slate-900">Activity Log &amp; Notes</h3>
         <MessageSquare className="h-4 w-4 text-slate-700" />
       </div>
 
@@ -107,42 +90,48 @@ export function ActivityLogCard({
           </select>
           <button
             type="submit"
-            disabled={!content.trim()}
+            disabled={!content.trim() || saving}
             className="flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-1.5 text-[11px] font-bold text-white shadow-xs transition-all hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900"
             title="Kirim Catatan"
           >
-            <Send className="h-3.5 w-3.5" /> Kirim
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Kirim
           </button>
         </div>
       </form>
 
       {/* Timeline List Catatan */}
       <div className="max-h-72 space-y-3 overflow-y-auto pr-1 pt-1">
-        {activityList.map((item) => (
-          <div
-            key={item.id}
-            className="space-y-2 rounded-2xl border border-slate-200/70 bg-white/90 p-3 text-xs shadow-2xs"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <img
-                  src={item.authorAvatar}
-                  alt={item.author}
-                  className="h-5 w-5 rounded-full border border-slate-200 object-cover"
-                />
-                <span className="text-[11px] font-bold text-slate-800">{item.author}</span>
-                <span className="flex items-center justify-center rounded-md bg-slate-100 p-1">
-                  {getTypeIcon(item.type)}
-                </span>
+        {activities.length > 0 ? (
+          activities.map((item) => (
+            <div
+              key={item.id}
+              className="space-y-2 rounded-2xl border border-slate-200/70 bg-white/90 p-3 text-xs shadow-2xs"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <img
+                    src={item.authorAvatar || FALLBACK_AVATAR}
+                    alt={item.author}
+                    className="h-5 w-5 rounded-full border border-slate-200 object-cover"
+                  />
+                  <span className="text-[11px] font-bold text-slate-800">{item.author}</span>
+                  <span className="flex items-center justify-center rounded-md bg-slate-100 p-1">
+                    {getTypeIcon(item.type)}
+                  </span>
+                </div>
+                <span className="text-[10px] font-medium text-slate-400">{item.timestamp}</span>
               </div>
-              <span className="text-[10px] font-medium text-slate-400">{item.timestamp}</span>
-            </div>
 
-            <p className="pl-1 text-[11px] font-medium leading-relaxed text-slate-700">
-              {item.content}
-            </p>
+              <p className="pl-1 text-[11px] font-medium leading-relaxed text-slate-700">
+                {item.content}
+              </p>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-6 text-center text-xs font-medium text-slate-400">
+            Belum ada aktivitas tercatat.
           </div>
-        ))}
+        )}
       </div>
     </div>
   )

@@ -82,11 +82,37 @@ export const tenantsApi = {
 
 // ============ CRM - CLIENTS ============
 export const clientsApi = {
-  list: (search?: string) => apiFetch(`/api/clients${search ? `?search=${search}` : ''}`).then(r => apiJson(r)),
+  list: (search?: string, limit?: number) =>
+    apiFetch(`/api/clients${search || limit ? `?${new URLSearchParams({ ...(search ? { search } : {}), ...(limit ? { limit: String(limit) } : {}) })}` : ''}`).then(r => apiJson(r)),
   get: (id: string) => apiFetch(`/api/clients/${id}`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/clients', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
   delete: (id: string) => apiFetch(`/api/clients/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
+}
+
+// ============ CRM - CLIENT PROFILE (activities / tasks / warranty) ============
+export const clientActivitiesApi = {
+  list: (clientId: string) => apiFetch(`/api/clients/${clientId}/activities`).then(r => apiJson(r)),
+  create: (clientId: string, data: { type: string; content: string }) =>
+    apiFetch(`/api/clients/${clientId}/activities`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  delete: (clientId: string, id: string) =>
+    apiFetch(`/api/clients/${clientId}/activities/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
+}
+
+export const clientTasksApi = {
+  list: (clientId: string) => apiFetch(`/api/clients/${clientId}/tasks`).then(r => apiJson(r)),
+  create: (clientId: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/clients/${clientId}/tasks`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  update: (clientId: string, id: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/clients/${clientId}/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  delete: (clientId: string, id: string) =>
+    apiFetch(`/api/clients/${clientId}/tasks/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
+}
+
+export const clientWarrantyApi = {
+  get: (clientId: string) => apiFetch(`/api/clients/${clientId}/warranty`).then(r => apiJson(r)),
+  upsert: (clientId: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/clients/${clientId}/warranty`, { method: 'PUT', body: JSON.stringify(data) }).then(r => apiJson(r)),
 }
 
 // ============ CRM - BOOKINGS ============

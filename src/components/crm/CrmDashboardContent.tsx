@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   RotateCcw,
   Search,
@@ -12,9 +12,27 @@ import {
   MoreHorizontal,
   Filter,
   Network,
+  Loader2,
+  AlertCircle,
+  Building2,
+  RefreshCw,
 } from 'lucide-react'
 import type { LeadItem } from './types'
-import { initialLeads } from './data/mockLeads'
+import {
+  mapClientToLead,
+  mapActivity,
+  mapTask,
+  mapWarranty,
+  buildClientPatch,
+  mergeLeadPatch,
+  STAGE_TO_STATUS,
+  toDateInputValue,
+  type ApiClient,
+  type ApiClientActivity,
+  type ApiClientTask,
+  type ApiClientWarranty,
+} from './api'
+import { clientsApi, clientActivitiesApi, clientTasksApi, clientWarrantyApi, tenantsApi } from '../../lib/endpoints'
 import { OpportunityStepper } from './OpportunityStepper'
 import { LeadScoreCard } from './LeadScoreCard'
 import { WarrantyCard } from './WarrantyCard'
@@ -27,9 +45,11 @@ import { SocialMediaCard } from './SocialMediaCard'
 import { UpNextCard } from './UpNextCard'
 import { ActivityLogCard } from './ActivityLogCard'
 
+const TENANT_CHANGED_EVENT = 'hub-tenant-changed'
+
 export function CrmDashboardContent() {
-  const [leads, setLeads] = useState<LeadItem[]>(initialLeads)
-  const [selectedLeadId, setSelectedLeadId] = useState<string>('1')
+  const [leads, setLeads] = useState<LeadItem[]>([])
+  const [selectedLeadId, setSelectedLeadId] = useState<string>('')
   const [activeTab, setActiveTab] = useState<'Summary' | 'Analytics' | 'Details' | 'Related'>('Summary')
 
   // State Modal (Create & Edit)
@@ -38,82 +58,359 @@ export function CrmDashboardContent() {
     mode: 'create',
   })
 
-  const selectedLead = leads.find((l) => l.id === selectedLeadId) || leads[0]
+  // State data dari API
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [tenantName, setTenantName] = useState<string>('')
+
+  const selectedLead = useMemo(
+    () => leads.find((l) => l.id === selectedLeadId) || leads[0],
+    [leads, selectedLeadId]
+  )
+
+  // ---------- Fetch: daftar customer milik tenant aktif ----------
+  const loadClients = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await clientsApi.list(undefined, 200)
+      const mapped: LeadItem[] = (data?.clients || []).map((c: ApiClient) => mapClientToLead(c))
+      setLeads(mapped)
+      setSelectedLeadId((prev) =>
+        prev && mapped.some((l) => l.id === prev) ? prev : (mapped[0]?.id ?? '')
+      )
+    } catch (err) {
+      console.error('Gagal memuat customer:', err)
+      setError('Gagal memuat data customer dari server.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // ---------- Fetch: detail sub-resource milik customer terpilih ----------
+  const loadDetails = useCallback(async (clientId: string) => {
+    if (!clientId) return
+    try {
+      const [activitiesData, tasksData, warrantyData] = await Promise.all([
+        clientActivitiesApi.list(clientId).catch(() => ({ activities: [] })),
+        clientTasksApi.list(clientId).catch(() => ({ tasks: [] })),
+        clientWarrantyApi.get(clientId).catch(() => ({ warranty: null })),
+      ])
+      const activities = ((activitiesData?.activities || []) as ApiClientActivity[]).map(mapActivity)
+      const tasks = ((tasksData?.tasks || []) as ApiClientTask[]).map(mapTask)
+      const warranty = (warrantyData?.warranty as ApiClientWarranty | null) ?? null
+
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === clientId
+            ? { ...l, activities, tasks, warranty: warranty ? mapWarranty(warranty) : undefined }
+            : l
+        )
+      )
+    } catch (err) {
+      console.error('Gagal memuat detail customer:', err)
+    }
+  }, [])
+
+  // ---------- Fetch: nama tenant aktif (indikator "data company siapa") ----------
+  const loadTenant = useCallback(async () => {
+    try {
+      const data = await tenantsApi.getCurrent()
+      setTenantName(data?.tenant?.name || '')
+    } catch {
+      setTenantName('')
+    }
+  }, [])
+
+  useEffect(() => {
+    loadClients()
+    loadTenant()
+  }, [loadClients, loadTenant])
+
+  // Ganti company (tenant switch) → reload semua data CRM
+  useEffect(() => {
+    const onTenantChanged = () => {
+      setSelectedLeadId('')
+      loadClients()
+      loadTenant()
+    }
+    window.addEventListener(TENANT_CHANGED_EVENT, onTenantChanged)
+    return () => window.removeEventListener(TENANT_CHANGED_EVENT, onTenantChanged)
+  }, [loadClients, loadTenant])
+
+  useEffect(() => {
+    if (selectedLeadId) loadDetails(selectedLeadId)
+  }, [selectedLeadId, loadDetails])
+
+  // ---------- Mutasi customer ----------
+
+  const patchLead = (clientId: string, patch: Record<string, unknown>) =>
+    clientsApi.update(clientId, patch).then((data) => {
+      if (data?.client) {
+        setLeads((prev) => prev.map((l) => (l.id === clientId ? mapClientToLead(data.client) : l)))
+      }
+      return data
+    })
 
   const handleStageChange = (newIndex: number) => {
-    setLeads((prev) =>
-      prev.map((l) => (l.id === selectedLeadId ? { ...l, activeStageIndex: newIndex } : l))
-    )
+    if (!selectedLead) return
+    const status = STAGE_TO_STATUS[newIndex]
+    if (!status) return
+    patchLead(selectedLead.id, { status }).catch((err) => {
+      console.error('Gagal update stage:', err)
+      setActionError('Gagal menyimpan perubahan stage.')
+    })
   }
 
-  // Aksi 1: Tombol "Save" di Top Command Bar -> Buka modal Edit customer aktif
   const handleOpenEditModal = () => {
+    if (!selectedLead) return
     setModalConfig({ isOpen: true, mode: 'edit' })
   }
 
-  // Aksi 2: Tombol "+ New" / "+" sidebar -> Buka modal Create customer baru
   const handleOpenCreateModal = () => {
     setModalConfig({ isOpen: true, mode: 'create' })
   }
 
-  // Aksi 3: Tombol "Delete" -> Hapus customer aktif
-  const handleDeleteCustomer = () => {
+  const handleDeleteCustomer = async () => {
     if (!selectedLead) return
     const confirmDelete = window.confirm(`Apakah Anda yakin ingin menghapus customer "${selectedLead.name}"?`)
-    if (confirmDelete) {
-      const updatedLeads = leads.filter((l) => l.id !== selectedLead.id)
-      setLeads(updatedLeads)
-      if (updatedLeads.length > 0) {
-        setSelectedLeadId(updatedLeads[0].id)
-      }
+    if (!confirmDelete) return
+    try {
+      await clientsApi.delete(selectedLead.id)
+      const remaining = leads.filter((l) => l.id !== selectedLead.id)
+      setLeads(remaining)
+      setSelectedLeadId(remaining[0]?.id ?? '')
+    } catch (err) {
+      console.error('Gagal menghapus customer:', err)
+      setActionError('Gagal menghapus customer.')
     }
   }
 
-  // Handler Menyimpan Data dari Modal (Create atau Edit)
-  const handleSaveModalData = (customerData: Partial<LeadItem>) => {
-    if (modalConfig.mode === 'create') {
-      const newLead: LeadItem = {
-        id: Date.now().toString(),
-        name: customerData.name || 'New Customer',
-        jobTitle: customerData.jobTitle || 'Purchasing Manager',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        subtitle: 'New customer lead',
-        type: 'Lead',
-        timestamp: new Date().toLocaleDateString('en-US') + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        score: Math.floor(Math.random() * 30) + 70,
-        grade: 'Grade A',
-        status: 'Growing',
-        statusDirection: 'up',
-        scoreColor: 'bg-[#BCE893] text-slate-900',
-        icon: 'mail',
-        timeGroup: 'Today',
-        activeStageIndex: 0,
-        activeDays: 'Active for 1 day',
-        topic: customerData.topic || '',
-        phone: customerData.phone || '',
-        mobile: customerData.mobile || '',
-        identityType: customerData.identityType,
-        identityNumber: customerData.identityNumber,
-        address: customerData.address || '',
-        email: customerData.email || '',
-        company: customerData.company || '',
-        website: customerData.website || '',
-        leadSource: customerData.leadSource || 'Webinar',
-        rating: customerData.rating || 'Warm',
-        statusTag: 'New',
-        owner: 'Kenny Smith',
-        ownerAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-        insights: customerData.insights || [],
+  const handleSaveModalData = async (customerData: Partial<LeadItem>) => {
+    setActionError(null)
+    try {
+      if (modalConfig.mode === 'create') {
+        const payload = buildClientPatch({
+          name: customerData.name,
+          jobTitle: customerData.jobTitle,
+          email: customerData.email,
+          phone: customerData.phone,
+          mobile: customerData.mobile,
+          identityType: customerData.identityType,
+          identityNumber: customerData.identityNumber,
+          address: customerData.address,
+          company: customerData.company,
+          website: customerData.website,
+          topic: customerData.topic,
+          leadSource: customerData.leadSource,
+          rating: customerData.rating,
+          budget: customerData.budget,
+          tags: ['Lead', 'Sales Insight'],
+        })
+        const data = await clientsApi.create(payload)
+        if (data?.client) {
+          const newLead = mapClientToLead(data.client)
+          setLeads((prev) => [newLead, ...prev])
+          setSelectedLeadId(newLead.id)
+        }
+      } else if (selectedLead) {
+        await patchLead(
+          selectedLead.id,
+          mergeLeadPatch(selectedLead, {
+            name: customerData.name,
+            jobTitle: customerData.jobTitle,
+            email: customerData.email,
+            phone: customerData.phone,
+            mobile: customerData.mobile,
+            identityType: customerData.identityType,
+            identityNumber: customerData.identityNumber,
+            address: customerData.address,
+            company: customerData.company,
+            website: customerData.website,
+            topic: customerData.topic,
+            leadSource: customerData.leadSource,
+            rating: customerData.rating,
+            budget: customerData.budget,
+          })
+        )
       }
-      setLeads([newLead, ...leads])
-      setSelectedLeadId(newLead.id)
-    } else {
-      setLeads((prevLeads) =>
-        prevLeads.map((lead) =>
-          lead.id === selectedLeadId ? { ...lead, ...customerData } : lead
+    } catch (err) {
+      console.error('Gagal menyimpan customer:', err)
+      setActionError('Gagal menyimpan customer. Periksa koneksi atau hak akses Anda.')
+    }
+  }
+
+  // ---------- Mutasi sub-resource ----------
+
+  const handleContactSave = (patch: Partial<LeadItem>) => {
+    if (!selectedLead) return
+    setActionError(null)
+    patchLead(selectedLead.id, mergeLeadPatch(selectedLead, patch)).catch((err) => {
+      console.error('Gagal update contact:', err)
+      setActionError('Gagal menyimpan contact.')
+    })
+  }
+
+  const handleCompanySave = (patch: Partial<LeadItem>) => {
+    if (!selectedLead) return
+    setActionError(null)
+    patchLead(selectedLead.id, mergeLeadPatch(selectedLead, patch)).catch((err) => {
+      console.error('Gagal update company:', err)
+      setActionError('Gagal menyimpan company.')
+    })
+  }
+
+  const handleAddTask = async (task: { title: string; type: string; dueDate: string; description: string }) => {
+    if (!selectedLead) return
+    setActionError(null)
+    try {
+      const data = await clientTasksApi.create(selectedLead.id, task)
+      if (data?.task) {
+        const mapped = mapTask(data.task, selectedLead.tasks?.length ?? 0)
+        setLeads((prev) =>
+          prev.map((l) => (l.id === selectedLead.id ? { ...l, tasks: [...(l.tasks || []), mapped] } : l))
+        )
+      }
+    } catch (err) {
+      console.error('Gagal menambah task:', err)
+      setActionError('Gagal menambah task.')
+    }
+  }
+
+  const handleToggleTask = async (taskId: string, isCompleted: boolean) => {
+    if (!selectedLead) return
+    try {
+      await clientTasksApi.update(selectedLead.id, taskId, { isCompleted })
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === selectedLead.id
+            ? { ...l, tasks: (l.tasks || []).map((t) => (t.id === taskId ? { ...t, isCompleted } : t)) }
+            : l
         )
       )
+    } catch (err) {
+      console.error('Gagal update task:', err)
+      setActionError('Gagal mengupdate task.')
     }
+  }
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!selectedLead) return
+    try {
+      await clientTasksApi.delete(selectedLead.id, taskId)
+      setLeads((prev) =>
+        prev.map((l) => (l.id === selectedLead.id ? { ...l, tasks: (l.tasks || []).filter((t) => t.id !== taskId) } : l))
+      )
+    } catch (err) {
+      console.error('Gagal menghapus task:', err)
+      setActionError('Gagal menghapus task.')
+    }
+  }
+
+  const handleAddActivity = async (input: { type: string; content: string }) => {
+    if (!selectedLead) return
+    setActionError(null)
+    try {
+      const data = await clientActivitiesApi.create(selectedLead.id, input)
+      if (data?.activity) {
+        const mapped = mapActivity(data.activity)
+        setLeads((prev) =>
+          prev.map((l) =>
+            l.id === selectedLead.id ? { ...l, activities: [mapped, ...(l.activities || [])] } : l
+          )
+        )
+      }
+    } catch (err) {
+      console.error('Gagal menambah aktivitas:', err)
+      setActionError('Gagal menyimpan aktivitas.')
+    }
+  }
+
+  const handleSaveWarranty = async (warranty: {
+    productName: string
+    serialNumber: string
+    startDate: string
+    endDate: string
+    coverageType: string
+    status: string
+  }) => {
+    if (!selectedLead) return
+    setActionError(null)
+    const payload = {
+      productName: warranty.productName,
+      serialNumber: warranty.serialNumber || undefined,
+      startDate: toDateInputValue(warranty.startDate) || undefined,
+      endDate: toDateInputValue(warranty.endDate) || undefined,
+      coverageType: warranty.coverageType || undefined,
+      status: warranty.status,
+    }
+    try {
+      const data = await clientWarrantyApi.upsert(selectedLead.id, payload)
+      const saved = (data?.warranty ?? null) as ApiClientWarranty | null
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === selectedLead.id
+            ? { ...l, warranty: saved ? mapWarranty(saved) : undefined }
+            : l
+        )
+      )
+    } catch (err) {
+      console.error('Gagal menyimpan garansi:', err)
+      setActionError('Gagal menyimpan garansi.')
+    }
+  }
+
+  // ---------- Render state: loading / error / empty ----------
+
+  if (loading && leads.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#EBF1F5] via-[#E8ECEF] to-[#E3E8EC]">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-sm font-medium">Memuat data customer...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error && leads.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#EBF1F5] via-[#E8ECEF] to-[#E3E8EC]">
+        <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+          <AlertCircle className="h-10 w-10 text-red-500" />
+          <p className="text-sm font-semibold text-slate-800">{error}</p>
+          <button
+            onClick={loadClients}
+            className="flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-slate-800"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Coba lagi
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!selectedLead) {
+    return (
+      <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#EBF1F5] via-[#E8ECEF] to-[#E3E8EC]">
+        <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+          <Building2 className="h-10 w-10 text-slate-400" />
+          <p className="text-sm font-semibold text-slate-800">
+            {tenantName ? `Belum ada customer di ${tenantName}` : 'Belum ada customer'}
+          </p>
+          <p className="text-xs text-slate-500">
+            Tambahkan customer pertama untuk mulai mengelola pipeline perusahaan ini.
+          </p>
+          <button
+            onClick={handleOpenCreateModal}
+            className="flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-slate-800"
+          >
+            <Plus className="h-3.5 w-3.5" /> Tambah Customer
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -123,7 +420,7 @@ export function CrmDashboardContent() {
         {/* Modular Sidebar Component */}
         <LeadSidebar
           leads={leads}
-          selectedLeadId={selectedLeadId}
+          selectedLeadId={selectedLead.id}
           onSelectLead={setSelectedLeadId}
           onAddClick={handleOpenCreateModal}
         />
@@ -160,8 +457,12 @@ export function CrmDashboardContent() {
               >
                 <Trash2 className="h-3.5 w-3.5 text-slate-500" /> Delete
               </button>
-              <button className="flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50">
-                <RotateCcw className="h-3.5 w-3.5 text-slate-500" /> Refresh
+              <button
+                onClick={loadClients}
+                title="Muat ulang data dari server"
+                className="flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+              >
+                <RotateCcw className={`h-3.5 w-3.5 text-slate-500 ${loading ? 'animate-spin' : ''}`} /> Refresh
               </button>
               <button className="flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs hover:bg-slate-50">
                 <KeyRound className="h-3.5 w-3.5 text-slate-500" /> Check Access
@@ -179,7 +480,23 @@ export function CrmDashboardContent() {
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             </div>
+
+            {/* Indikator tenant aktif — customer di bawah hanya milik company ini */}
+            {tenantName && (
+              <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs">
+                <Building2 className="h-3.5 w-3.5 text-[#0d9488]" />
+                {tenantName}
+              </div>
+            )}
           </div>
+
+          {/* Banner error aksi (simpan/hapus gagal) */}
+          {actionError && (
+            <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-medium text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {actionError}
+            </div>
+          )}
 
           {/* Profile Header Card */}
           <div className="rounded-3xl border border-white/80 bg-gradient-to-r from-[#ECF8BD]/60 via-[#E8FCFE]/60 to-[#FDF4EA]/60 p-5 shadow-xs backdrop-blur-md">
@@ -194,7 +511,7 @@ export function CrmDashboardContent() {
                   <h2 className="text-2xl font-bold text-slate-900">{selectedLead.name}</h2>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="rounded-full border border-slate-200/60 bg-white/80 px-3 py-0.5 text-xs font-semibold text-slate-800 shadow-2xs">
-                      Lead
+                      {selectedLead.type}
                     </span>
                     <span className="rounded-full border border-slate-200/60 bg-white/80 px-3 py-0.5 text-xs font-semibold text-slate-800 shadow-2xs">
                       Sales Insight
@@ -219,13 +536,15 @@ export function CrmDashboardContent() {
                 <div className="flex items-center gap-2">
                   <div>
                     <span className="block font-medium text-slate-400">Owner</span>
-                    <span className="font-semibold text-slate-800">{selectedLead.owner}</span>
+                    <span className="font-semibold text-slate-800">{selectedLead.owner || '-'}</span>
                   </div>
-                  <img
-                    src={selectedLead.ownerAvatar}
-                    alt={selectedLead.owner}
-                    className="h-8 w-8 rounded-full border border-white object-cover"
-                  />
+                  {selectedLead.ownerAvatar && (
+                    <img
+                      src={selectedLead.ownerAvatar}
+                      alt={selectedLead.owner}
+                      className="h-8 w-8 rounded-full border border-white object-cover"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -267,31 +586,19 @@ export function CrmDashboardContent() {
 
               <ContactCard
                 lead={selectedLead}
-                onSave={(updatedData) =>
-                  setLeads((prevLeads) =>
-                    prevLeads.map((item) =>
-                      item.id === selectedLead.id ? { ...item, ...updatedData } : item
-                    )
-                  )
-                }
+                onSave={handleContactSave}
               />
 
               <CompanyCard
                 lead={selectedLead}
-                onSave={(updatedData) =>
-                  setLeads((prevLeads) =>
-                    prevLeads.map((item) =>
-                      item.id === selectedLead.id ? { ...item, ...updatedData } : item
-                    )
-                  )
-                }
+                onSave={handleCompanySave}
               />
 
               <LocationMapCard address={selectedLead.address} />
 
               <SocialMediaCard
                 socials={selectedLead.socialMedia}
-                customerName={selectedLead.name}
+                customerName={selectedLead.company || selectedLead.name}
               />
             </div>
 
@@ -300,12 +607,9 @@ export function CrmDashboardContent() {
 
               <UpNextCard
                 tasks={selectedLead.tasks}
-                customerName={selectedLead.name}
-                onUpdateTasks={(updatedTasks) =>
-                  setLeads((prev) =>
-                    prev.map((l) => (l.id === selectedLead.id ? { ...l, tasks: updatedTasks } : l))
-                  )
-                }
+                onAddTask={handleAddTask}
+                onToggleTask={handleToggleTask}
+                onDeleteTask={handleDeleteTask}
               />
 
               {/* Timeline (placeholder, akan dipakai nanti) */}
@@ -348,30 +652,14 @@ export function CrmDashboardContent() {
               />
 
               <WarrantyCard
-                warranty={selectedLead.warranty}
-                customerName={selectedLead.name}
-                onUpdateWarranty={(updatedWarranty) =>
-                  setLeads((prev) =>
-                    prev.map((l) => (l.id === selectedLead.id ? { ...l, warranty: updatedWarranty } : l))
-                  )
-                }
+                warranty={selectedLead.warranty ?? null}
+                customerName={selectedLead.company || selectedLead.name}
+                onSave={handleSaveWarranty}
               />
 
               <ActivityLogCard
                 activities={selectedLead.activities}
-                currentUser={{
-                  name: selectedLead.owner || 'Kenny Smith',
-                  avatar: selectedLead.ownerAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
-                }}
-                onAddActivity={(newActivity) =>
-                  setLeads((prev) =>
-                    prev.map((l) =>
-                      l.id === selectedLead.id
-                        ? { ...l, activities: [newActivity, ...(l.activities || [])] }
-                        : l
-                    )
-                  )
-                }
+                onAddActivity={handleAddActivity}
               />
 
               <div className="space-y-4 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md">
@@ -417,17 +705,18 @@ export function CrmDashboardContent() {
                      <div className="flex h-3 items-end gap-0.5">
                        <div className="h-2 w-1 rounded-xs bg-teal-500"></div>
                        <div className="h-2.5 w-1 rounded-xs bg-teal-500"></div>
-                       <div className="h-2 w-1 rounded-xs bg-slate-300"></div>
+                       <div className="h-3 w-1 rounded-xs bg-slate-300"></div>
                        <div className="h-1.5 w-1 rounded-xs bg-slate-300"></div>
                      </div>
                    </div>
                   </div>
-                </div>
-              </div>
-
             </div>
 
+          </div>
+
         </div>
+
+      </div>
 
       </div>
 

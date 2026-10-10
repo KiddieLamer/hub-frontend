@@ -152,10 +152,10 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }:
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden rounded-3xl border border-white/70 bg-[#F2F5F8]/70 p-4 shadow-sm backdrop-blur-md lg:col-span-3 max-lg:h-auto">
       {/* Header Sidebar */}
-      <div className="flex h-10 shrink-0 items-center justify-between px-1">
+      <div className="flex h-10 shrink-0 items-center justify-between overflow-hidden px-1">
         {!isSearchOpen ? (
           <>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">My Work</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">CRM</h1>
 
             {/* Deretan Tombol Ikon Asli */}
             <div className="flex items-center gap-1.5 transition-all">
@@ -183,7 +183,7 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }:
           </>
         ) : (
           /* Mode Kolom Pencarian */
-          <div className="flex w-full animate-fade-in items-center gap-2">
+          <div className="flex w-full animate-search-in items-center gap-2">
             <div className="relative flex flex-1 items-center">
               <Search className="absolute left-3 h-4 w-4 text-slate-400" />
               <input

@@ -7,7 +7,7 @@ interface CustomerModalProps {
   mode: 'create' | 'edit'
   initialData?: LeadItem | null
   onClose: () => void
-  onSave: (customerData: Partial<LeadItem>) => void
+  onSave: (customerData: Partial<LeadItem>) => void | Promise<void>
 }
 
 interface CustomerForm {
@@ -52,11 +52,13 @@ export function CustomerModal({
   onSave,
 }: CustomerModalProps) {
   const [formData, setFormData] = useState(emptyForm)
+  const [submitting, setSubmitting] = useState(false)
 
   // Sinkronkan data saat modal dibuka untuk Edit atau Create
   useEffect(() => {
     if (isOpen) {
       if (mode === 'edit' && initialData) {
+        setSubmitting(false)
         setFormData({
           name: initialData.name || '',
           jobTitle: initialData.jobTitle || 'Purchasing Manager',
@@ -71,7 +73,7 @@ export function CustomerModal({
           topic: initialData.topic || '',
           leadSource: initialData.leadSource || 'Webinar',
           rating: initialData.rating || 'Warm',
-          budget: initialData.insights?.find((i) => i.text === 'Estimated budget')?.subtext?.replace('~ ', '') || '$50,000.00',
+          budget: initialData.budget || initialData.insights?.find((i) => i.text === 'Estimated budget')?.subtext?.replace('~ ', '') || '$50,000.00',
         })
       } else {
         // Reset Form untuk Create
@@ -86,7 +88,12 @@ export function CustomerModal({
     e.preventDefault()
     if (!formData.name || !formData.email) return
 
-    onSave({
+    const finish = () => {
+      onClose()
+      setSubmitting(false)
+    }
+
+    const result = onSave({
       name: formData.name,
       jobTitle: formData.jobTitle,
       email: formData.email,
@@ -100,14 +107,16 @@ export function CustomerModal({
       topic: formData.topic || 'General Inquiry',
       leadSource: formData.leadSource,
       rating: formData.rating,
-      insights: [
-        { id: '1', text: mode === 'create' ? 'Lead is newly created' : 'Customer profile updated' },
-        { id: '2', text: 'Qualification in progress' },
-        { id: '3', text: 'Estimated budget', subtext: `~ ${formData.budget}` },
-      ],
+      budget: formData.budget,
     })
 
-    onClose()
+    // Tunggu Promise dari parent (penyimpanan ke API) sebelum tutup modal
+    if (result && typeof (result as Promise<void>).then === 'function') {
+      setSubmitting(true)
+      ;(result as Promise<void>).then(finish).catch(finish)
+    } else {
+      finish()
+    }
   }
 
   return (
@@ -339,9 +348,10 @@ export function CustomerModal({
             </button>
             <button
               type="submit"
-              className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-slate-800"
+              disabled={submitting}
+              className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-slate-800 disabled:opacity-50"
             >
-              {mode === 'create' ? 'Save Customer' : 'Update Customer'}
+              {submitting ? 'Menyimpan...' : mode === 'create' ? 'Save Customer' : 'Update Customer'}
             </button>
           </div>
         </form>
