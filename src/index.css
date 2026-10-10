@@ -79,6 +79,17 @@ html {
   animation: searchIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.bg-striped-purple {
+  background-color: #f3e8ff;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(196, 181, 253, 0.95) 0,
+    rgba(196, 181, 253, 0.95) 6px,
+    rgba(216, 180, 254, 0.95) 6px,
+    rgba(216, 180, 254, 0.95) 12px
+  );
+}
+
 @keyframes fadeInUp {
   0% { opacity: 0; transform: translateY(20px); }
   100% { opacity: 1; transform: translateY(0); }

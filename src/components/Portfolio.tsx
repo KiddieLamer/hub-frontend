@@ -18,7 +18,7 @@ import { SupportContent } from './support/SupportContent'
 import { AssetsContent } from './assets/AssetsContent'
 import { AuditContent } from './audit/AuditContent'
 import { CatalogContent } from './catalog/CatalogContent'
-import { ProcurementContent } from './procurement/ProcurementContent'
+import { ProcurementDashboardContent } from './procurement/ProcurementDashboardContent'
 import { SettingsContent } from './settings/SettingsContent'
 import { CompanyContent } from './company/CompanyContent'
 const PROJECTS = [
@@ -432,7 +432,6 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           onClose={() => setOpenClients(false)}
           wide
           fill
-          noToolbar
           zIndex={zIndices['clients'] || 50}
           onFocus={() => bringToFront('clients')}
         >
@@ -463,7 +462,6 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           onClose={() => setOpenFinance(false)}
           wide
           fill
-          noToolbar
           zIndex={zIndices['finance'] || 50}
           onFocus={() => bringToFront('finance')}
         >
@@ -479,11 +477,10 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           onClose={() => setOpenProcurement(false)}
           wide
           fill
-          noToolbar
           zIndex={zIndices['procurement'] || 50}
           onFocus={() => bringToFront('procurement')}
         >
-          <ProcurementContent onClose={() => setOpenProcurement(false)} onMinimize={() => setOpenProcurement(false)} />
+          <ProcurementDashboardContent />
         </WindowShell>
       )}
 
