@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import {
-  Video, User, LayoutGrid, Bookmark, Cloud, Monitor, Settings, Phone, LogOut,
-  ChevronLeft, ChevronRight, Bell, Plus, ArrowUpRight, X,
-  CheckCircle2, CircleDashed, Loader2, Building2, ShieldCheck,
-  Mail, MapPin, Globe, FileText, Palette, Trash2, Users, Search,
+  User, Plus,
+  ChevronLeft, ChevronRight, Bell, ArrowUpRight, X, CheckCircle2, Loader2, Search,
 } from 'lucide-react'
 import LastSocialContentCard, { type SocialContentItem } from './LastSocialContentCard'
+import MembersStaffCard from './MembersStaffCard'
+import StatisticsSection from './StatisticsSection'
+import TopBannerCard from './TopBannerCard'
+import AddStaffModal from './AddStaffModal'
+import CompanyOverviewCard from './CompanyOverviewCard'
+import StructureCard from './StructureCard'
 import { tenantsApi } from '../../lib/endpoints'
 import { apiFetch, setTenantId, setPlatformMode, isPlatformMode } from '../../lib/api'
 
@@ -76,36 +80,11 @@ function Avatar({ name, url, size = 40 }: { name?: string; url?: string | null; 
   )
 }
 
-function InfoRow({ icon, iconBg, label, value, onClick, isLast }: {
-  icon?: React.ReactNode; iconBg?: string; label: string; value?: string | null; onClick?: () => void; isLast?: boolean
-}) {
-  return (
-    <div
-      onClick={onClick}
-      className={`flex justify-between items-center px-3.5 py-2.5 min-h-[38px] transition-colors ${
-        isLast ? '' : 'border-b border-slate-100'
-      } ${onClick ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default'}`}
-    >
-      <div className="flex items-center gap-2.5 min-w-0">
-        {icon && <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${iconBg || 'bg-slate-900'}`}>{icon}</div>}
-        <span className="text-[13px] text-slate-800">{label}</span>
-      </div>
-      <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
-        <span className="text-[13px] text-slate-900 truncate">{value || '-'}</span>
-        {onClick && <ChevronRight size={12} className="text-slate-300 shrink-0" />}
-      </div>
-    </div>
-  )
-}
-
 /* ============ PAGE ============ */
 
 export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
-  const [activeNav, setActiveNav] = useState('grid')
-  const [selectedDate, setSelectedDate] = useState(new Date().getDate())
   const [statsTab, setStatsTab] = useState<'Weekly' | 'Monthly'>('Weekly')
   const [notifTab, setNotifTab] = useState<'Overview' | 'Shared' | 'Comments'>('Overview')
-  const [brainstormActive, setBrainstormActive] = useState(true)
   const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
 
   // Data
@@ -139,9 +118,10 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [assignRole, setAssignRole] = useState('member')
   const [assignJobTitle, setAssignJobTitle] = useState('')
   const [assignPositionId, setAssignPositionId] = useState('')
-  const [editingJobId, setEditingJobId] = useState<string | null>(null)
-  const [editingJobValue, setEditingJobValue] = useState('')
   const [showPositionModal, setShowPositionModal] = useState(false)
+  const [showAddStaff, setShowAddStaff] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [showPlanModal, setShowPlanModal] = useState(false)
   const [positionForm, setPositionForm] = useState({ name: '', level: '0', parentId: '', defaultRoleId: '' })
   const [positionError, setPositionError] = useState('')
   const [positionSaving, setPositionSaving] = useState(false)
@@ -341,17 +321,6 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     )
   }
 
-  const navItems = [
-    { id: 'video', icon: Video },
-    { id: 'user', icon: User },
-    { id: 'grid', icon: LayoutGrid },
-    { id: 'bookmark', icon: Bookmark },
-    { id: 'cloud', icon: Cloud },
-    { id: 'monitor', icon: Monitor },
-    { id: 'settings', icon: Settings },
-    { id: 'phone', icon: Phone },
-  ]
-
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#eef0f3] p-4 text-slate-800 antialiased" style={{ fontFamily: SF }}>
 
@@ -382,52 +351,17 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             ⚡
           </div>
 
-          {/* nav */}
-          <nav className="flex flex-col items-center gap-3 mt-2">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activeNav === item.id
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveNav(item.id)
-                    if (item.id === 'user') openAssign()
-                  }}
-                  title={item.id === 'user' ? 'Tambah staff' : undefined}
-                  className={`relative p-3 rounded-2xl transition-all duration-200 cursor-pointer ${
-                    isActive ? 'bg-[#d8cbf9] text-slate-900 shadow-md font-semibold' : 'text-slate-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <Icon size={20} />
-                  {isActive && <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-[#1c1d22] rounded-l-full" />}
-                </button>
-              )
-            })}
-          </nav>
+          {/* Aksi tunggal: assign user yang SUDAH punya akun (beda dari
+              tombol "Add member" di banner yang membuat user baru). */}
+          <button
+            onClick={openAssign}
+            title="Assign staff yang sudah punya akun"
+            className="mt-2 p-3 rounded-2xl text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200 cursor-pointer"
+          >
+            <User size={20} />
+          </button>
         </div>
 
-        {/* switch company (hub-admin) */}
-        {isHubAdmin && allTenants.length > 0 && (
-          <div className="flex flex-col items-center gap-2 mb-2 max-h-40 overflow-y-auto w-full px-2">
-            {allTenants.slice(0, 8).map((t: any) => (
-              <button
-                key={t.id}
-                onClick={() => switchTo(t)}
-                title={t.name}
-                className={`w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
-                  t.id === tenant?.id ? 'bg-[#d8cbf9] text-slate-900 ring-2 ring-white/20' : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                }`}
-              >
-                {(t.name || '?').charAt(0).toUpperCase()}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <button onClick={onClose} className="p-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-2xl transition-all cursor-pointer" title="Tutup window">
-          <LogOut size={20} />
-        </button>
       </aside>
 
       {/* ============ MAIN ============ */}
@@ -441,65 +375,58 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         <div className="max-w-[1400px] mx-auto grid grid-cols-12 gap-4 pb-6">
 
           {/* ===== BARIS 1: BANNER + KALENDER ===== */}
-          <div className="col-span-8 bg-gradient-to-r from-[#dedaf7] via-[#f1e6f9] to-[#fce4ee] rounded-3xl p-6 relative overflow-hidden flex items-center justify-between shadow-sm">
-            <div className="z-10 max-w-lg">
-              <span className="inline-block text-[10px] font-bold uppercase tracking-wider bg-white/70 backdrop-blur-sm text-purple-800 px-3 py-1 rounded-full shadow-2xs mb-2">
-                {platformMode
-                  ? 'SEMUA TENANT (HUB-ADMIN)'
-                  : (tenant?.category || tenant?.plan || 'PERUSAHAAN').toUpperCase()}
-              </span>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                {tenant?.name || (platformMode ? 'Semua Tenant' : 'Perusahaan')}
-              </h1>
-              <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                Kelola detail perusahaan, tim staff, dan struktur jabatan dari satu tempat.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                <button onClick={openAssign} className="inline-flex items-center gap-2 bg-[#1c1d22] text-white px-4 py-2.5 rounded-full text-xs font-medium hover:bg-slate-800 transition-all shadow-md cursor-pointer">
-                  <Plus size={15} /> Tambah staff
-                </button>
-                <button onClick={() => openEdit('logoUrl', logoUrl)} className="bg-white/80 hover:bg-white text-slate-800 px-4 py-2.5 rounded-full text-xs font-semibold shadow-2xs border border-slate-200/60 transition-all cursor-pointer">
-                  Ganti logo
-                </button>
-
-                {/* Pemilih company (hub-admin) */}
-                {isHubAdmin && (
-                  <div className="flex items-center gap-1.5">
-                    <Building2 size={13} className="text-slate-500" />
-                    <select
-                      value={platformMode ? '__platform__' : (tenant?.id || '')}
-                      onChange={(e) => {
-                        if (e.target.value === '__platform__') enablePlatformView()
-                        else {
-                          const t = allTenants.find((x: any) => x.id === e.target.value)
-                          if (t) switchTo(t)
-                        }
-                      }}
-                      className="bg-white/80 border border-slate-200/60 rounded-full text-[11px] font-semibold text-slate-700 px-3 py-1.5 outline-none cursor-pointer max-w-[170px]"
-                      title="Pilih company aktif"
+          <TopBannerCard
+            companyName={tenant?.name || (platformMode ? 'Semua Tenant' : 'Perusahaan')}
+            onAddMember={() => setShowAddStaff(true)}
+            pickerOpen={pickerOpen}
+            onPickerToggle={setPickerOpen}
+            titlePicker={
+              isHubAdmin ? (
+                <>
+                  <button
+                    onClick={() => { enablePlatformView(); setPickerOpen(false) }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-[12px] font-medium transition-colors flex items-center justify-between ${
+                      platformMode ? 'bg-teal-50 text-teal-700' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Platform view (semua tenant)
+                    {platformMode && <span className="text-[9px] font-bold uppercase">aktif</span>}
+                  </button>
+                  <div className="h-px bg-slate-100 my-1" />
+                  {allTenants.map((t: any) => (
+                    <button
+                      key={t.id}
+                      onClick={() => { switchTo(t); setPickerOpen(false) }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-[12px] transition-colors flex items-center gap-2 ${
+                        t.id === tenant?.id ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-50'
+                      }`}
                     >
-                      <option value="__platform__">Platform view (semua)</option>
-                      {allTenants.map((t: any) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-80 pointer-events-none flex items-center justify-center">
-              <div className="w-48 h-48 rounded-full bg-gradient-to-br from-purple-400 via-pink-400 to-indigo-300 blur-2xl transform rotate-45 scale-125" />
-            </div>
-            <div
-              onClick={() => openEdit('logoUrl', logoUrl)}
-              className="relative z-10 w-[74px] h-[74px] rounded-2xl overflow-hidden bg-gradient-to-br from-[#1c1d22] to-[#3b3d4a] flex items-center justify-center text-white shadow-lg cursor-pointer shrink-0"
-            >
-              <Building2 size={30} className="absolute" />
-              {logoUrl && <img src={logoUrl} alt="Logo" className="absolute inset-0 w-full h-full object-cover" />}
-            </div>
-          </div>
+                      {/* Logo company, fallback inisial */}
+                      <span className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0 overflow-hidden border border-slate-200 relative">
+                        {t.logoUrl ? (
+                          <img
+                            src={t.logoUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                          />
+                        ) : null}
+                        <span className={t.logoUrl ? 'absolute' : ''}>{(t.name || '?').charAt(0).toUpperCase()}</span>
+                      </span>
+                      <span className="truncate">{t.name}</span>
+                    </button>
+                  ))}
+                  <div className="h-px bg-slate-100 my-1" />
+                  <button
+                    onClick={() => { setPickerOpen(false); setShowCreateModal(true) }}
+                    className="w-full text-left px-3 py-2 rounded-xl text-[12px] font-bold text-purple-600 hover:bg-purple-50 transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus size={13} /> Tambah company baru
+                  </button>
+                </>
+              ) : undefined
+            }
+          />
 
           {/* Kalender */}
           <div className="col-span-4 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
@@ -513,75 +440,47 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             <div className="grid grid-cols-6 gap-1 text-center">
               {weekDates.map((d) => {
                 const isToday = d.toDateString() === today.toDateString()
-                const isSelected = isToday && selectedDate === d.getDate()
                 return (
-                  <button
+                  <div
                     key={d.toISOString()}
-                    onClick={() => setSelectedDate(d.getDate())}
-                    className={`py-2 rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer ${
-                      isSelected ? 'bg-[#1c1d22] text-white shadow-md' : isToday ? 'bg-[#d8cbf9] text-slate-900' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    className={`py-2.5 rounded-2xl flex flex-col items-center justify-center transition-all ${
+                      isToday ? 'bg-[#1c1d22] text-white shadow-md' : 'bg-slate-50 text-slate-600'
                     }`}
                   >
                     <span className="text-[10px] uppercase font-medium opacity-70">{DAYS[d.getDay()]}</span>
                     <span className="text-xs font-bold mt-0.5">{d.getDate()}</span>
-                  </button>
+                  </div>
                 )
               })}
             </div>
-            {isHubAdmin && (
-              <button
-                onClick={() => (platformMode ? switchTo(allTenants[0]) : enablePlatformView())}
-                className={`mt-3 w-full py-2 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                  platformMode ? 'bg-[#1c1d22] text-white' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
-                }`}
-              >
-                {platformMode ? 'Kembali ke company' : 'Platform view'}
-              </button>
-            )}
           </div>
 
           {/* ===== BARIS 2: MEMBERS, DATA, IMPACT, SOCIAL ===== */}
           {/* Members & Staff */}
-          <div className="col-span-3 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-slate-900 text-sm">Members &amp; Staff</h3>
-              <button onClick={openAssign} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 cursor-pointer">
-                <Plus size={16} />
-              </button>
-            </div>
-            <div className="flex items-center justify-around gap-2 my-2">
-              {staffMembers.length > 0 ? (
-                staffMembers.slice(0, 3).map((m: any) => (
-                  <div key={m.id} className="flex flex-col items-center text-center min-w-0">
-                    <Avatar name={m.userFullName} url={m.userAvatarUrl} size={44} />
-                    <span className="text-xs font-bold text-slate-800 mt-1.5 truncate max-w-[70px]">
-                      {(m.userFullName || 'U').split(' ')[0]}
-                    </span>
-                    <span className="text-[10px] text-purple-600 font-medium truncate max-w-[70px] bg-purple-50 px-1.5 py-0.5 rounded-md mt-0.5">
-                      {m.role === 'hub-admin' ? 'Hub Admin' : m.role}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="py-4 text-center">
-                  <p className="text-xs text-slate-400 font-medium">Belum ada staff</p>
-                </div>
-              )}
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium">{staffMembers.length} staff terdaftar</span>
-          </div>
+          <MembersStaffCard
+            members={staffMembers.map((m: any) => ({
+              id: m.id,
+              name: m.userFullName || 'Staff',
+              role: m.role === 'hub-admin' ? 'Hub Admin' : m.role,
+              avatarUrl: m.userAvatarUrl || null,
+            }))}
+            isLoading={loading && staffMembers.length === 0}
+            onAddMember={() => setShowAddStaff(true)}
+          />
 
-          {/* Data (anggaran proyek) */}
+          {/* Data */}
           <div className="col-span-3 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Data</span>
-              <button className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 cursor-pointer"><ArrowUpRight size={16} /></button>
+              <button className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200">
+                <ArrowUpRight size={14} />
+              </button>
             </div>
             <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{fmtBudget}</h2>
-            <div className="space-y-2 mt-3">
+            <div className="space-y-2 mt-2">
               <div className="flex justify-between text-xs font-medium text-slate-500">
                 <span>{statTotal} proyek</span>
-                <span className="text-emerald-600 font-semibold">{statCompleted} selesai</span>
+                <span className="text-emerald-600 font-bold">{statCompleted} selesai</span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
                 <div className="bg-[#1c1d22] h-full transition-all" style={{ width: `${budgetPct}%` }} />
@@ -598,22 +497,22 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           <div className="col-span-2 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Impact</span>
-              <span className="bg-[#1c1d22] text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-2xs">+{impactPct}%</span>
+              <span className="bg-[#1c1d22] text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-2xs">+{impactPct}%</span>
             </div>
-            <div className="flex items-end justify-center gap-3 h-24 my-auto pt-4">
+            <div className="flex items-end justify-center gap-2.5 h-24 my-auto pt-2">
               {[0, 1, 2].map((lvl) => {
                 const v = levelBuckets[lvl]
                 const max = Math.max(1, ...levelBuckets)
+                const heights = [40, 64, 88]
                 return (
                   <div
                     key={lvl}
                     className={`w-5 rounded-t-lg transition-all ${lvl === 2 ? 'bg-[#9370db]' : lvl === 1 ? 'bg-[#d8cbf9]' : 'bg-slate-200'}`}
-                    style={{ height: `${Math.max(10, (v / max) * 64)}px` }}
+                    style={{ height: `${Math.max(16, (v / max) * heights[lvl])}px` }}
                   />
                 )
               })}
             </div>
-            <span className="text-[10px] text-slate-400 font-medium text-center">{positions.length} jabatan</span>
           </div>
 
           {/* Last content on social media */}
@@ -623,88 +522,20 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           />
 
           {/* ===== BARIS 3: STATISTICS (8) + NOTIF (4) ===== */}
-          <div className="col-span-8 grid grid-cols-1 gap-4">
-            {/* Statistics */}
-            <div className="bg-white rounded-3xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-900 text-lg">Statistics</h3>
-                <div className="bg-slate-100 p-1 rounded-full flex gap-1 text-xs font-medium">
-                  {(['Weekly', 'Monthly'] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      onClick={() => setStatsTab(tab)}
-                      className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                        statsTab === tab ? 'bg-[#1c1d22] text-white shadow-sm' : 'text-slate-600'
-                      }`}
-                    >
-                      {tab}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-baseline gap-3 mb-6">
-                <span className="text-4xl font-extrabold text-slate-900 tracking-tight">{statTotal}</span>
-                <span className="text-sm font-medium text-slate-500">proyek {statsTab === 'Weekly' ? '7 hari' : '30 hari'} terakhir</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-4 border border-slate-100">
-                  <div className="w-12 h-12 rounded-2xl bg-pink-50 border border-pink-100 flex items-center justify-center text-pink-500">
-                    <CheckCircle2 size={24} />
-                  </div>
-                  <div>
-                    <h4 className="text-2xl font-bold text-slate-900">{statCompleted}</h4>
-                    <p className="text-xs text-slate-500 font-medium">Project complete</p>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-4 border border-slate-100">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-500">
-                    <CircleDashed size={24} />
-                  </div>
-                  <div>
-                    <h4 className="text-2xl font-bold text-slate-900">{statInProgress}</h4>
-                    <p className="text-xs text-slate-500 font-medium">Project in progress</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Promo + Brainstorm */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-3xl p-6 shadow-sm flex items-center justify-between relative overflow-hidden">
-                <div className="z-10">
-                  <h3 className="text-base font-bold text-slate-900">Unleash Your Potential</h3>
-                  <p className="text-xs text-slate-500 mt-1 mb-4">Kelola perusahaan dengan lebih terstruktur.</p>
-                  <button onClick={() => { setPositionForm({ name: '', level: '0', parentId: '', defaultRoleId: '' }); setPositionError(''); setShowPositionModal(true) }} className="bg-[#eef0f3] hover:bg-slate-200 text-slate-800 text-xs font-semibold px-4 py-2.5 rounded-full transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer">
-                    <ArrowUpRight size={14} /> Tambah jabatan
-                  </button>
-                </div>
-                <div className="w-24 h-24 rounded-2xl bg-gradient-to-tr from-purple-300 via-pink-200 to-indigo-300 flex items-center justify-center shadow-inner overflow-hidden">
-                  <div className="w-full h-full opacity-60 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white via-transparent to-purple-400 transform rotate-12" />
-                </div>
-              </div>
-
-              {brainstormActive && (
-                <div className="bg-[#1c1d22] text-white rounded-3xl p-4 shadow-lg flex items-center justify-between my-auto">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold">🧠</div>
-                    <div>
-                      <h4 className="text-sm font-bold">Breakthrough Brainstorm</h4>
-                      <p className="text-[11px] text-slate-400">Rapat internal terjadwal</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setBrainstormActive(false)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 transition-all cursor-pointer">
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <StatisticsSection
+            stats={{
+              totalTasks: statTotal,
+              completedProjects: statCompleted,
+              inProgressProjects: statInProgress,
+            }}
+            summaryLabel={`proyek ${statsTab === 'Weekly' ? '7 hari' : '30 hari'} terakhir`}
+            statsTab={statsTab}
+            onStatsTabChange={setStatsTab}
+            onUpgradeClick={() => setShowPlanModal(true)}
+          />
 
           {/* Notifications */}
-          <div className="col-span-4 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+          <div className="col-span-4 rounded-3xl p-5 flex flex-col justify-between w-full">
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-slate-900">Notifications</h3>
@@ -734,7 +565,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
               <div className="space-y-3.5">
                 {notifications.length > 0 ? (
                   notifications.slice(0, 8).map((item: any) => (
-                    <div key={item.id} className={`flex items-start gap-3 pb-3 border-b border-slate-100/80 ${item.read ? 'opacity-60' : ''}`}>
+                    <div key={item.id} className={`flex items-start gap-3 p-3 rounded-2xl bg-white border border-slate-100/80 shadow-2xs ${item.read ? 'opacity-60' : ''}`}>
                       <Avatar name="Hub" size={36} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-slate-800 font-medium leading-relaxed">
@@ -768,237 +599,36 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             </div>
           </div>
 
-          {/* ===== BARIS 4: DETAIL PERUSAHAAN (8) + STAFF MGMT (4) ===== */}
-          {/* Detail perusahaan */}
-          <div className="col-span-8 bg-white rounded-3xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-900 text-lg">Detail perusahaan</h3>
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
-                <ShieldCheck size={12} /> {tenant?.status === 'active' ? 'Aktif' : tenant?.status || '—'}
-              </span>
-            </div>
-            <div className="bg-slate-50 rounded-2xl overflow-hidden">
-              <InfoRow icon={<Building2 size={12} color="white" />} iconBg="bg-gradient-to-br from-blue-500 to-blue-700" label="Nama" value={tenant?.name} onClick={() => openEdit('name', tenant?.name)} />
-              <InfoRow icon={<Mail size={12} color="white" />} iconBg="bg-gradient-to-br from-orange-400 to-orange-600" label="Email" value={tenant?.email} onClick={() => openEdit('email', tenant?.email)} />
-              <InfoRow icon={<Phone size={12} color="white" />} iconBg="bg-gradient-to-br from-emerald-400 to-emerald-600" label="Telepon" value={tenant?.phoneNumber} onClick={() => openEdit('phoneNumber', tenant?.phoneNumber)} />
-              <InfoRow icon={<Globe size={12} color="white" />} iconBg="bg-gradient-to-br from-indigo-500 to-indigo-700" label="Website" value={tenant?.website} onClick={() => openEdit('website', tenant?.website)} />
-              <InfoRow icon={<MapPin size={12} color="white" />} iconBg="bg-gradient-to-br from-red-500 to-rose-700" label="Alamat" value={tenant?.address} onClick={() => openEdit('address', tenant?.address)} />
-            </div>
-            <div className="bg-slate-50 rounded-2xl overflow-hidden mt-3">
-              <InfoRow icon={<MapPin size={12} color="white" />} iconBg="bg-gradient-to-br from-rose-500 to-rose-700" label="Google Maps" value={tenant?.gmapLink ? 'Tersedia' : 'Belum diatur'} onClick={() => openEdit('gmapLink', tenant?.gmapLink)} />
-              <InfoRow icon={<Cloud size={12} color="white" />} iconBg="bg-gradient-to-br from-sky-500 to-sky-700" label="Google Drive" value={tenant?.gdriveLink ? 'Tersedia' : 'Belum diatur'} onClick={() => openEdit('gdriveLink', tenant?.gdriveLink)} isLast />
-            </div>
-            <div className="bg-slate-50 rounded-2xl overflow-hidden mt-3">
-              <InfoRow icon={<FileText size={12} color="white" />} iconBg="bg-gradient-to-br from-slate-400 to-slate-600" label="NPWP" value={tenant?.taxId} onClick={() => openEdit('taxId', tenant?.taxId)} />
-              <InfoRow
-                icon={<FileText size={12} color="white" />}
-                iconBg="bg-gradient-to-br from-orange-400 to-orange-600"
-                label="Batas Approval Owner"
-                value={tenant?.approvalThreshold != null ? `Rp ${Number(tenant.approvalThreshold).toLocaleString('id-ID')}` : 'Rp 10.000.000'}
-                onClick={() => openEdit('approvalThreshold', String(tenant?.approvalThreshold ?? 10000000))}
-              />
-              <InfoRow icon={<Palette size={12} color="white" />} iconBg="bg-gradient-to-br from-purple-500 to-purple-700" label="Plan" value={tenant?.plan?.toUpperCase()} isLast />
-            </div>
-          </div>
+          {/* ===== BARIS 4: OVERVIEW (8) + STRUKTUR JABATAN (4) ===== */}
+          <CompanyOverviewCard
+            company={tenant}
+            logoUrl={logoUrl}
+            onEditLogo={() => openEdit('logoUrl', logoUrl)}
+            onEditField={(field: 'name' | 'email' | 'phoneNumber' | 'address' | 'approvalThreshold') => openEdit(field, (tenant as any)?.[field])}
+            onEditGmap={() => openEdit('gmapLink', tenant?.gmapLink)}
+            onEditGdrive={() => openEdit('gdriveLink', tenant?.gdriveLink)}
+          />
+          <StructureCard
+            positions={positions}
+            roles={tenantRoles}
+            isLoading={loading && positions.length === 0}
+            onAdd={() => { setPositionForm({ name: '', level: '0', parentId: '', defaultRoleId: '' }); setPositionError(''); setShowPositionModal(true) }}
+            onDelete={async (id) => {
+              if (!confirm('Hapus jabatan ini?')) return
+              const res: any = await import('../../lib/endpoints').then(({ positionsApi }) => positionsApi.remove(id))
+              if (res?.error) alert(res.error)
+              else setPositions(prev => prev.filter((x: any) => x.id !== id))
+            }}
+            onRoleChange={async (id, roleId) => {
+              const res: any = await import('../../lib/endpoints').then(({ positionsApi }) => positionsApi.update(id, { defaultRoleId: roleId }))
+              if (res?.error) { alert(res.error); return }
+              const rn = tenantRoles.find((r: any) => r.id === roleId)?.name || null
+              setPositions(prev => prev.map((x: any) => x.id === id ? { ...x, defaultRoleId: roleId, defaultRoleName: rn } : x))
+            }}
+          />
 
-          {/* Staff management */}
-          <div className="col-span-4 bg-white rounded-3xl p-5 shadow-sm flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
-                  <Users size={14} color="white" />
-                </div>
-                <h3 className="font-bold text-slate-900 text-sm">Staff ({staffMembers.length})</h3>
-              </div>
-              <button onClick={openAssign} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200 cursor-pointer">
-                <Plus size={14} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto max-h-[300px] -mx-2 px-2">
-              {staffMembers.length === 0 ? (
-                <div className="py-8 text-center text-[12px] text-slate-400">Belum ada staff</div>
-              ) : (
-                staffMembers.map((m: any, i: number) => (
-                  <div key={m.id} className={`flex items-center justify-between gap-2 py-2.5 ${i < staffMembers.length - 1 ? 'border-b border-slate-100' : ''}`}>
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Avatar name={m.userFullName} url={m.userAvatarUrl} size={32} />
-                      <div className="min-w-0">
-                        <div className="text-[13px] font-medium text-slate-900 truncate">{m.userFullName}</div>
-                        {editingJobId === m.id ? (
-                          <input
-                            autoFocus
-                            value={editingJobValue}
-                            onChange={(e) => setEditingJobValue(e.target.value)}
-                            onBlur={async () => {
-                              const v = editingJobValue.trim()
-                              setEditingJobId(null)
-                              if (v !== (m.jobTitle || '')) {
-                                const res: any = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.updateJobTitle(m.id, v || null))
-                                if (!res?.error) setStaffMembers(prev => prev.map((x: any) => x.id === m.id ? { ...x, jobTitle: v || null } : x))
-                              }
-                            }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditingJobId(null) }}
-                            placeholder="Jabatan, cth. Finance Manager"
-                            className="text-[11px] text-slate-900 border border-slate-200 rounded-lg px-2 py-1 outline-none w-full"
-                          />
-                        ) : (
-                          <div onClick={() => { setEditingJobId(m.id); setEditingJobValue(m.jobTitle || '') }} title="Klik untuk edit jabatan" className="text-[11px] text-slate-400 truncate cursor-text hover:text-slate-600">
-                            {m.userEmail}{m.jobTitle ? ` · ${m.jobTitle}` : ''}{m.positionName ? ` · ${m.positionName}` : ''}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {isHubAdmin || (m.role !== 'owner' && m.role !== 'hub-admin') ? (
-                        <>
-                          <select
-                            value={m.role}
-                            onChange={async (e) => {
-                              const next = e.target.value
-                              const res: any = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.updateRole(m.id, next))
-                              if (!res?.error) setStaffMembers(prev => prev.map((x: any) => x.id === m.id ? { ...x, role: next } : x))
-                              else alert(res.error || 'Gagal mengubah role')
-                            }}
-                            title="Ubah role"
-                            className={`rounded-full text-[10px] font-semibold px-2 py-1 border-0 outline-none cursor-pointer ${
-                              m.role === 'admin' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
-                            <option value="member">Member</option>
-                            <option value="admin">Admin</option>
-                            <option value="owner">Owner</option>
-                          </select>
-                          {positions.length > 0 && (
-                            <select
-                              value={m.positionId || ''}
-                              onChange={async (e) => {
-                                const next = e.target.value || null
-                                const res: any = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.updatePosition(m.id, next))
-                                if (!res?.error) {
-                                  const pos = positions.find((p: any) => p.id === next)
-                                  setStaffMembers(prev => prev.map((x: any) => x.id === m.id ? { ...x, positionId: next, positionName: pos?.name || null } : x))
-                                } else alert(res.error || 'Gagal mengubah posisi')
-                              }}
-                              title="Ubah posisi struktural"
-                              className="max-w-[110px] rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-2 py-1 border-0 outline-none cursor-pointer"
-                            >
-                              <option value="">Tanpa posisi</option>
-                              {positions.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                            </select>
-                          )}
-                          <button
-                            onClick={async () => {
-                              if (!confirm(`Remove ${m.userFullName} from this company?`)) return
-                              try {
-                                const res: any = await import('../../lib/endpoints').then(({ membersApi }) => membersApi.remove(m.id))
-                                if (res?.error) { alert(res.error); return }
-                                setStaffMembers(prev => prev.filter((x: any) => x.id !== m.id))
-                              } catch {}
-                            }}
-                            className="w-7 h-7 rounded-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </>
-                      ) : (
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                          m.role === 'owner' ? 'bg-orange-50 text-orange-500' : 'bg-purple-50 text-purple-500'
-                        }`}>
-                          {m.role === 'hub-admin' ? 'Hub Admin' : m.role}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* ===== BARIS 5: JABATAN ===== */}
-          <div className="col-span-12 bg-white rounded-3xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-                  <Building2 size={14} color="white" />
-                </div>
-                <h3 className="font-bold text-slate-900 text-sm">Jabatan ({positions.length})</h3>
-              </div>
-              <GhostBtn onClick={() => { setPositionForm({ name: '', level: '0', parentId: '', defaultRoleId: '' }); setPositionError(''); setShowPositionModal(true) }}>
-                <Plus size={13} className="inline mr-1" />Tambah
-              </GhostBtn>
-            </div>
-            {positions.length === 0 ? (
-              <div className="py-6 text-center text-[12px] text-slate-400">Belum ada jabatan. Tambah cth. Direktur, Manager, Staff.</div>
-            ) : (
-              (() => {
-                const byId = new Map(positions.map((p: any) => [p.id, p]))
-                const depthOf = (p: any) => {
-                  let d = 0
-                  let cur: any = p
-                  const seen = new Set<string>()
-                  while (cur?.parentId && byId.has(cur.parentId) && !seen.has(cur.parentId)) {
-                    seen.add(cur.parentId)
-                    d++
-                    cur = byId.get(cur.parentId)
-                  }
-                  return d
-                }
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-                    {positions.map((p: any) => {
-                      const depth = depthOf(p)
-                      const parentName = p.parentId ? (byId.get(p.parentId) as any)?.name || null : null
-                      return (
-                        <div key={p.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-slate-100" style={{ paddingLeft: depth * 16 }}>
-                          <div className="min-w-0">
-                            <div className="text-[13px] text-slate-900 truncate">{depth > 0 ? '↳ ' : ''}{p.name}</div>
-                            <div className="text-[11px] text-slate-400">
-                              Level {p.level}{parentName ? ` · Atasan: ${parentName}` : ''}{p.defaultRoleName ? ` · Role: ${p.defaultRoleName}` : ''}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {tenantRoles.length > 0 && (
-                              <select
-                                value={p.defaultRoleId || ''}
-                                onChange={async (e) => {
-                                  const next = e.target.value || null
-                                  const res: any = await import('../../lib/endpoints').then(({ positionsApi }) => positionsApi.update(p.id, { defaultRoleId: next }))
-                                  if (!res?.error) {
-                                    const rn = tenantRoles.find((r: any) => r.id === next)?.name || null
-                                    setPositions(prev => prev.map((x: any) => x.id === p.id ? { ...x, defaultRoleId: next, defaultRoleName: rn } : x))
-                                  } else alert(res.error || 'Gagal mengubah role default')
-                                }}
-                                title="Role akses default"
-                                className="max-w-[130px] rounded-full bg-blue-50 text-blue-600 text-[10px] font-semibold px-2 py-1 border-0 outline-none cursor-pointer"
-                              >
-                                <option value="">Tanpa role</option>
-                                {tenantRoles.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                              </select>
-                            )}
-                            <button
-                              onClick={async () => {
-                                if (!confirm(`Delete posisi "${p.name}"?`)) return
-                                const res: any = await import('../../lib/endpoints').then(({ positionsApi }) => positionsApi.remove(p.id))
-                                if (res?.error) alert(res.error)
-                                else setPositions(prev => prev.filter((x: any) => x.id !== p.id))
-                              }}
-                              className="w-7 h-7 rounded-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })()
-            )}
-          </div>
         </div>
       </main>
-
-      {/* ============ MODALS ============ */}
 
       {showEditModal && (
         <Modal
@@ -1233,6 +863,29 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             >
               {positionSaving ? 'Menyimpan...' : 'Simpan'}
             </SolidBtn>
+          </div>
+        </Modal>
+      )}
+
+      <AddStaffModal
+        open={showAddStaff}
+        onClose={() => setShowAddStaff(false)}
+        positions={positions}
+        onCreated={loadStaff}
+      />
+
+      {showPlanModal && (
+        <Modal title="Plan & Langganan" onClose={() => setShowPlanModal(false)} width={420}>
+          <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 mb-3 flex items-center justify-between">
+            <span className="text-[12px] font-semibold text-slate-600">Plan aktif perusahaan</span>
+            <span className="text-[12px] font-bold text-slate-900 uppercase">{tenant?.plan || '-'}</span>
+          </div>
+          <p className="text-[12px] text-slate-500 leading-relaxed mb-4">
+            Upgrade plan menambah kuota user, modul, dan fitur lanjutan. Hubungi hub-admin untuk mengubah paket
+            perusahaan ini.
+          </p>
+          <div className="flex justify-end">
+            <SolidBtn onClick={() => setShowPlanModal(false)}>Mengerti</SolidBtn>
           </div>
         </Modal>
       )}
