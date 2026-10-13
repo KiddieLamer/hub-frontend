@@ -16,7 +16,15 @@ export const authApi = {
         const tenantsRes = await apiFetch('/api/tenants')
         const tenantsData = await tenantsRes.json()
         if (tenantsData.tenants?.length > 0) {
-          setTenantId(tenantsData.tenants[0].id)
+          const firstId = tenantsData.tenants[0].id
+          setTenantId(firstId)
+          // Persist the pick to users.current_tenant_id so
+          // GET /api/tenants/current stops returning 400.
+          // Best-effort: login must succeed even if switch fails.
+          await apiFetch('/api/tenants/switch', {
+            method: 'POST',
+            body: JSON.stringify({ tenantId: firstId }),
+          }).catch(() => null)
         }
       }
     }
