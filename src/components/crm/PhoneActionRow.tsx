@@ -5,6 +5,9 @@ import { CopyButton } from './CopyButton'
 interface PhoneActionRowProps {
   label: string
   phoneNumber: string
+  isEditing?: boolean
+  value?: string
+  onChange?: (value: string) => void
 }
 
 // Logo SVG Resmi WhatsApp
@@ -14,7 +17,7 @@ const WhatsAppLogo = () => (
   </svg>
 )
 
-export function PhoneActionRow({ label, phoneNumber }: PhoneActionRowProps) {
+export function PhoneActionRow({ label, phoneNumber, isEditing = false, value, onChange }: PhoneActionRowProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   // Membersihkan nomor telepon untuk format URL (misal: wa.me/62812345678)
@@ -23,6 +26,21 @@ export function PhoneActionRow({ label, phoneNumber }: PhoneActionRowProps) {
   const formattedWaPhone = cleanPhone.startsWith('0')
     ? '62' + cleanPhone.slice(1)
     : cleanPhone.replace('+', '')
+
+  // Mode edit: tampilkan input biasa, tanpa slider aksi
+  if (isEditing) {
+    return (
+      <div>
+        <span className="block font-medium text-slate-400">{label}</span>
+        <input
+          type="text"
+          value={value ?? ''}
+          onChange={(e) => onChange?.(e.target.value)}
+          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+        />
+      </div>
+    )
+  }
 
   return (
     <div>

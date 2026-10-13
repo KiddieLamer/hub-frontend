@@ -38,10 +38,32 @@ export function getTenantId() {
 
 export function setTenantId(tenantId: string) {
   if (tenantId) {
+    // Memilih tenant konkret → keluar dari platform (all-tenant) mode.
     localStorage.setItem('hub-tenant-id', tenantId)
+    localStorage.removeItem('hub-platform-mode')
   } else {
     localStorage.removeItem('hub-tenant-id')
   }
+}
+
+// ============ HUB-ADMIN PLATFORM MODE ============
+// Ketika hub-admin memilih "Platform view" (semua company), kita TIDAK
+// mengirim X-Tenant-ID supaya backend bisa mengembalikan gabungan data
+// semua tenant + tag tenant. Flag ini juga dipakai FE untuk menampilkan
+// banner/badge yang sesuai.
+export function isPlatformMode(): boolean {
+  return localStorage.getItem('hub-platform-mode') === '1'
+}
+
+export function setPlatformMode(on: boolean) {
+  if (on) {
+    localStorage.setItem('hub-platform-mode', '1')
+    localStorage.removeItem('hub-tenant-id')
+  } else {
+    localStorage.removeItem('hub-platform-mode')
+  }
+  // Beri tahu komponen (Portfolio, CRM, dsb.) untuk reload.
+  window.dispatchEvent(new Event('hub-tenant-changed'))
 }
 
 async function refreshAccessToken(): Promise<string> {
@@ -86,6 +108,9 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   }
 
   const tenantId = getTenantId()
+  // Hub-admin "Platform view": tidak ada tenant dipilih & flag mode aktif.
+  // Backend (setelah di-update) akan mengembalikan gabungan semua tenant.
+  const platformMode = isPlatformMode()
   // Semua route yang di-guard tenantMiddleware di backend (butuh X-Tenant-ID).
   // Kalau path baru tidak didaftarkan di sini, backend balas 400
   // 'X-Tenant-ID header required' dan handler di bawah akan
@@ -97,13 +122,19 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   // treats as a tenant problem and force-redirects to '/' -> reload loop.
   const tenantExempt = ['/api/users/me']
   if (tenantPaths.some(p => path.startsWith(p)) && !tenantExempt.some(p => path === p)) {
-    if (!tenantId) {
+    // Platform mode (hub-admin, tidak ada tenant spesifik): jangan kirim
+    // X-Tenant-ID (biar backend tahu ini query lintas-tenant), dan JANGAN
+    // early-return "No tenant selected" — biarkan request betulan ke server.
+    if (platformMode) {
+      headers['X-Platform-Scope'] = 'all'
+    } else if (!tenantId) {
       return new Response(JSON.stringify({ members: [], roles: [], error: 'No tenant selected' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
+    } else {
+      headers['X-Tenant-ID'] = tenantId
     }
-    headers['X-Tenant-ID'] = tenantId
   }
 
   let res = await fetch(url, { ...options, headers })

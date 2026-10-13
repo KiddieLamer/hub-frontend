@@ -2,10 +2,12 @@ import { ExternalLink, Navigation } from 'lucide-react'
 
 interface LocationMapCardProps {
   address: string
+  companyName?: string
+  customerName?: string
   className?: string
 }
 
-export function LocationMapCard({ address, className = '' }: LocationMapCardProps) {
+export function LocationMapCard({ address, companyName, customerName, className = '' }: LocationMapCardProps) {
   // Format URL Google Maps Embed (Bisa berjalan otomatis tanpa API Key)
   const encodedAddress = encodeURIComponent(address || 'Jakarta, Indonesia')
   const googleMapsUrl = `https://maps.google.com/maps?q=${encodedAddress}&t=&z=14&ie=UTF8&iwloc=&output=embed`
@@ -18,13 +20,13 @@ export function LocationMapCard({ address, className = '' }: LocationMapCardProp
         <h3 className="text-sm font-bold text-slate-900">Location Preview</h3>
 
         {/* Link Buka di Google Maps */}
-        <a
-          href={externalMapsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-slate-500 transition-colors hover:text-slate-800"
-          title="Buka di Google Maps"
-        >
+          <a
+            href={externalMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-500 transition-colors hover:text-slate-800"
+            title={customerName ? `Buka lokasi ${customerName} di Google Maps` : 'Buka di Google Maps'}
+          >
           <ExternalLink className="h-4 w-4" />
         </a>
       </div>
@@ -40,15 +42,15 @@ export function LocationMapCard({ address, className = '' }: LocationMapCardProp
           loading="lazy"
         />
 
-        {/* Badge Alamat (menutup strip footer Google Maps) */}
-        <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 rounded-t-xl border-x-0 border-b-0 border-t border-white/80 bg-white p-2 shadow-xs">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <Navigation className="h-3.5 w-3.5 shrink-0 text-[#0d9488]" />
-            <p className="truncate text-[11px] font-semibold text-slate-800">
-              {address}
-            </p>
+          {/* Badge Alamat (menutup strip footer Google Maps) */}
+          <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 rounded-t-xl border-x-0 border-b-0 border-t border-white/80 bg-white p-2 shadow-xs">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Navigation className="h-3.5 w-3.5 shrink-0 text-[#0d9488]" />
+              <p className="truncate text-[11px] font-semibold text-slate-800">
+                {companyName || address}
+              </p>
+            </div>
           </div>
-        </div>
       </div>
     </div>
   )

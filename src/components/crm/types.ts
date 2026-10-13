@@ -14,11 +14,8 @@ export interface LeadScoreInsight {
 
 export interface SocialHandles {
   instagram?: string
-  threads?: string
-  tiktok?: string
-  youtube?: string
-  facebook?: string
-  x?: string
+  linkedin?: string
+  twitter?: string
 }
 
 export interface TaskItem {
@@ -83,11 +80,21 @@ export interface LeadItem {
   ownerAvatar: string
   insights: LeadScoreInsight[]
 
-  // Tags (misal: Lead, Sales Insight)
-  tags?: string[]
-
   // Media Sosial
   socialMedia?: SocialHandles
+
+  // Industri / bidang usaha client (dari clients.industry)
+  industry?: string
+
+  // Legalitas & finansial
+  taxId?: string
+  billingEmail?: string
+
+  // Owner / penanggung jawab (clients.assigned_to -> users.id)
+  assignedTo?: string
+
+  // Tags (misal: Lead, Sales Insight)
+  tags?: string[]
 
   // Daftar Task / Sequence Activities
   tasks?: TaskItem[]
@@ -97,4 +104,9 @@ export interface LeadItem {
 
   // Info Garansi Produk Client
   warranty?: WarrantyInfo
+
+  // Multi-tenant tagging (dipakai hub-admin platform view: gabungan semua
+  // company). Kosong saat user adalah member tenant biasa.
+  tenantId?: string
+  tenantName?: string
 }

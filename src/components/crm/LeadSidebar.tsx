@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { RotateCcw, Calendar, Search, Plus, Mail, Phone, X } from 'lucide-react'
+import { RotateCcw, Calendar, Search, Plus, Mail, Phone, X, Users, SearchX, Building2 } from 'lucide-react'
 import type { LeadItem } from './types'
 
 interface LeadSidebarProps {
@@ -80,9 +80,7 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }:
   const renderLeadGroup = (title: 'Today' | '3 weeks ago') => {
     const groupLeads = filteredLeads.filter((l) => l.timeGroup === title)
 
-    if (groupLeads.length === 0 && searchQuery.trim() !== '') {
-      return null // Sembunyikan grup jika tidak ada item yang cocok
-    }
+    if (groupLeads.length === 0) return null
 
     return (
       <div>
@@ -139,6 +137,14 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }:
                     {lead.score}
                   </div>
                 </div>
+
+                {/* Hub-admin platform view: tag tenant asal customer */}
+                {lead.tenantName && (
+                  <div className="mt-2 flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                    <Building2 className="h-3 w-3 text-[#0d9488]" />
+                    <span className="truncate">{lead.tenantName}</span>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -148,6 +154,52 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }:
   }
 
   const hasAnyResults = filteredLeads.length > 0
+
+  // Kartu empty state ketika database masih kosong total (0 leads)
+  const renderEmptyState = () => (
+    <div className="space-y-3 py-2">
+      {/* Kartu Placeholder Bergaya Pastel */}
+      <div className="relative space-y-3 rounded-2xl border border-dashed border-slate-300/80 bg-white/40 p-3.5 shadow-2xs">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            {/* Avatar Placeholder */}
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white bg-slate-200/80 text-xs font-bold text-slate-400">
+              ?
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-400">Belum Ada Lead</h3>
+              <p className="text-xs font-medium text-slate-400">Database Masih Kosong</p>
+            </div>
+          </div>
+
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/50 bg-slate-100/60 text-slate-300">
+            <Users className="h-4 w-4" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-200/50 pt-1">
+          <span className="rounded-full bg-slate-200/60 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+            No Data
+          </span>
+          <span className="text-[10px] font-medium text-slate-400">-- : --</span>
+        </div>
+      </div>
+
+      {/* Call-to-Action Box */}
+      <div className="space-y-2 rounded-2xl bg-gradient-to-br from-[#EBF8BD]/80 to-[#E2F5A6]/80 p-4 text-center shadow-xs">
+        <p className="text-xs font-bold text-slate-900">Mulai Kelola Pelanggan Anda</p>
+        <p className="text-[11px] font-medium leading-snug text-slate-600">
+          Klik tombol di bawah untuk menambahkan record lead/customer baru.
+        </p>
+        <button
+          onClick={onAddClick}
+          className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-slate-800"
+        >
+          <Plus className="h-3.5 w-3.5" /> Tambah Customer Pertama
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden rounded-3xl border border-white/70 bg-[#F2F5F8]/70 p-4 shadow-sm backdrop-blur-md lg:col-span-3 max-lg:h-auto">
@@ -219,14 +271,32 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }:
 
       {/* DIBUAT FLEX-1 MIN-H-0 OVERFLOW-Y-AUTO DENGAN INTERNAL SCROLL */}
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-        {hasAnyResults ? (
+        {leads.length === 0 ? (
+          renderEmptyState()
+        ) : hasAnyResults ? (
           <>
             {renderLeadGroup('Today')}
             {renderLeadGroup('3 weeks ago')}
           </>
         ) : (
-          <div className="py-8 text-center text-xs font-medium text-slate-400">
-            Tidak ada customer yang cocok dengan "{searchQuery}"
+          /* KONDISI 2: Hasil pencarian kosong */
+          <div className="flex h-64 flex-col items-center justify-center space-y-3 rounded-3xl border border-dashed border-slate-300 bg-white/60 p-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-rose-100 bg-rose-50 text-rose-500">
+              <SearchX className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-slate-800">Hasil Tidak Ditemukan</h4>
+              <p className="text-[11px] font-medium text-slate-400">
+                Tidak ada customer yang cocok dengan kata kunci{' '}
+                <span className="font-semibold text-slate-700">"{searchQuery}"</span>.
+              </p>
+            </div>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+            >
+              Reset Pencarian
+            </button>
           </div>
         )}
       </div>

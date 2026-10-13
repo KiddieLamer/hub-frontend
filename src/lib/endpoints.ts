@@ -1,4 +1,4 @@
-import { apiFetch, apiJson, setTokens, clearTokens, setTenantId, getTenantId } from './api'
+import { apiFetch, apiJson, setTokens, clearTokens, setTenantId, getTenantId, isPlatformMode } from './api'
 
 // ============ AUTH ============
 export const authApi = {
@@ -82,8 +82,16 @@ export const tenantsApi = {
 
 // ============ CRM - CLIENTS ============
 export const clientsApi = {
-  list: (search?: string, limit?: number) =>
-    apiFetch(`/api/clients${search || limit ? `?${new URLSearchParams({ ...(search ? { search } : {}), ...(limit ? { limit: String(limit) } : {}) })}` : ''}`).then(r => apiJson(r)),
+  // Hub-admin platform mode: tanpa X-Tenant-ID (lihat lib/api.ts). Kirim
+  // scope=all supaya backend tahu caller minta gabungan semua tenant.
+  list: (search?: string, limit?: number) => {
+    const params: Record<string, string> = {}
+    if (search) params.search = search
+    if (limit) params.limit = String(limit)
+    if (isPlatformMode()) params.scope = 'all'
+    const qs = Object.keys(params).length > 0 ? `?${new URLSearchParams(params)}` : ''
+    return apiFetch(`/api/clients${qs}`).then(r => apiJson(r))
+  },
   get: (id: string) => apiFetch(`/api/clients/${id}`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/clients', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
@@ -113,6 +121,23 @@ export const clientWarrantyApi = {
   get: (clientId: string) => apiFetch(`/api/clients/${clientId}/warranty`).then(r => apiJson(r)),
   upsert: (clientId: string, data: Record<string, unknown>) =>
     apiFetch(`/api/clients/${clientId}/warranty`, { method: 'PUT', body: JSON.stringify(data) }).then(r => apiJson(r)),
+}
+
+export interface ClientInsightInput {
+  text: string
+  subtext?: string
+  sortOrder?: number
+}
+
+export const clientInsightsApi = {
+  list: (clientId: string) => apiFetch(`/api/clients/${clientId}/insights`).then(r => apiJson(r)),
+  create: (clientId: string, data: ClientInsightInput) =>
+    apiFetch(`/api/clients/${clientId}/insights`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  delete: (clientId: string, id: string) =>
+    apiFetch(`/api/clients/${clientId}/insights/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
+  // Replace-all semantics: kirim semua insight sekaligus.
+  replaceAll: (clientId: string, insights: ClientInsightInput[]) =>
+    apiFetch(`/api/clients/${clientId}/insights`, { method: 'PUT', body: JSON.stringify({ insights }) }).then(r => apiJson(r)),
 }
 
 // ============ CRM - BOOKINGS ============

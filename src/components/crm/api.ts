@@ -2,6 +2,7 @@ import type {
   ActivityNote,
   LeadItem,
   LeadScoreInsight,
+  SocialHandles,
   TaskItem,
   WarrantyInfo,
 } from './types'
@@ -11,6 +12,8 @@ import type {
 export interface ApiClient {
   id: string
   tenantId: string
+  // Hanya terisi saat hub-admin pakai ?scope=all (JOIN tenants di backend).
+  tenantName?: string | null
   name: string
   type: 'corporate' | 'individual'
   industry: string | null
@@ -33,6 +36,7 @@ export interface ApiClient {
   identityType: string | null
   identityNumber: string | null
   tags: string[] | null
+  socialMedia: SocialHandles | null
   createdAt: string
   updatedAt: string
 }
@@ -66,6 +70,16 @@ export interface ApiClientWarranty {
   endDate: string | null
   coverageType: string | null
   status: string
+}
+
+export interface ApiClientInsight {
+  id: string
+  clientId: string
+  tenantId: string
+  text: string
+  subtext: string | null
+  sortOrder: number
+  createdAt: string
 }
 
 // ============ HELPERS ============
@@ -155,10 +169,124 @@ function initialsAvatar(name: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
 
-function hashScore(id: string): number {
-  let h = 0
-  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 997
-  return 30 + (h % 70)
+// ============ LEAD SCORING (dipakai ring score & modal "Quality") ============
+
+export interface ScoreFactor {
+  label: string
+  earned: number
+  weight: number
+  hint: string
+}
+
+export interface ScoreBreakdown {
+  score: number
+  grade: string
+  factors: ScoreFactor[]
+  bonus: ScoreFactor[]
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+/** Skor 5-99 dari kelengkapan data + rating + status pipeline. */
+export function scoreBreakdown(lead: LeadItem): ScoreBreakdown {
+  const factors: ScoreFactor[] = [
+    {
+      label: 'Email kontak',
+      earned: lead.email ? 10 : 0,
+      weight: 10,
+      hint: 'Isi email PIC di modal Edit',
+    },
+    {
+      label: 'Telepon',
+      earned: lead.phone ? 10 : 0,
+      weight: 10,
+      hint: 'Isi nomor telepon perusahaan',
+    },
+    {
+      label: 'Alamat lengkap',
+      earned: lead.address ? 10 : 0,
+      weight: 10,
+      hint: 'Lengkapi alamat customer',
+    },
+    {
+      label: 'Nama perusahaan',
+      earned: lead.company ? 10 : 0,
+      weight: 10,
+      hint: 'Isi nama perusahaan di modal Edit',
+    },
+    {
+      label: 'Identitas (KTP/SIM)',
+      earned: lead.identityNumber ? 10 : 0,
+      weight: 10,
+      hint: 'Lengkapi data identitas PIC',
+    },
+    {
+      label: 'Estimasi budget',
+      earned: lead.budget ? 10 : 0,
+      weight: 10,
+      hint: 'Catat estimasi budget customer',
+    },
+    {
+      label: 'Jabatan PIC',
+      earned: lead.jobTitle ? 5 : 0,
+      weight: 5,
+      hint: 'Isi jabatan contact person',
+    },
+    {
+      label: 'Website',
+      earned: lead.website ? 5 : 0,
+      weight: 5,
+      hint: 'Tambahkan website perusahaan',
+    },
+    {
+      label: 'Mobile',
+      earned: lead.mobile ? 5 : 0,
+      weight: 5,
+      hint: 'Tambahkan nomor mobile PIC',
+    },
+    {
+      label: 'Topik / minat',
+      earned: lead.topic && lead.topic !== 'General Inquiry' ? 5 : 0,
+      weight: 5,
+      hint: 'Catat topik atau produk yang diminati',
+    },
+  ]
+
+  const completeness = factors.reduce((sum, f) => sum + f.earned, 0)
+
+  const bonus: ScoreFactor[] = []
+  const rating = lead.rating
+  if (rating === 'Hot') bonus.push({ label: 'Rating Hot', earned: 12, weight: 12, hint: '' })
+  else if (rating === 'Warm') bonus.push({ label: 'Rating Warm', earned: 6, weight: 6, hint: '' })
+
+  const statusTag = lead.statusTag
+  if (statusTag === 'Active') bonus.push({ label: 'Status Active', earned: 8, weight: 8, hint: '' })
+  else if (statusTag === 'Prospect') bonus.push({ label: 'Status Prospect', earned: 5, weight: 5, hint: '' })
+  else if (statusTag === 'Churned') bonus.push({ label: 'Status Churned', earned: -5, weight: 0, hint: '' })
+  else if (statusTag === 'Inactive') bonus.push({ label: 'Status Inactive', earned: -3, weight: 0, hint: '' })
+
+  if ((lead.activities?.length ?? 0) >= 1) {
+    bonus.push({ label: 'Sudah ada interaksi', earned: 5, weight: 5, hint: '' })
+  }
+  if ((lead.activities?.length ?? 0) >= 3) {
+    bonus.push({ label: 'Interaksi berulang', earned: 5, weight: 5, hint: '' })
+  }
+
+  const bonusSum = bonus.reduce((sum, b) => sum + b.earned, 0)
+  const score = clamp(completeness + bonusSum, 5, 99)
+  const grade = score >= 85 ? 'Grade A' : score >= 70 ? 'Grade B' : score >= 50 ? 'Grade C' : 'Grade D'
+
+  return { score, grade, factors, bonus }
+}
+
+const SCORE_BANDS = [
+  { min: 80, color: 'bg-[#BCE893] text-slate-900' },
+  { min: 60, color: 'bg-[#FDE68A] text-slate-900' },
+  { min: 0, color: 'bg-[#FECACA] text-slate-900' },
+]
+
+function scoreColor(score: number): string {
+  return SCORE_BANDS.find((band) => score >= band.min)!.color
 }
 
 function buildInsights(client: ApiClient): LeadScoreInsight[] {
@@ -186,27 +314,23 @@ function buildInsights(client: ApiClient): LeadScoreInsight[] {
 export function mapClientToLead(client: ApiClient): LeadItem {
   const name = client.picName || client.name
   const status = client.status || 'lead'
-  const score = hashScore(client.id)
   const created = new Date(client.createdAt)
   const withinWeek = !Number.isNaN(created.getTime()) && Date.now() - created.getTime() < 7 * 86400000
 
-  return {
+  const lead: LeadItem = {
     id: client.id,
     name,
     avatar: client.logoUrl || initialsAvatar(name),
+    tenantId: client.tenantId,
+    tenantName: client.tenantName ?? undefined,
     subtitle: client.industry || (client.type === 'individual' ? 'Individual' : 'Corporate'),
     type: STATUS_LABEL[status] ?? 'Lead',
     timestamp: relativeTime(client.createdAt),
-    score,
-    grade: score >= 80 ? 'Grade A' : score >= 60 ? 'Grade B' : 'Grade C',
+    score: 0,
+    grade: '',
     status: client.rating === 'Hot' ? 'Growing' : client.rating === 'Cold' ? 'At Risk' : 'Steady',
     statusDirection: client.rating === 'Hot' ? 'up' : client.rating === 'Cold' ? 'down' : 'steady',
-    scoreColor:
-      score >= 80
-        ? 'bg-[#BCE893] text-slate-900'
-        : score >= 60
-        ? 'bg-[#FDE68A] text-slate-900'
-        : 'bg-[#FECACA] text-slate-900',
+    scoreColor: '',
     icon: client.picPhone ? 'phone' : 'mail',
     timeGroup: withinWeek ? 'Today' : '3 weeks ago',
     activeStageIndex: STATUS_TO_STAGE[status] ?? 0,
@@ -229,11 +353,20 @@ export function mapClientToLead(client: ApiClient): LeadItem {
     ownerAvatar: '',
     insights: buildInsights(client),
     tags: client.tags && client.tags.length > 0 ? client.tags : ['Lead', 'Sales Insight'],
-    socialMedia: undefined,
+    socialMedia: client.socialMedia ?? undefined,
+    industry: client.industry || undefined,
+    taxId: client.taxId || undefined,
+    billingEmail: client.billingEmail || undefined,
+    assignedTo: client.assignedTo || undefined,
     tasks: [],
     activities: [],
     warranty: undefined,
   }
+
+  // Skor dihitung dari kelengkapan data; bonus interaksi masuk setelah
+  // activities/tasks dimuat (recompute di loadDetails).
+  const { score, grade } = scoreBreakdown(lead)
+  return { ...lead, score, grade, scoreColor: scoreColor(score) }
 }
 
 // ============ FORM/LEADITEM -> PAYLOAD API ============
@@ -253,7 +386,12 @@ interface LeadPatch {
   leadSource?: string
   rating?: string
   budget?: string
+  industry?: string
+  taxId?: string
+  billingEmail?: string
+  assignedTo?: string
   tags?: string[]
+  socialMedia?: SocialHandles
 }
 
 /** Ubah partial LeadItem (dari modal / card edit) jadi payload PATCH /api/clients. */
@@ -278,6 +416,10 @@ export function buildClientPatch(patch: LeadPatch): Record<string, unknown> {
   put('topic', patch.topic)
   put('rating', patch.rating)
   put('budget', patch.budget)
+  put('industry', patch.industry)
+  put('taxId', patch.taxId)
+  if (patch.billingEmail && isValidEmail(patch.billingEmail)) payload.billingEmail = patch.billingEmail
+  if (patch.assignedTo) payload.assignedTo = patch.assignedTo
   put('identityType', patch.identityType)
   put('identityNumber', patch.identityNumber)
   put('address', patch.address)
@@ -287,6 +429,12 @@ export function buildClientPatch(patch: LeadPatch): Record<string, unknown> {
     if (url) payload.website = url
   }
   if (patch.tags) payload.tags = patch.tags.filter(Boolean)
+  if (patch.socialMedia !== undefined) {
+    const socials = Object.fromEntries(
+      Object.entries(patch.socialMedia).filter(([, v]) => typeof v === 'string' && v.trim())
+    )
+    payload.socialMedia = socials
+  }
 
   return payload
 }
@@ -308,7 +456,12 @@ export function mergeLeadPatch(lead: LeadItem, patch: LeadPatch): Record<string,
     leadSource: patch.leadSource !== undefined ? patch.leadSource : lead.leadSource,
     rating: patch.rating !== undefined ? patch.rating : lead.rating,
     budget: patch.budget !== undefined ? patch.budget : lead.budget,
+    industry: patch.industry !== undefined ? patch.industry : lead.industry,
+    taxId: patch.taxId !== undefined ? patch.taxId : lead.taxId,
+    billingEmail: patch.billingEmail !== undefined ? patch.billingEmail : lead.billingEmail,
+    assignedTo: patch.assignedTo !== undefined ? patch.assignedTo : lead.assignedTo,
     tags: patch.tags !== undefined ? patch.tags : lead.tags,
+    socialMedia: patch.socialMedia !== undefined ? patch.socialMedia : lead.socialMedia,
   })
 }
 
@@ -338,6 +491,14 @@ export function mapTask(task: ApiClientTask, index: number): TaskItem {
     type: (['call', 'email', 'meeting', 'task'] as const).includes(task.type as never)
       ? (task.type as TaskItem['type'])
       : 'task',
+  }
+}
+
+export function mapInsight(insight: ApiClientInsight): LeadScoreInsight {
+  return {
+    id: insight.id,
+    text: insight.text,
+    subtext: insight.subtext || undefined,
   }
 }
 
