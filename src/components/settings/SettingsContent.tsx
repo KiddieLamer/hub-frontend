@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, User, Globe, Settings, Palette, Lock, Key, Users, ShieldCheck, Briefcase, Building, Camera, Clock, Shield, Phone, AlertTriangle } from 'lucide-react'
 import { usersApi, membersApi } from '../../lib/endpoints'
-import { apiFetch, getTenantId } from '../../lib/api'
+import { apiFetch, apiJson, getTenantId } from '../../lib/api'
 import { fetchAccess, canAccessPerm, FALLBACK_ACCESS, type AccessCtx } from '../../lib/access'
 import './IDCard.css'
 import { IDCard } from './IDCard'
@@ -1477,9 +1477,20 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   }
                   setResetPasswordLoading(true)
                   setResetPasswordError('')
+                  setResetPasswordSuccess(false)
                   try {
-                    await apiFetch(`/api/users/${resetPasswordModalMember.userId}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: resetPasswordNewPass }) })
+                    const res = await apiFetch(`/api/users/${resetPasswordModalMember.userId}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: resetPasswordNewPass }) })
+                    const data = await apiJson(res).catch(() => null) as any
+                    if (!res.ok) {
+                      setResetPasswordError(data?.error || `Failed to reset password (${res.status})`)
+                      return
+                    }
+                    if (data?.error) {
+                      setResetPasswordError(data.error)
+                      return
+                    }
                     setResetPasswordSuccess(true)
+                    setResetPasswordNewPass('')
                     setTimeout(() => {
                       setResetPasswordModalMember(null)
                     }, 1000)

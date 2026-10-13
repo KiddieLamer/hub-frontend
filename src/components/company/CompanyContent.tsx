@@ -346,11 +346,6 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             ))}
           </div>
 
-          {/* logo */}
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center font-bold text-xl shadow-lg cursor-pointer">
-            ⚡
-          </div>
-
           {/* Aksi tunggal: assign user yang SUDAH punya akun (beda dari
               tombol "Add member" di banner yang membuat user baru). */}
           <button
