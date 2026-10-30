@@ -39,7 +39,7 @@ export default function MembersStaffCard({ members = [], isLoading = false, onAd
   const isDemo = !members || members.length === 0
 
   return (
-    <div className="col-span-3 bg-white rounded-3xl p-5 shadow-xs flex flex-col justify-between w-full h-full min-h-[190px]" style={{ fontFamily: SF }}>
+    <div className="col-span-12 @3xl:col-span-6 @6xl:col-span-3 bg-white rounded-3xl p-5 shadow-xs flex flex-col justify-between w-full h-full min-h-[190px]" style={{ fontFamily: SF }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
@@ -61,20 +61,20 @@ export default function MembersStaffCard({ members = [], isLoading = false, onAd
       {isLoading ? (
         <div className="flex items-center justify-between gap-1 my-2 animate-pulse">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="flex flex-col items-center gap-2 w-[80px]">
+            <div key={i} className="flex flex-col items-center gap-2 w-[72px]">
               <div className="w-12 h-12 rounded-full bg-slate-200 ring-2 ring-slate-100" />
               <div className="h-2.5 bg-slate-200 rounded w-10" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-1 my-2 overflow-x-auto pb-1">
+        <div className="flex items-center justify-between gap-1 my-auto overflow-x-auto pb-1">
           {displayMembers.slice(0, 3).map((m) => {
             const parts = (m.name || '').trim().split(/\s+/)
             const firstName = parts[0] || ''
             const lastName = parts.length > 1 ? parts[parts.length - 1] : ''
             return (
-              <div key={m.id} className="flex flex-col items-center text-center shrink-0 w-[80px]">
+              <div key={m.id} className="flex flex-col items-center text-center shrink-0 w-[72px]">
                 <Avatar name={m.name} avatarUrl={m.avatarUrl} />
                 <span className="text-[11px] font-bold text-slate-800 mt-2 leading-tight truncate max-w-[75px]">
                   {firstName}

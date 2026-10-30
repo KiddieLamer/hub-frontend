@@ -31,9 +31,9 @@ export default function StatisticsSection({
   const inProgress = stats?.inProgressProjects ?? 0
 
   return (
-    <div className="col-span-8 grid grid-cols-12 gap-4" style={{ fontFamily: SF }}>
+    <div className="col-span-12 @6xl:col-span-8 @container grid grid-cols-12 gap-4" style={{ fontFamily: SF }}>
       {/* 1. KIRI: Statistics */}
-      <div className="col-span-7 bg-white rounded-3xl p-6 shadow-xs flex flex-col justify-between">
+      <div className="col-span-12 @2xl:col-span-7 bg-white rounded-3xl p-6 shadow-xs flex flex-col justify-between">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-900 text-xl tracking-tight">Statistics</h3>
           <div className="bg-slate-100/80 p-1 rounded-full flex gap-1 text-xs font-semibold">
@@ -80,7 +80,7 @@ export default function StatisticsSection({
       </div>
 
       {/* 2. KANAN: capsule + promo */}
-      <div className="col-span-5 flex flex-col justify-between gap-4">
+      <div className="col-span-12 @2xl:col-span-5 flex flex-col justify-between gap-4">
         {brainstormActive ? (
           <div className="bg-[#1c1d22] text-white rounded-3xl p-4 shadow-md flex items-center justify-center h-[100px] relative overflow-hidden">
             <div className="bg-white text-slate-900 rounded-full px-4 py-2.5 shadow-lg flex items-center justify-between w-full max-w-[280px]">
@@ -109,7 +109,7 @@ export default function StatisticsSection({
 
         {/* Promo */}
         <div className="bg-white rounded-3xl p-5 shadow-xs flex items-center justify-between gap-3 h-[200px] overflow-hidden relative">
-          <div className="w-[110px] h-[170px] rounded-2xl bg-gradient-to-b from-purple-200 via-pink-100 to-indigo-200 overflow-hidden shrink-0 flex items-center justify-center relative shadow-inner">
+          <div className="w-[110px] self-stretch rounded-2xl bg-gradient-to-b from-purple-200 via-pink-100 to-indigo-200 overflow-hidden shrink-0 flex items-center justify-center relative shadow-inner">
             <div className="w-full h-full opacity-80 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-400 via-pink-300 to-indigo-300 transform rotate-45 scale-125" />
           </div>
 

@@ -1,4 +1,4 @@
-import { Plus, Eye, MessageSquare, Calendar, Camera, Video, Briefcase, Globe, Share2 } from 'lucide-react'
+import { Plus, Eye, MessageSquare, Calendar, Camera, Video, Briefcase, Globe, Share2, Play } from 'lucide-react'
 
 export interface SocialContentItem {
   id: string;
@@ -12,48 +12,46 @@ export interface SocialContentItem {
   thumbnailUrl: string;
 }
 
-// Fallback demo: dipakai hanya saat items kosong supaya kartu tetap terisi.
-// Ditandai badge "Contoh" supaya tidak tertukar dengan data nyata.
-const PLACEHOLDER_DATA: SocialContentItem[] = [
-  {
-    id: 'demo-1',
-    title: 'Edukasi Pest Control untuk Perusahaan & Restoran',
-    platform: 'youtube',
-    contentType: 'Video',
-    badgeText: '4 min',
-    date: '2 Mar',
-    views: 3,
-    comments: 15,
-    thumbnailUrl: '',
-  },
-  {
-    id: 'demo-2',
-    title: 'Tips Menjaga Kebersihan Area Produksi',
-    platform: 'instagram',
-    contentType: 'Reel',
-    badgeText: '8 min',
-    date: '30 Mar',
-    views: 5,
-    comments: 12,
-    thumbnailUrl: '',
-  },
-  {
-    id: 'demo-3',
-    title: 'Layanan Kontrol Hama Terintegrasi untuk Kantor',
-    platform: 'linkedin',
-    contentType: 'Carousel',
-    badgeText: '10 slides',
-    date: '12 Apr',
-    views: 42,
-    comments: 8,
-    thumbnailUrl: '',
-  },
-];
-
 interface Props {
   items?: SocialContentItem[];
   isLoading?: boolean;
   onAddClick?: () => void;
+}
+
+// Empty state saat client belum punya konten sosial media sama sekali.
+// Tinggi panel mengikuti kartu konten terisi supaya layout tidak lompat
+// saat data pertama masuk.
+function EmptyState({ onAddClick }: { onAddClick?: () => void }) {
+  return (
+    <div className="w-full min-h-[196px] rounded-2xl border border-dashed border-[#d8cbf9] bg-gradient-to-br from-[#f7f4fd] via-[#fbf9fd] to-[#fef4f9] flex flex-col items-center justify-center text-center px-4 py-5 gap-2.5">
+      {/* Ilustrasi: tumpukan thumbnail menunggu konten */}
+      <div className="relative w-[175px] h-[74px]">
+        <div className="absolute inset-x-4 top-2 h-[62px] rounded-xl bg-white/70 border border-[#e6dff9] rotate-[5deg]" />
+        <div className="absolute inset-x-2 top-1 h-[66px] rounded-xl bg-white/85 border border-[#d8cbf9]/70 -rotate-[4deg] shadow-sm" />
+        <div className="absolute inset-x-0 top-0 h-[70px] rounded-xl bg-gradient-to-br from-[#dedaf7] via-[#f1e6f9] to-[#fce4ee] border border-white shadow-2xs flex items-center justify-center">
+          <span className="w-7 h-7 rounded-full bg-white/85 flex items-center justify-center text-[#9370db] shadow-2xs">
+            <Play size={13} fill="currentColor" className="ml-0.5" />
+          </span>
+        </div>
+        <div className="absolute -bottom-2 -right-1.5 w-6 h-6 rounded-full bg-white border border-slate-100 shadow-md flex items-center justify-center">
+          <Share2 size={11} className="text-[#9370db]" />
+        </div>
+      </div>
+      <div>
+        <p className="text-[13px] font-bold text-slate-800">Belum ada konten sosial media</p>
+        <p className="text-[11px] text-slate-400 font-medium mt-0.5 leading-relaxed max-w-[280px]">
+          Reels, video, dan carousel terbaru dari client akan tampil di sini.
+        </p>
+      </div>
+      <button
+        onClick={onAddClick}
+        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#7c5cd6] bg-white border border-[#d8cbf9] rounded-full px-3.5 py-1.5 shadow-2xs hover:bg-[#f6f3fd] hover:border-[#c3b3f4] transition-all cursor-pointer"
+      >
+        <Plus size={12} />
+        Tambah dari CRM
+      </button>
+    </div>
+  )
 }
 
 export default function LastSocialContentCard({
@@ -61,8 +59,7 @@ export default function LastSocialContentCard({
   isLoading = false,
   onAddClick,
 }: Props) {
-  const isDemo = items.length === 0
-  const list = isDemo ? PLACEHOLDER_DATA : items
+  const isEmpty = !isLoading && items.length === 0
 
   const getPlatformIcon = (platform: SocialContentItem['platform']) => {
     const cls = 'w-2.5 h-2.5'
@@ -82,16 +79,11 @@ export default function LastSocialContentCard({
 
   return (
     // Tanpa warna background: kartu transparan mengikuti warna halaman.
-    <div className="col-span-4 rounded-3xl p-5 flex flex-col justify-between w-full overflow-hidden">
+    <div className="col-span-12 @3xl:col-span-6 @6xl:col-span-4 rounded-3xl p-5 flex flex-col justify-between w-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <h3 className="font-bold text-slate-900 text-base tracking-tight">Last content on social media</h3>
-          {isDemo && !isLoading && (
-            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
-              Contoh
-            </span>
-          )}
         </div>
         <button
           onClick={onAddClick}
@@ -103,7 +95,7 @@ export default function LastSocialContentCard({
       </div>
 
       {/* Grid scroll horizontal */}
-      <div className="flex gap-3 overflow-x-auto pb-1 snap-x">
+      <div className="flex gap-3 overflow-x-auto pb-1 snap-x scrollbar-none">
         {isLoading ? (
           // Skeleton loading
           Array.from({ length: 2 }).map((_, idx) => (
@@ -120,8 +112,10 @@ export default function LastSocialContentCard({
               </div>
             </div>
           ))
+        ) : isEmpty ? (
+          <EmptyState onAddClick={onAddClick} />
         ) : (
-          list.map((item) => (
+          items.map((item) => (
             <div
               key={item.id}
               className="min-w-[175px] max-w-[175px] bg-white rounded-2xl p-3 flex flex-col justify-between shadow-2xs border border-slate-100/80 shrink-0 snap-start hover:shadow-md transition-shadow group cursor-pointer"

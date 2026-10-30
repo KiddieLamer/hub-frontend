@@ -50,7 +50,7 @@ export default function TopBannerCard({
 
   return (
     <div
-      className="col-span-8 bg-gradient-to-r from-[#dedaf7] via-[#f1e6f9] to-[#fce4ee] rounded-3xl p-7 relative overflow-hidden shadow-xs"
+      className="col-span-12 @6xl:col-span-8 bg-gradient-to-r from-[#dedaf7] via-[#f1e6f9] to-[#fce4ee] rounded-3xl p-7 relative overflow-hidden shadow-xs @container"
       style={{ fontFamily: SF }}
     >
       {/* Kiri: teks + tombol */}
@@ -79,8 +79,9 @@ export default function TopBannerCard({
         </div>
       </div>
 
-      {/* Kanan: ilustrasi abstrak */}
-      <div className="absolute right-[-20px] top-0 bottom-0 w-2/5 pointer-events-none flex items-center justify-end overflow-hidden">
+      {/* Kanan: ilustrasi abstrak (disembunyikan saat banner sempit supaya tidak
+          menimpa teks; muncul lagi begitu ada ruang) */}
+      <div className="absolute right-[-20px] top-0 bottom-0 w-2/5 pointer-events-none hidden @2xl:flex items-center justify-end overflow-hidden">
         <div className="w-72 h-72 bg-gradient-to-br from-pink-300 via-purple-300 to-indigo-400 rounded-full blur-2xl opacity-70 absolute translate-x-10" />
         <div className="relative w-64 h-64 flex items-center justify-center">
           {!artFailed && (

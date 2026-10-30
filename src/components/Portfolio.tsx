@@ -146,6 +146,16 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
     return () => { on = false; window.removeEventListener('hub-tenant-changed', load) }
   }, [])
 
+  // Navigasi lintas window (mis. tombol "Tambah dari CRM" di Company).
+  useEffect(() => {
+    const openCrm = () => {
+      setOpenClients(true)
+      bringToFront('clients')
+    }
+    window.addEventListener('hub-nav-crm', openCrm)
+    return () => window.removeEventListener('hub-nav-crm', openCrm)
+  }, [])
+
   useEffect(() => {
     const token = localStorage.getItem('hub-access-token')
     if (!token) return

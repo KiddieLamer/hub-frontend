@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   User, Plus,
   ChevronLeft, ChevronRight, Bell, ArrowUpRight, X, CheckCircle2, Loader2, Search,
@@ -8,8 +8,9 @@ import MembersStaffCard from './MembersStaffCard'
 import StatisticsSection from './StatisticsSection'
 import TopBannerCard from './TopBannerCard'
 import AddStaffModal from './AddStaffModal'
-import CompanyOverviewCard from './CompanyOverviewCard'
+import CompanyOverviewCard, { type SocialField } from './CompanyOverviewCard'
 import StructureCard from './StructureCard'
+import ProgressHeatmapCard, { type ProgressEvent } from './ProgressHeatmapCard'
 import { tenantsApi } from '../../lib/endpoints'
 import { apiFetch, setTenantId, setPlatformMode, isPlatformMode } from '../../lib/api'
 
@@ -98,6 +99,12 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [socialContent, setSocialContent] = useState<SocialContentItem[]>([])
   const [projectStats, setProjectStats] = useState<any>(null)
   const [projects, setProjects] = useState<any[]>([])
+  // Sumber event Progress Tracker (heatmap aktivitas lintas modul).
+  const [taskList, setTaskList] = useState<any[]>([])
+  const [purchaseReqList, setPurchaseReqList] = useState<any[]>([])
+  const [purchaseOrderList, setPurchaseOrderList] = useState<any[]>([])
+  const [goodsReceiptList, setGoodsReceiptList] = useState<any[]>([])
+  const [posList, setPosList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -135,6 +142,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         const mod = await import('../../lib/endpoints')
         const [
           compRes, memRes, posRes, roleRes, notifRes, statRes, projRes, meRes, cliRes,
+          taskRes, prRes, poRes, grRes, posOrdRes,
         ] = await Promise.all([
           mod.tenantsApi.getCurrent().catch(() => null),
           mod.membersApi.list().catch(() => null),
@@ -145,6 +153,11 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           mod.projectsApi.list().catch(() => null),
           mod.usersApi.getMe().catch(() => null),
           mod.clientsApi.list().catch(() => null),
+          mod.tasksApi.list().catch(() => null),
+          mod.purchaseRequestsApi.list().catch(() => null),
+          mod.purchaseOrdersApi.list().catch(() => null),
+          mod.goodsReceiptsApi.list().catch(() => null),
+          mod.posApi.list().catch(() => null),
         ])
         if (!alive) return
 
@@ -163,6 +176,12 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         setProjectStats((statRes as any)?.stats ?? null)
         setProjects((projRes as any)?.projects || [])
         setSocialContent(extractSocial((cliRes as any)?.clients || []))
+        setTaskList((taskRes as any)?.tasks || [])
+        setPurchaseReqList((prRes as any)?.purchaseRequests || [])
+        setPurchaseOrderList((poRes as any)?.purchaseOrders || [])
+        setGoodsReceiptList((grRes as any)?.goodsReceipts || [])
+        // Catatan: list POS juga mengembalikan key "purchaseOrders".
+        setPosList((posOrdRes as any)?.purchaseOrders || [])
 
         const u = (meRes as any)?.user || meRes
         if (u?.platformRole === 'hub-admin') {
@@ -207,6 +226,78 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     }
     return items
   }
+
+  /* ---------- progress events (heatmap) ---------- */
+
+  // Status backend (EN) → label tampilan (ID) untuk event "diperbarui".
+  const STATUS_ID: Record<string, string> = {
+    draft: 'draft',
+    submitted: 'diajukan',
+    pending_approval: 'menunggu approval',
+    approved: 'disetujui',
+    rejected: 'ditolak',
+    completed: 'selesai',
+    active: 'aktif',
+    planning: 'perencanaan',
+    on_hold: 'ditunda',
+    cancelled: 'dibatalkan',
+    ordered: 'dipesan',
+    partially_received: 'diterima sebagian',
+    received: 'diterima',
+    paid: 'dibayar',
+  }
+  const st = (s?: string | null) => (s ? STATUS_ID[s] || s : '-')
+
+  const progressEvents = useMemo<ProgressEvent[]>(() => {
+    const evs: ProgressEvent[] = []
+    const push = (module: ProgressEvent['module'], id: string, date: any, label: string) => {
+      if (!date || Number.isNaN(new Date(date).getTime())) return
+      evs.push({ id, module, date: new Date(date).toISOString(), label })
+    }
+    // createdAt = event "dibuat"; updatedAt (jika berubah) = event progres/diperbarui.
+    const pushPair = (
+      module: ProgressEvent['module'],
+      key: string,
+      x: any,
+      createdLabel: (v: any) => string,
+      updatedLabel: (v: any) => string,
+    ) => {
+      push(module, `${key}-c`, x?.createdAt, createdLabel(x))
+      const c = x?.createdAt ? new Date(x.createdAt).getTime() : 0
+      const u = x?.updatedAt ? new Date(x.updatedAt).getTime() : 0
+      if (u && u - c > 60_000) push(module, `${key}-u`, x.updatedAt, updatedLabel(x))
+    }
+
+    projects.forEach((p: any, i: number) =>
+      pushPair('projects', `proj-${p?.id ?? i}`, p,
+        (v) => `Project "${v?.name || '-'}" dibuat`,
+        (v) => `Project "${v?.name || '-'}" → ${st(v?.status)}`),
+    )
+    taskList.forEach((t: any, i: number) =>
+      pushPair('tasks', `task-${t?.id ?? i}`, t,
+        (v) => `Task "${(v?.title || '-').slice(0, 40)}" ditambahkan`,
+        (v) => `Task "${(v?.title || '-').slice(0, 40)}" diperbarui`),
+    )
+    purchaseReqList.forEach((r: any, i: number) =>
+      pushPair('pr', `pr-${r?.id ?? i}`, r,
+        (v) => `PR ${v?.prNumber || '-'} dibuat`,
+        (v) => `PR ${v?.prNumber || '-'} → ${st(v?.status)}`),
+    )
+    purchaseOrderList.forEach((o: any, i: number) =>
+      pushPair('po', `po-${o?.id ?? i}`, o,
+        (v) => `PO ${v?.poNumber || '-'} dibuat`,
+        (v) => `PO ${v?.poNumber || '-'} → ${st(v?.status)}`),
+    )
+    goodsReceiptList.forEach((g: any, i: number) =>
+      push('gr', `gr-${g?.id ?? i}`, g?.createdAt, `GR ${g?.grNumber || '-'} — barang diterima`),
+    )
+    posList.forEach((o: any, i: number) =>
+      pushPair('pos', `pos-${o?.id ?? i}`, o,
+        (v) => `POS ${v?.poNumber || '-'} dibuat`,
+        (v) => `POS ${v?.poNumber || '-'} → ${st(v?.status)}`),
+    )
+    return evs
+  }, [projects, taskList, purchaseReqList, purchaseOrderList, goodsReceiptList, posList])
 
   /* ---------- actions ---------- */
 
@@ -367,7 +458,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           </div>
         )}
 
-        <div className="max-w-[1400px] mx-auto grid grid-cols-12 gap-4 pb-6">
+        <div className="max-w-[1400px] mx-auto grid grid-cols-12 gap-4 pb-6 @container">
 
           {/* ===== BARIS 1: BANNER + KALENDER ===== */}
           <TopBannerCard
@@ -424,7 +515,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           />
 
           {/* Kalender */}
-          <div className="col-span-4 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+          <div className="col-span-12 @3xl:col-span-6 @6xl:col-span-4 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-slate-900 text-base">{MONTHS[today.getMonth()]}, {today.getFullYear()}</h3>
               <div className="flex items-center gap-1">
@@ -464,7 +555,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           />
 
           {/* Data */}
-          <div className="col-span-3 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+          <div className="col-span-6 @3xl:col-span-3 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Data</span>
               <button className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200">
@@ -489,7 +580,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           </div>
 
           {/* Impact */}
-          <div className="col-span-2 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
+          <div className="col-span-6 @3xl:col-span-3 @6xl:col-span-2 bg-white rounded-3xl p-5 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Impact</span>
               <span className="bg-[#1c1d22] text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow-2xs">+{impactPct}%</span>
@@ -516,6 +607,9 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             onAddClick={() => window.dispatchEvent(new Event('hub-nav-crm'))}
           />
 
+          {/* ===== BARIS 2.5: HEATMAP PROGRESS LINTAS MODUL ===== */}
+          <ProgressHeatmapCard events={progressEvents} isLoading={loading} />
+
           {/* ===== BARIS 3: STATISTICS (8) + NOTIF (4) ===== */}
           <StatisticsSection
             stats={{
@@ -530,7 +624,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           />
 
           {/* Notifications */}
-          <div className="col-span-4 rounded-3xl p-5 flex flex-col justify-between w-full">
+          <div className="col-span-12 @6xl:col-span-4 rounded-3xl p-5 flex flex-col justify-between w-full">
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-slate-900">Notifications</h3>
@@ -599,7 +693,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             company={tenant}
             logoUrl={logoUrl}
             onEditLogo={() => openEdit('logoUrl', logoUrl)}
-            onEditField={(field: 'name' | 'email' | 'phoneNumber' | 'address' | 'approvalThreshold') => openEdit(field, (tenant as any)?.[field])}
+            onEditField={(field: 'name' | 'email' | 'phoneNumber' | 'address' | 'approvalThreshold' | SocialField) => openEdit(field, (tenant as any)?.[field])}
             onEditGmap={() => openEdit('gmapLink', tenant?.gmapLink)}
             onEditGdrive={() => openEdit('gdriveLink', tenant?.gdriveLink)}
           />
@@ -632,6 +726,12 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             editField === 'logoUrl' ? 'Edit Logo' :
             editField === 'gmapLink' ? 'Edit Google Maps Link' :
             editField === 'gdriveLink' ? 'Edit Google Drive Link' :
+            editField === 'tiktokUrl' ? 'Edit Akun TikTok' :
+            editField === 'instagramUrl' ? 'Edit Akun Instagram' :
+            editField === 'facebookUrl' ? 'Edit Akun Facebook' :
+            editField === 'youtubeUrl' ? 'Edit Akun YouTube' :
+            editField === 'xUrl' ? 'Edit Akun X' :
+            editField === 'threadsUrl' ? 'Edit Akun Threads' :
             editField === 'taxId' ? 'Edit NPWP' :
             editField === 'phoneNumber' ? 'Edit Telepon' :
             'Edit ' + editField.charAt(0).toUpperCase() + editField.slice(1)
@@ -653,6 +753,12 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 editField === 'logoUrl' ? 'https://example.com/logo.png' :
                 editField === 'gmapLink' ? 'https://maps.google.com/...' :
                 editField === 'gdriveLink' ? 'https://drive.google.com/...' :
+                editField === 'tiktokUrl' ? 'https://tiktok.com/@perusahaan' :
+                editField === 'instagramUrl' ? 'https://instagram.com/perusahaan' :
+                editField === 'facebookUrl' ? 'https://facebook.com/perusahaan' :
+                editField === 'youtubeUrl' ? 'https://youtube.com/@perusahaan' :
+                editField === 'xUrl' ? 'https://x.com/perusahaan' :
+                editField === 'threadsUrl' ? 'https://threads.net/@perusahaan' :
                 editField === 'email' ? 'email@perusahaan.com' :
                 editField === 'phoneNumber' ? '+62 812 3456 7890' :
                 editField === 'website' ? 'https://perusahaan.com' :

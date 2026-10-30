@@ -13,7 +13,7 @@ interface Props {
 
 export default function StructureCard({ positions = [], roles = [], isLoading = false, onAdd, onDelete, onRoleChange }: Props) {
   return (
-    <div className="col-span-4 bg-white rounded-3xl p-6 shadow-xs flex flex-col justify-between min-h-[220px]" style={{ fontFamily: SF }}>
+    <div className="col-span-12 @6xl:col-span-4 bg-white rounded-3xl p-6 shadow-xs flex flex-col justify-between min-h-[220px]" style={{ fontFamily: SF }}>
       <div>
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
