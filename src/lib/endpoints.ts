@@ -100,6 +100,9 @@ export const tenantsApi = {
   create: (data: Record<string, unknown>) => apiFetch('/api/tenants', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   getCurrent: () => apiFetch('/api/tenants/current').then(r => apiJson(r)),
   updateCurrent: (data: Record<string, unknown>) => apiFetch('/api/tenants/current', { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  // Hapus company (hub-admin): backend ikut menghapus membership user
+  // tenant tersebut + mencatat audit. Tidak bisa di-undo.
+  remove: (id: string) => apiFetch(`/api/tenants/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
 }
 
 // ============ CRM - CLIENTS ============

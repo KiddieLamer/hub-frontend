@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  User, Plus,
+  User, Plus, Trash2,
   ChevronLeft, ChevronRight, Bell, ArrowUpRight, X, CheckCircle2, Loader2, Search,
 } from 'lucide-react'
 import LastSocialContentCard, { type SocialContentItem } from './LastSocialContentCard'
@@ -334,6 +334,19 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     setStaffMembers([])
   }
 
+  // Hapus company (hub-admin). Backend menghapus membership semua user
+  // tenant tersebut. Kalau yang dihapus adalah company aktif, kembali
+  // ke platform view supaya UI tidak menggantung di tenant mati.
+  const deleteTenant = async (t: any) => {
+    if (!confirm(`Hapus company "${t.name}"? Semua keanggotaan user di company ini ikut terhapus. Tindakan ini tidak bisa di-undo.`)) return
+    const { tenantsApi } = await import('../../lib/endpoints')
+    const res: any = await tenantsApi.remove(t.id)
+    if (res?.error) { alert(res.error); return }
+    const d = await tenantsApi.listAll().catch(() => null)
+    setAllTenants((d as any)?.tenants || [])
+    if (t.id === tenant?.id) enablePlatformView()
+  }
+
   const openAssign = () => {
     setShowAssignModal(true)
     setAssignSearch(''); setAssignResults([]); setAssignRole('member'); setAssignJobTitle(''); setAssignPositionId('')
@@ -480,27 +493,38 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                   </button>
                   <div className="h-px bg-slate-100 my-1" />
                   {allTenants.map((t: any) => (
-                    <button
+                    <div
                       key={t.id}
-                      onClick={() => { switchTo(t); setPickerOpen(false) }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-[12px] transition-colors flex items-center gap-2 ${
+                      className={`group w-full text-left px-3 py-2 rounded-xl text-[12px] transition-colors flex items-center gap-2 ${
                         t.id === tenant?.id ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      {/* Logo company, fallback inisial */}
-                      <span className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0 overflow-hidden border border-slate-200 relative">
-                        {t.logoUrl ? (
-                          <img
-                            src={t.logoUrl}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                          />
-                        ) : null}
-                        <span className={t.logoUrl ? 'absolute' : ''}>{(t.name || '?').charAt(0).toUpperCase()}</span>
-                      </span>
-                      <span className="truncate">{t.name}</span>
-                    </button>
+                      <button
+                        onClick={() => { switchTo(t); setPickerOpen(false) }}
+                        className="flex-1 flex items-center gap-2 min-w-0 text-left"
+                      >
+                        {/* Logo company, fallback inisial */}
+                        <span className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0 overflow-hidden border border-slate-200 relative">
+                          {t.logoUrl ? (
+                            <img
+                              src={t.logoUrl}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                            />
+                          ) : null}
+                          <span className={t.logoUrl ? 'absolute' : ''}>{(t.name || '?').charAt(0).toUpperCase()}</span>
+                        </span>
+                        <span className="truncate">{t.name}</span>
+                      </button>
+                      <button
+                        title="Hapus company"
+                        onClick={(e) => { e.stopPropagation(); deleteTenant(t) }}
+                        className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-red-50 text-red-500 transition-opacity"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   ))}
                   <div className="h-px bg-slate-100 my-1" />
                   <button
