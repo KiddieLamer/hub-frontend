@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Search, X, Clock, Calendar, Hourglass, CreditCard, Shield, User } from 'lucide-react'
 import { usersApi, attendancesApi, overtimeApi, leavesApi, payrollApi, shiftsApi } from '../../lib/endpoints'
+import { getTenantId } from '../../lib/api'
 
 function GroupedRow({
   icon,
@@ -324,7 +325,9 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
     setFormError(null)
     if (!employeeValues.fullName?.trim()) { setFormError('Nama lengkap wajib diisi'); return }
     if (!employeeValues.email?.trim()) { setFormError('Email wajib diisi'); return }
-    try { await usersApi.create(employeeValues); setShowEmployeeForm(false); setEmployeeValues({}); loadProfile() } catch {}
+    // HRIS adalah window company-scoped: employee baru sengaja masuk ke
+    // company aktif — kirim tenantId eksplisit.
+    try { await usersApi.create({ ...employeeValues, tenantId: getTenantId() || undefined }); setShowEmployeeForm(false); setEmployeeValues({}); loadProfile() } catch {}
   }
 
   // ============ HELPERS ============

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import * as endpoints from '../../lib/endpoints'
+import { getTenantId } from '../../lib/api'
 
 const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
 
@@ -63,6 +64,9 @@ export default function AddStaffModal({ open, onClose, positions = [], onCreated
         fullName: form.userFullName,
         email: form.userEmail,
         password: form.password,
+        // Modal ini sengaja menambah staff KE company aktif — kirim
+        // tenantId eksplisit (jangan mengandalkan auto-attach implisit).
+        tenantId: getTenantId() || undefined,
         phoneNumber: form.userPhoneNumber || undefined,
         employeeId: form.userEmployeeId || undefined,
         department: form.userDepartment || undefined,

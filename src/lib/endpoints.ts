@@ -64,15 +64,22 @@ export const usersApi = {
     return apiFetch(`/api/users${qs ? `?${qs}` : ''}`).then(r => apiJson(r))
   },
   get: (id: string) => apiFetch(`/api/users/${id}`).then(r => apiJson(r)),
-  create: (data: Record<string, unknown>) => {
-    // Auto-attach tenant HANYA untuk tenant admin: backend mewajibkan
-    // tenantId untuk creator non-hub-admin, jadi tanpa ini user buatan
-    // tenant admin jadi orphan.
-    // Hub-admin SENGJAHA tidak di-auto-attach: user baru dibuat tanpa
-    // company sampai dimasukkan ke tenant secara eksplisit via members.
+  create: async (data: Record<string, unknown>) => {
+    // Auto-attach tenant HANYA untuk creator non-hub-admin: backend
+    // mewajibkan tenantId untuk tenant admin, jadi tanpa ini user buatan
+    // mereka jadi orphan. Hub-admin TIDAK PERNAH di-auto-attach di sini
+    // (keputusan berdasar role, bukan platform-mode flag — hub-admin bisa
+    // saja sedang membuka company tertentu). Flow yang memang sengaja
+    // menambahkan user ke company (AddStaffModal) mengirim tenantId
+    // eksplisit.
+    let isHubAdmin = isPlatformMode()
+    if (!isHubAdmin) {
+      const me: any = await apiFetch('/api/users/me').then(r => apiJson(r)).catch(() => null)
+      isHubAdmin = me?.user?.platformRole === 'hub-admin'
+    }
     const tid = getTenantId()
     const payload =
-      tid && !isPlatformMode() && data.tenantId === undefined ? { ...data, tenantId: tid } : data
+      tid && !isHubAdmin && data.tenantId === undefined ? { ...data, tenantId: tid } : data
     return apiFetch('/api/users', { method: 'POST', body: JSON.stringify(payload) }).then(r => apiJson(r))
   },
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
