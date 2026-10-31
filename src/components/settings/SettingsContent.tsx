@@ -1410,9 +1410,14 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                     dateOfBirth: editMemberForm.dateOfBirth || undefined,
                     address: editMemberForm.address || undefined,
                   }
-                  await usersApi.update(editMemberModal.userId, payload)
+                  // apiJson tidak melempar error pada 4xx/5xx — cek manual
+                  // sebelum optimistic update, kalau tidak UI bisa "berbohong"
+                  // menampilkan perubahan yang sebenarnya ditolak server (403).
+                  const updRes: any = await usersApi.update(editMemberModal.userId, payload)
+                  if (updRes?.error) { alert(updRes.error); return }
                   if (editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin') {
-                    await membersApi.updateRole(editMemberModal.id, editMemberRole)
+                    const roleRes: any = await membersApi.updateRole(editMemberModal.id, editMemberRole)
+                    if (roleRes?.error) { alert(roleRes.error); return }
                   }
                   const memberPatch = {
                     userFullName: editMemberForm.fullName,

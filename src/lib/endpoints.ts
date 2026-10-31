@@ -65,10 +65,14 @@ export const usersApi = {
   },
   get: (id: string) => apiFetch(`/api/users/${id}`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => {
-    // Tenant admins must create users inside a tenant they manage.
-    // Auto-attach the active tenant so the new user lands in this company.
+    // Auto-attach tenant HANYA untuk tenant admin: backend mewajibkan
+    // tenantId untuk creator non-hub-admin, jadi tanpa ini user buatan
+    // tenant admin jadi orphan.
+    // Hub-admin SENGJAHA tidak di-auto-attach: user baru dibuat tanpa
+    // company sampai dimasukkan ke tenant secara eksplisit via members.
     const tid = getTenantId()
-    const payload = tid && data.tenantId === undefined ? { ...data, tenantId: tid } : data
+    const payload =
+      tid && !isPlatformMode() && data.tenantId === undefined ? { ...data, tenantId: tid } : data
     return apiFetch('/api/users', { method: 'POST', body: JSON.stringify(payload) }).then(r => apiJson(r))
   },
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
