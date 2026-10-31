@@ -221,7 +221,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
       const match = list.find(t => t.id === active)
         || list.find(t => t.id === data?.user?.currentTenantId)
         || list[0]
-      setCardTenant({ name: match.name, logoUrl: match.logoUrl })
+      setCardTenant({ name: match.name, logoUrl: match.logoUrl, membershipId: match.membershipId })
     }).catch(() => {})
     return () => { cancelled = true }
   }, [selectedMember?.userId])
@@ -515,7 +515,15 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                 </button>
                 {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
-                  <button onClick={async () => { if (confirm(`Delete ${selectedMember.userFullName}?`)) { await membersApi.remove(selectedMember.id); setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id)); setMembersTotal(t => Math.max(0, t - 1)); setSelectedMember(null) } }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                  <button onClick={async () => { if (confirm(`Delete ${selectedMember.userFullName}? Akun akan dinonaktifkan dan email-nya bisa dipakai ulang.`)) {
+                  // Hub-admin list = daftar AKUN (dari /api/users) → hapus akun.
+                  // Tenant list = daftar MEMBERSHIP (dari /api/members) → keluarkan dari tenant.
+                  const res: any = selectedMember.isPlatformUser
+                    ? await usersApi.remove(selectedMember.userId)
+                    : await membersApi.remove(selectedMember.id)
+                  if (res?.error) { alert(res.error); return }
+                  setMembers(prev => prev.filter((x: any) => x.id !== selectedMember.id)); setMembersTotal(t => Math.max(0, t - 1)); setSelectedMember(null)
+                } }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                   </button>
                 )}
@@ -1525,7 +1533,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
             <div>
               <div style={{ fontSize: 16, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 4 }}>Remove from Tenant?</div>
               <div style={{ fontSize: 13, color: '#8e8e93', fontFamily: SF, lineHeight: 1.4 }}>
-                Are you sure you want to remove <strong style={{ color: '#1d1d1f' }}>{removeTenantModalMember.userFullName}</strong>? They will lose access to this workspace.
+                Are you sure you want to remove <strong style={{ color: '#1d1d1f' }}>{removeTenantModalMember.userFullName}</strong>{removeTenantModalMember.isPlatformUser && cardTenant ? <> from <strong style={{ color: '#1d1d1f' }}>{cardTenant.name}</strong></> : ''}? They will lose access to this workspace.
               </div>
             </div>
 
@@ -1541,9 +1549,19 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 onClick={async () => {
                   setRemoveTenantLoading(true)
                   try {
-                    await membersApi.remove(removeTenantModalMember.id)
-                    setMembers(prev => prev.filter((x: any) => x.id !== removeTenantModalMember.id))
-                    setMembersTotal(t => Math.max(0, t - 1))
+                    // Hub-admin view: id membership diambil dari user detail
+                    // (cardTenants) — selectedMember.id di sini adalah USER id,
+                    // bukan membership id (sumber 404 sebelumnya).
+                    const membershipId = removeTenantModalMember.isPlatformUser
+                      ? cardTenant?.membershipId
+                      : removeTenantModalMember.id
+                    if (!membershipId) { alert('Membership tidak ditemukan'); return }
+                    const res: any = await membersApi.remove(membershipId)
+                    if (res?.error) { alert(res.error); return }
+                    if (!removeTenantModalMember.isPlatformUser) {
+                      setMembers(prev => prev.filter((x: any) => x.id !== removeTenantModalMember.id))
+                      setMembersTotal(t => Math.max(0, t - 1))
+                    }
                     setSelectedMember(null)
                     setRemoveTenantModalMember(null)
                   } catch {

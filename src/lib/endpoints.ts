@@ -83,6 +83,9 @@ export const usersApi = {
     return apiFetch('/api/users', { method: 'POST', body: JSON.stringify(payload) }).then(r => apiJson(r))
   },
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  // Hapus akun user (hub-admin): backend menonaktifkan akun + membebaskan
+  // email. Bukan member removal — itu lewat membersApi.remove.
+  remove: (id: string) => apiFetch(`/api/users/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
   getMe: () => apiFetch('/api/users/me').then(r => apiJson(r)),
   updateMe: (data: Record<string, unknown>) => apiFetch('/api/users/me', { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
