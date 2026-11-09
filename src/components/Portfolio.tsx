@@ -11,6 +11,7 @@ import { BrowserContent } from './BrowserContent'
 import { Bell } from 'lucide-react'
 import { notificationsApi } from '../lib/endpoints'
 import { fetchAccess, canAccessModule, FALLBACK_ACCESS, type AccessCtx } from '../lib/access'
+import { RANPO_AI_ICON, SUPPORT_ICON, FINANCE_ICON, SETTINGS_ICON, CATALOG_ICON, BROWSER_ICON, PROJECTS_ICON, CRM_ICON, POS_ICON, PROCUREMENT_ICON, COMPANY_ICON, ASSETS_ICON, HRIS_ICON, AUDIT_ICON } from '../lib/assets'
 
 import { HRISContent } from './hris/HRISContent'
 import { FinanceDashboardContent } from './finance/FinanceDashboardContent'
@@ -22,93 +23,95 @@ import { ProcurementDashboardContent } from './procurement/ProcurementDashboardC
 import { SettingsContent } from './settings/SettingsContent'
 import { CompanyContent } from './company/CompanyContent'
 const PROJECTS = [
-  { title: 'HRIS', anchorX: 6, anchorY: 10, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/swiftly-business-workspace-2025-04-26.png?rf=1024', isHRIS: true },
-  { title: 'CRM', anchorX: 6, anchorY: 26, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/contacts-2025-11-13.png?rf=1024', isClients: true },
-  { title: 'Projects', anchorX: 6, anchorY: 42, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/reminders-2025-11-14.png?rf=1024', isProjects: true },
-  { title: 'Finance', anchorX: 6, anchorY: 58, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/stocks-2025-11-14.png?rf=1024', isFinance: true },
-  { title: 'Procurement', anchorX: 6, anchorY: 74, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/1doc-word-processor-for-writer-2020-08-17.png?rf=1024', isProcurement: true },
-  { title: 'Ranpo AI', anchorX: 16, anchorY: 26, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/gapplin-2025-04-04.png?rf=1024', isRanpoAI: true },
-  { title: 'POS', anchorX: 16, anchorY: 42, thumbnail: 'https://cdn.jim-nielsen.com/macos/512/money-budget-finance-2022-10-07.png?rf=1024', isPOS: true },
-  { title: 'Settings', anchorX: 16, anchorY: 58, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/system-settings-2025-11-14.png?rf=1024', isSettings: true },
-  { title: 'Support', anchorX: 16, anchorY: 10, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/ip-address-monitor-2025-11-26.png?rf=1024', isSupport: true },
-  { title: 'Assets', anchorX: 16, anchorY: 74, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/scapple-2026-05-18.png?rf=1024', isAssets: true },
-  { title: 'Audit', anchorX: 26, anchorY: 10, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/daily-hours-time-tracker-2023-10-09.png?rf=1024', isAudit: true },
-  { title: 'Catalog', anchorX: 26, anchorY: 26, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/pricetag-app-pricing-manager-2024-05-20.png?rf=1024', isCatalog: true },
-  { title: 'Browser', anchorX: 26, anchorY: 42, thumbnail: 'https://cdn.jim-nielsen.com/macos/1024/safari-2025-11-14.png?rf=1024', isBrowser: true },
-  { title: 'Company', anchorX: 26, anchorY: 58, thumbnail: 'https://cdn.jim-nielsen.com/macos/512/creativit-mood-board-vision-2023-09-29.png?rf=1024', isCompany: true },
+  { title: 'HRIS', anchorX: 6, anchorY: 10, thumbnail: HRIS_ICON, isHRIS: true },
+  { title: 'CRM', anchorX: 6, anchorY: 26, thumbnail: CRM_ICON, isClients: true },
+  { title: 'Projects', anchorX: 6, anchorY: 42, thumbnail: PROJECTS_ICON, isProjects: true },
+  { title: 'Finance', anchorX: 6, anchorY: 58, thumbnail: FINANCE_ICON, isFinance: true },
+  { title: 'Procurement', anchorX: 6, anchorY: 74, thumbnail: PROCUREMENT_ICON, isProcurement: true },
+  { title: 'Ranpo AI', anchorX: 16, anchorY: 26, thumbnail: RANPO_AI_ICON, isRanpoAI: true },
+  { title: 'POS', anchorX: 16, anchorY: 42, thumbnail: POS_ICON, isPOS: true },
+  { title: 'Settings', anchorX: 16, anchorY: 58, thumbnail: SETTINGS_ICON, isSettings: true },
+  { title: 'Support', anchorX: 16, anchorY: 10, thumbnail: SUPPORT_ICON, isSupport: true },
+  { title: 'Assets', anchorX: 16, anchorY: 74, thumbnail: ASSETS_ICON, isAssets: true },
+  { title: 'Audit', anchorX: 26, anchorY: 10, thumbnail: AUDIT_ICON, isAudit: true },
+  { title: 'Catalog', anchorX: 26, anchorY: 26, thumbnail: CATALOG_ICON, isCatalog: true },
+  { title: 'Browser', anchorX: 26, anchorY: 42, thumbnail: BROWSER_ICON, isBrowser: true },
+  { title: 'Company', anchorX: 26, anchorY: 58, thumbnail: COMPANY_ICON, isCompany: true },
 ]
 
-const BG_IMAGE = 'https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260624_151236_784929aa-a992-4292-9938-1dd9b5296a29.png&w=1920&q=85'
+// Wallpaper desktop disimpan sendiri (bukan CDN pihak ketiga) supaya produksi
+// tidak bergantung pada images.higgs.ai. File ada di public/bg/desktop.webp.
+const BG_IMAGE = '/bg/desktop.webp'
 
 const DOCK_ITEMS = [
   {
     label: 'HRIS',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/swiftly-business-workspace-2025-04-26.png?rf=1024',
+    icon: HRIS_ICON,
     isApp: true,
   },
   {
     label: 'CRM',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/contacts-2025-11-13.png?rf=1024',
+    icon: CRM_ICON,
     isApp: true,
   },
   {
     label: 'Projects',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/reminders-2025-11-14.png?rf=1024',
+    icon: PROJECTS_ICON,
     isApp: true,
   },
   {
     label: 'Finance',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/stocks-2025-11-14.png?rf=1024',
+    icon: FINANCE_ICON,
     isApp: true,
   },
   {
     label: 'Procurement',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/1doc-word-processor-for-writer-2020-08-17.png?rf=1024',
+    icon: PROCUREMENT_ICON,
     isApp: true,
   },
   {
     label: 'Ranpo AI',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/gapplin-2025-04-04.png?rf=1024',
+    icon: RANPO_AI_ICON,
     isApp: true,
   },
   {
     label: 'POS',
-    icon: 'https://cdn.jim-nielsen.com/macos/512/money-budget-finance-2022-10-07.png?rf=1024',
+    icon: POS_ICON,
     isApp: true,
   },
   {
     label: 'Support',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/ip-address-monitor-2025-11-26.png?rf=1024',
+    icon: SUPPORT_ICON,
     isApp: true,
   },
   {
     label: 'Assets',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/scapple-2026-05-18.png?rf=1024',
+    icon: ASSETS_ICON,
     isApp: true,
   },
   {
     label: 'Audit',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/daily-hours-time-tracker-2023-10-09.png?rf=1024',
+    icon: AUDIT_ICON,
     isApp: true,
   },
   {
     label: 'Catalog',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/pricetag-app-pricing-manager-2024-05-20.png?rf=1024',
+    icon: CATALOG_ICON,
     isApp: true,
   },
   {
     label: 'Browser',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/safari-2025-11-14.png?rf=1024',
+    icon: BROWSER_ICON,
     isApp: true,
   },
   {
     label: 'Company',
-    icon: 'https://cdn.jim-nielsen.com/macos/512/creativit-mood-board-vision-2023-09-29.png?rf=1024',
+    icon: COMPANY_ICON,
     isApp: true,
   },
   {
     label: 'Settings',
-    icon: 'https://cdn.jim-nielsen.com/macos/1024/system-settings-2025-11-14.png?rf=1024',
+    icon: SETTINGS_ICON,
     isApp: true,
   },
 ]
