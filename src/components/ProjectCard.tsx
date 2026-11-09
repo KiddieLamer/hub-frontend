@@ -47,14 +47,12 @@ export function ProjectCard({ title, anchorX, anchorY, thumbnail, onClick }: Pro
             borderRadius: SQUIRCLE_RADIUS,
             overflow: 'hidden',
             position: 'relative',
-            boxShadow: hovered
-              ? '0 4px 20px rgba(0,0,0,0.25), 0 1px 4px rgba(0,0,0,0.15)'
-              : '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
-            transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+            transition: 'transform 0.18s ease',
             transform: hovered ? 'scale(1.08)' : 'scale(1)',
           }}
         >
-          {/* Icon image */}
+          {/* Icon image — di-scale supaya kotak berwarnanya memenuhi tile
+              (menghilangkan margin transparan), tanpa garis tepi / box-shadow */}
           <img
             src={thumbnail}
             alt={title}
@@ -64,6 +62,8 @@ export function ProjectCard({ title, anchorX, anchorY, thumbnail, onClick }: Pro
               height: '100%',
               objectFit: 'cover',
               display: 'block',
+              transform: 'scale(1.2)',
+              transformOrigin: 'center',
             }}
           />
           {/* Top lighting overlay */}
@@ -73,16 +73,6 @@ export function ProjectCard({ title, anchorX, anchorY, thumbnail, onClick }: Pro
               inset: 0,
               borderRadius: SQUIRCLE_RADIUS,
               background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 40%, rgba(0,0,0,0.05) 100%)',
-              pointerEvents: 'none',
-            }}
-          />
-          {/* Border */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: SQUIRCLE_RADIUS,
-              border: '0.5px solid rgba(0,0,0,0.12)',
               pointerEvents: 'none',
             }}
           />

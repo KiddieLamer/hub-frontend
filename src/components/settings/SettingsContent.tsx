@@ -5,6 +5,7 @@ import { apiFetch, apiJson, getTenantId } from '../../lib/api'
 import { fetchAccess, canAccessPerm, FALLBACK_ACCESS, type AccessCtx } from '../../lib/access'
 import './IDCard.css'
 import { IDCard } from './IDCard'
+import ArchivedUsers from './ArchivedUsers'
 
 const USERS_PAGE_SIZE = 20
 
@@ -515,7 +516,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                 </button>
                 {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
-                  <button onClick={async () => { if (confirm(`Delete ${selectedMember.userFullName}? Akun akan dinonaktifkan dan email-nya bisa dipakai ulang.`)) {
+                  <button title={selectedMember.isPlatformUser ? 'Hapus akun dari seluruh platform' : 'Keluarkan dari company ini'} onClick={async () => { if (confirm(selectedMember.isPlatformUser ? `Hapus akun ${selectedMember.userFullName}? Akun akan dinonaktifkan, dikeluarkan dari semua company, dan data pribadinya dianonimkan. Riwayat transaksi tetap disimpan.` : `Keluarkan ${selectedMember.userFullName} dari company ini? Akunnya tetap ada dan bisa dimasukkan kembali.`)) {
                   // Hub-admin list = daftar AKUN (dari /api/users) → hapus akun.
                   // Tenant list = daftar MEMBERSHIP (dari /api/members) → keluarkan dari tenant.
                   const res: any = selectedMember.isPlatformUser
@@ -1005,6 +1006,12 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                 </>
               )}
             </>
+          )}
+
+          {/* Arsip akun terhapus — hanya untuk hub-admin. Komponen mandiri
+              supaya perubahan di file Settings yang besar tetap minimal. */}
+          {activeTab === 'users' && user?.platformRole === 'hub-admin' && (
+            <ArchivedUsers onRestored={() => loadUsers(membersPage, userSearchQuery.trim() || undefined)} />
           )}
 
           {activeTab === 'roles' && (

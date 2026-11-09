@@ -64,6 +64,18 @@ export const usersApi = {
     return apiFetch(`/api/users${qs ? `?${qs}` : ''}`).then(r => apiJson(r))
   },
   get: (id: string) => apiFetch(`/api/users/${id}`).then(r => apiJson(r)),
+  // Arsip akun yang sudah dihapus (khusus hub-admin). Bisa dipulihkan
+  // sampai 90 hari; setelah itu hanya bisa lewat restore manual DB.
+  listArchived: (page?: number, limit?: number) => {
+    const q = new URLSearchParams()
+    if (page) q.set('page', String(page))
+    if (limit) q.set('limit', String(limit))
+    const qs = q.toString()
+    return apiFetch(`/api/users/archived${qs ? `?${qs}` : ''}`).then(r => apiJson(r))
+  },
+  // PII lama sudah dianonimkan, jadi email baru wajib dikirim.
+  restore: (id: string, data: { email: string; fullName?: string; phoneNumber?: string }) =>
+    apiFetch(`/api/users/${id}/restore`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   create: async (data: Record<string, unknown>) => {
     // Auto-attach tenant HANYA untuk creator non-hub-admin: backend
     // mewajibkan tenantId untuk tenant admin, jadi tanpa ini user buatan
@@ -83,8 +95,9 @@ export const usersApi = {
     return apiFetch('/api/users', { method: 'POST', body: JSON.stringify(payload) }).then(r => apiJson(r))
   },
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
-  // Hapus akun user (hub-admin): backend menonaktifkan akun + membebaskan
-  // email. Bukan member removal — itu lewat membersApi.remove.
+  // Hapus akun user (hub-admin): satu transaksi mencabut semua sesi,
+  // membership & RBAC grant, lalu menganonimkan PII. Baris users tetap
+  // jadi tombstone untuk riwayat. Bukan member removal — itu membersApi.remove.
   remove: (id: string) => apiFetch(`/api/users/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
   getMe: () => apiFetch('/api/users/me').then(r => apiJson(r)),
   updateMe: (data: Record<string, unknown>) => apiFetch('/api/users/me', { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
@@ -100,8 +113,9 @@ export const tenantsApi = {
   create: (data: Record<string, unknown>) => apiFetch('/api/tenants', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   getCurrent: () => apiFetch('/api/tenants/current').then(r => apiJson(r)),
   updateCurrent: (data: Record<string, unknown>) => apiFetch('/api/tenants/current', { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
-  // Hapus company (hub-admin): backend ikut menghapus membership user
-  // tenant tersebut + mencatat audit. Tidak bisa di-undo.
+  // Arsipkan company (hub-admin): SOFT DELETE. Backend menonaktifkan tenant,
+  // menyembunyikannya dari semua list, dan mencatat audit. Membership & data
+  // bisnis dipertahankan supaya bisa dipulihkan. Bukan hard delete.
   remove: (id: string) => apiFetch(`/api/tenants/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
 }
 

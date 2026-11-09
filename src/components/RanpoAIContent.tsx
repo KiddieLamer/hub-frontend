@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { RANPO_AI_ICON } from '../lib/assets'
 
 const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
 
@@ -164,7 +165,7 @@ export function RanpoAIContent({ onClose, onMinimize, onMaximize }: RanpoAIProps
           justifyContent: 'center',
         }}>
           <img
-            src="https://cdn.jim-nielsen.com/macos/1024/gapplin-2025-04-04.png?rf=1024"
+            src={RANPO_AI_ICON}
             alt="Ranpo AI"
             style={{ width: 28, height: 28, borderRadius: 6 }}
           />

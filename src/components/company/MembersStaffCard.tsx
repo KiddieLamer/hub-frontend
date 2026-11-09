@@ -9,13 +9,6 @@ export interface MemberItem {
   avatarUrl?: string | null
 }
 
-// Fallback demo saat belum ada staff (ditandai badge "Contoh" di header).
-const DUMMY_MEMBERS: MemberItem[] = [
-  { id: 'd1', name: 'Sophia Brown', role: 'Owner', avatarUrl: '' },
-  { id: 'd2', name: 'Alex Johnson', role: 'Admin', avatarUrl: '' },
-  { id: 'd3', name: 'Daniel Turner', role: 'Member', avatarUrl: '' },
-]
-
 interface Props {
   members?: MemberItem[]
   isLoading?: boolean
@@ -35,8 +28,10 @@ function Avatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }
 }
 
 export default function MembersStaffCard({ members = [], isLoading = false, onAddMember }: Props) {
-  const displayMembers = members && members.length > 0 ? members : DUMMY_MEMBERS
-  const isDemo = !members || members.length === 0
+  // Jangan pernah mengisi kartu dengan data contoh. Kalau API gagal atau
+  // company memang kosong, tampilkan empty state yang jujur — sebelumnya
+  // tiga nama dummy muncul dan dikira "user lama yang sudah dihapus".
+  const displayMembers = members ?? []
 
   return (
     <div className="col-span-12 @3xl:col-span-6 @6xl:col-span-3 bg-white rounded-3xl p-5 shadow-xs flex flex-col justify-between w-full h-full min-h-[190px]" style={{ fontFamily: SF }}>
@@ -44,8 +39,8 @@ export default function MembersStaffCard({ members = [], isLoading = false, onAd
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <h3 className="font-bold text-slate-900 text-sm tracking-tight">Members</h3>
-          {isDemo && !isLoading && (
-            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full">Contoh</span>
+          {!isLoading && displayMembers.length > 0 && (
+            <span className="text-[10px] font-medium text-slate-400">{displayMembers.length}</span>
           )}
         </div>
         <button
@@ -66,6 +61,11 @@ export default function MembersStaffCard({ members = [], isLoading = false, onAd
               <div className="h-2.5 bg-slate-200 rounded w-10" />
             </div>
           ))}
+        </div>
+      ) : displayMembers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center text-center my-auto py-4">
+          <span className="text-xs font-medium text-slate-500">Belum ada member</span>
+          <span className="text-[11px] text-slate-400 mt-1">Tambah member atau cek koneksi API</span>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-1 my-auto overflow-x-auto pb-1">
@@ -90,7 +90,10 @@ export default function MembersStaffCard({ members = [], isLoading = false, onAd
 
       {/* Indikator scroll */}
       <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden mt-1">
-        <div className="bg-slate-300 h-full w-[40%] rounded-full" />
+        <div
+          className="bg-slate-300 h-full rounded-full"
+          style={{ width: displayMembers.length === 0 ? '0%' : '40%' }}
+        />
       </div>
     </div>
   )

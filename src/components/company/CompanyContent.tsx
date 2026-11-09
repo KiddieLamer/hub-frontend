@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  User, Plus, Trash2,
+  User, Plus, Archive,
   ChevronLeft, ChevronRight, Bell, ArrowUpRight, X, CheckCircle2, Loader2, Search,
 } from 'lucide-react'
 import LastSocialContentCard, { type SocialContentItem } from './LastSocialContentCard'
@@ -145,7 +145,12 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           taskRes, prRes, poRes, grRes, posOrdRes,
         ] = await Promise.all([
           mod.tenantsApi.getCurrent().catch(() => null),
-          mod.membersApi.list().catch(() => null),
+          mod.membersApi.list().catch(() => {
+            // Jangan telan error: sebelumnya kegagalan API terlihat seperti
+            // "company kosong" dan memicu data dummy di MembersStaffCard.
+            if (alive) setError('Gagal memuat daftar member')
+            return null
+          }),
           mod.positionsApi.list().catch(() => null),
           mod.rolesApi.list().catch(() => null),
           mod.notificationsApi.list().catch(() => null),
@@ -312,7 +317,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           return 0
         })
         setStaffMembers(sorted)
-      }).catch(() => {})
+      }).catch(() => setError('Gagal memuat daftar member'))
       positionsApi.list().then((d: any) => setPositions(d?.positions || [])).catch(() => {})
       rolesApi.list().then((d: any) => setTenantRoles(d?.roles || [])).catch(() => {})
     })
@@ -334,11 +339,18 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     setStaffMembers([])
   }
 
-  // Hapus company (hub-admin). Backend menghapus membership semua user
-  // tenant tersebut. Kalau yang dihapus adalah company aktif, kembali
-  // ke platform view supaya UI tidak menggantung di tenant mati.
-  const deleteTenant = async (t: any) => {
-    if (!confirm(`Hapus company "${t.name}"? Semua keanggotaan user di company ini ikut terhapus. Tindakan ini tidak bisa di-undo.`)) return
+  // Arsipkan company (hub-admin). Backend melakukan SOFT DELETE: company
+  // dinonaktifkan & disembunyikan, semua data bisnis tetap disimpan.
+  // Kalau yang diarsipkan adalah company aktif, kembali ke platform view
+  // supaya UI tidak menggantung di tenant yang sudah nonaktif.
+  const archiveTenant = async (t: any) => {
+    const ok = confirm(
+      `Arsipkan company "${t.name}"?\n\n` +
+      `Akses seluruh user ke company ini dicabut dan company hilang dari daftar. ` +
+      `Data bisnis (invoice, absensi, client, project, dll) TETAP DISIMPAN dan bisa dipulihkan oleh platform admin.\n\n` +
+      `Lanjutkan?`,
+    )
+    if (!ok) return
     const { tenantsApi } = await import('../../lib/endpoints')
     const res: any = await tenantsApi.remove(t.id)
     if (res?.error) { alert(res.error); return }
@@ -467,7 +479,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
       <main className="flex-1 ml-4 overflow-y-auto pr-2">
         {error && (
           <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-2xl text-xs">
-            {error} (menampilkan data cadangan bila tersedia)
+            {error} (sebagian data mungkin tidak tersedia)
           </div>
         )}
 
@@ -518,11 +530,11 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                         <span className="truncate">{t.name}</span>
                       </button>
                       <button
-                        title="Hapus company"
-                        onClick={(e) => { e.stopPropagation(); deleteTenant(t) }}
-                        className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-red-50 text-red-500 transition-opacity"
+                        title="Arsipkan company (nonaktifkan, data tetap disimpan)"
+                        onClick={(e) => { e.stopPropagation(); archiveTenant(t) }}
+                        className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center opacity-70 hover:!opacity-100 hover:bg-amber-50 text-amber-600 transition-opacity"
                       >
-                        <Trash2 size={12} />
+                        <Archive size={12} />
                       </button>
                     </div>
                   ))}
