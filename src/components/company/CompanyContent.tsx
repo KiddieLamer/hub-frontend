@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  User, Plus, Archive,
+  User, Plus, Archive, ArchiveRestore, Pencil,
   ChevronLeft, ChevronRight, Bell, ArrowUpRight, X, CheckCircle2, Loader2, Search,
 } from 'lucide-react'
 import LastSocialContentCard, { type SocialContentItem } from './LastSocialContentCard'
@@ -191,7 +191,9 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         const u = (meRes as any)?.user || meRes
         if (u?.platformRole === 'hub-admin') {
           setIsHubAdmin(true)
-          const d = await mod.tenantsApi.listAll().catch(() => null)
+          // includeArchived: company arsip ikut termuat untuk section Arsip
+          // (Pulihkan/Rename) di picker. List aktif tetap difilter saat render.
+          const d = await mod.tenantsApi.listAll({ includeArchived: true }).catch(() => null)
           if (alive) setAllTenants((d as any)?.tenants || [])
         }
       } catch (err: any) {
@@ -354,9 +356,42 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
     const { tenantsApi } = await import('../../lib/endpoints')
     const res: any = await tenantsApi.remove(t.id)
     if (res?.error) { alert(res.error); return }
-    const d = await tenantsApi.listAll().catch(() => null)
+    const d = await tenantsApi.listAll({ includeArchived: true }).catch(() => null)
     setAllTenants((d as any)?.tenants || [])
     if (t.id === tenant?.id) enablePlatformView()
+  }
+
+  // Pulihkan company arsip (hub-admin). Slug arsip tetap direserve di
+  // backend, jadi restore selalu bersih tanpa konflik slug.
+  const restoreTenant = async (t: any) => {
+    const ok = confirm(
+      `Pulihkan company "${t.name}"?\n\n` +
+      `Company kembali aktif, semua member & data bisnisnya bisa diakses lagi.`,
+    )
+    if (!ok) return
+    const { tenantsApi } = await import('../../lib/endpoints')
+    const res: any = await tenantsApi.restore(t.id)
+    if (res?.error) { alert(res.error); return }
+    const d = await tenantsApi.listAll({ includeArchived: true }).catch(() => null)
+    setAllTenants((d as any)?.tenants || [])
+  }
+
+  // Rename company arsip (hub-admin): jalur resmi membebaskan slug arsip
+  // sebelum slug itu dipakai company baru (slug arsip terkunci di backend).
+  const renameArchivedTenant = async (t: any) => {
+    const name = prompt(`Nama baru untuk "${t.name}":`, t.name)
+    if (name === null) return
+    const slug = prompt(
+      `Slug baru (lowercase, huruf/angka/hyphen):\n` +
+      `Slug lama "${t.slug}" akan dibebaskan setelah diganti.`,
+      t.slug,
+    )
+    if (slug === null) return
+    const { tenantsApi } = await import('../../lib/endpoints')
+    const res: any = await tenantsApi.update(t.id, { name, slug })
+    if (res?.error) { alert(res.error); return }
+    const d = await tenantsApi.listAll({ includeArchived: true }).catch(() => null)
+    setAllTenants((d as any)?.tenants || [])
   }
 
   const openAssign = () => {
@@ -504,7 +539,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                     {platformMode && <span className="text-[9px] font-bold uppercase">aktif</span>}
                   </button>
                   <div className="h-px bg-slate-100 my-1" />
-                  {allTenants.map((t: any) => (
+                  {allTenants.filter((t: any) => !t.deletedAt).map((t: any) => (
                     <div
                       key={t.id}
                       className={`group w-full text-left px-3 py-2 rounded-xl text-[12px] transition-colors flex items-center gap-2 ${
@@ -538,6 +573,42 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                       </button>
                     </div>
                   ))}
+                  {/* Section Arsip (hub-admin): company nonaktif tetap terlihat
+                      di sini dengan aksi Pulihkan / Rename. Slug arsip terkunci
+                      di backend — Rename adalah jalur resmi membebaskannya. */}
+                  {allTenants.some((t: any) => t.deletedAt) && (
+                    <>
+                      <div className="h-px bg-slate-100 my-1" />
+                      <p className="px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">Arsip</p>
+                      {allTenants.filter((t: any) => t.deletedAt).map((t: any) => (
+                        <div key={t.id} className="w-full px-3 py-2 rounded-xl text-[12px] flex items-center gap-2 text-slate-400">
+                          <span className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0">
+                            {(t.name || '?').charAt(0).toUpperCase()}
+                          </span>
+                          <span
+                            className="flex-1 truncate min-w-0"
+                            title={`Diarsipkan ${t.deletedAt ? new Date(t.deletedAt).toLocaleDateString('id-ID') : ''}`}
+                          >
+                            {t.name}
+                          </span>
+                          <button
+                            title="Ganti nama/slug arsip (membebaskan slug lama untuk company baru)"
+                            onClick={() => renameArchivedTenant(t)}
+                            className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center hover:bg-slate-100 text-slate-500"
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            title="Pulihkan company (aktifkan kembali)"
+                            onClick={() => restoreTenant(t)}
+                            className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center hover:bg-emerald-50 text-emerald-600"
+                          >
+                            <ArchiveRestore size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </>
+                  )}
                   <div className="h-px bg-slate-100 my-1" />
                   <button
                     onClick={() => { setPickerOpen(false); setShowCreateModal(true) }}
@@ -850,10 +921,16 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 if (!createForm.name || !createForm.slug) { setCreateError('Name and slug required'); return }
                 setCreating(true); setCreateError('')
                 try {
-                  const res = await tenantsApi.create(createForm)
+                  // Field kosong TIDAK dikirim: backend memvalidasi .url()/.email()
+                  // pada field opsional — string kosong gagal validasi ("Invalid
+                  // url") dan memblokir create yang sah (temuan F-4).
+                  const payload = Object.fromEntries(
+                    Object.entries(createForm).filter(([, v]) => v !== '' && v !== null && v !== undefined),
+                  )
+                  const res = await tenantsApi.create(payload)
                   if (res.error) { setCreateError(res.error); return }
                   setShowCreateModal(false)
-                  const d = await tenantsApi.listAll()
+                  const d = await tenantsApi.listAll({ includeArchived: true })
                   setAllTenants(d?.tenants || [])
                   if (res.tenant) {
                     await apiFetch('/api/tenants/switch', { method: 'POST', body: JSON.stringify({ tenantId: res.tenant.id }) })

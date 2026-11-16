@@ -44,6 +44,9 @@ export function setTenantId(tenantId: string) {
   } else {
     localStorage.removeItem('hub-tenant-id')
   }
+  // Beri tahu komponen terbuka (Projects, dll.) untuk reload datanya —
+  // sama dengan pola setPlatformMode di bawah.
+  window.dispatchEvent(new Event('hub-tenant-changed'))
 }
 
 // ============ HUB-ADMIN PLATFORM MODE ============

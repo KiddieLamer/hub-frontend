@@ -108,15 +108,23 @@ export const usersApi = {
 // ============ TENANTS ============
 export const tenantsApi = {
   list: () => apiFetch('/api/tenants').then(r => apiJson(r)),
-  listAll: () => apiFetch('/api/tenants/all').then(r => apiJson(r)),
+  listAll: (opts?: { includeArchived?: boolean }) =>
+    apiFetch(`/api/tenants/all${opts?.includeArchived ? '?includeArchived=true' : ''}`).then(r => apiJson(r)),
   get: (id: string) => apiFetch(`/api/tenants/${id}`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/tenants', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   getCurrent: () => apiFetch('/api/tenants/current').then(r => apiJson(r)),
   updateCurrent: (data: Record<string, unknown>) => apiFetch('/api/tenants/current', { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  // Rename company (hub-admin): satu-satunya jalur resmi untuk membebaskan
+  // slug arsip sebelum dipakai company baru — slug arsip sengaja tetap
+  // terkunci di backend supaya identitasnya tidak diam-diam diambil.
+  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/tenants/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
   // Arsipkan company (hub-admin): SOFT DELETE. Backend menonaktifkan tenant,
   // menyembunyikannya dari semua list, dan mencatat audit. Membership & data
   // bisnis dipertahankan supaya bisa dipulihkan. Bukan hard delete.
   remove: (id: string) => apiFetch(`/api/tenants/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
+  // Pulihkan company arsip (hub-admin): kembalikan status active, hapus
+  // deletedAt. Slug dijamin masih milik arsipnya (direserve saat arsip).
+  restore: (id: string) => apiFetch(`/api/tenants/${id}/restore`, { method: 'POST' }).then(r => apiJson(r)),
 }
 
 // ============ CRM - CLIENTS ============
@@ -417,6 +425,7 @@ export const projectsApi = {
   delete: (id: string) => apiFetch(`/api/projects/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
   addMember: (id: string, data: Record<string, unknown>) => apiFetch(`/api/projects/${id}/members`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   removeMember: (id: string, userId: string) => apiFetch(`/api/projects/${id}/members/${userId}`, { method: 'DELETE' }).then(r => apiJson(r)),
+  addMilestone: (id: string, data: Record<string, unknown>) => apiFetch(`/api/projects/${id}/milestones`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   createColumn: (id: string, data: Record<string, unknown>) => apiFetch(`/api/projects/${id}/columns`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
 }
 
@@ -437,12 +446,19 @@ export const tasksApi = {
   delete: (id: string) => apiFetch(`/api/tasks/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
   move: (id: string, data: Record<string, unknown>) => apiFetch(`/api/tasks/${id}/move`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   addComment: (id: string, data: Record<string, unknown>) => apiFetch(`/api/tasks/${id}/comments`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  // Multi-assignee: satu task bisa dikerjakan beberapa user (task_assignees).
+  addAssignee: (id: string, userId: string) => apiFetch(`/api/tasks/${id}/assignees`, { method: 'POST', body: JSON.stringify({ userId }) }).then(r => apiJson(r)),
+  removeAssignee: (id: string, userId: string) => apiFetch(`/api/tasks/${id}/assignees/${userId}`, { method: 'DELETE' }).then(r => apiJson(r)),
 }
 
 // ============ TAGS ============
 export const tagsApi = {
-  list: () => apiFetch('/api/tags').then(r => apiJson(r)),
+  // Tags kini project-scoped — filter via query projectId (opsional).
+  list: (projectId?: string) => apiFetch(`/api/tags${projectId ? `?projectId=${projectId}` : ''}`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/tags', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  // Lampirkan/lepas tag ke task (backend POST/DELETE /api/tasks/:id/tags).
+  attach: (taskId: string, tagId: string) => apiFetch(`/api/tasks/${taskId}/tags`, { method: 'POST', body: JSON.stringify({ tagId }) }).then(r => apiJson(r)),
+  detach: (taskId: string, tagId: string) => apiFetch(`/api/tasks/${taskId}/tags/${tagId}`, { method: 'DELETE' }).then(r => apiJson(r)),
 }
 
 // ============ CATALOG - CATEGORIES ============

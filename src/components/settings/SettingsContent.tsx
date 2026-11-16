@@ -152,7 +152,18 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   const [editMemberModal, setEditMemberModal] = useState<any>(null)
   const [editMemberRole, setEditMemberRole] = useState('')
   const [editMemberForm, setEditMemberForm] = useState({ fullName: '', email: '', phoneNumber: '', department: '', employeeId: '', ktpNumber: '', dateOfBirth: '', address: '' })
+  // Error inline di modal edit member — pengganti alert() native yang
+  // memblokir halaman (temuan F-2: "freeze" = alert yang tak pernah ditutup).
+  const [editMemberError, setEditMemberError] = useState('')
   const [selectedMember, setSelectedMember] = useState<any>(null)
+
+  // Gate aksi detail member. Viewer manager (owner/admin/hub-admin) boleh
+  // mengelola member lain; member biasa hanya melihat baris dirinya sendiri
+  // dengan PII utuh — PII sesama di-null-kan oleh backend (redactMemberPii)
+  // dan tombol edit/hapus/reset disembunyikan di sini supaya tidak 403.
+  const canEditSelectedMember = canManageRoles
+  const canViewSelectedPii = canManageRoles ||
+    (!!selectedMember && selectedMember.userId === user?.id)
 
   // Apple Modals for Member Actions
   const [resetPasswordModalMember, setResetPasswordModalMember] = useState<any>(null)
@@ -269,6 +280,16 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
   useEffect(() => {
     if (activeTab === 'users') {
       loadUsers()
+      // Membership juga dibutuhkan di tab users: canManageRoles yang mengatur
+      // tombol edit/hapus/reset-password di detail member dihitung dari sini.
+      import('../../lib/endpoints').then(({ membersApi }) => {
+        // Hub-admin needs no membership lookup (would only 404-noise).
+        if (user?.platformRole !== 'hub-admin') {
+          membersApi.getMe().then(data => setMyMembership(data?.membership || null)).catch(() => {})
+        } else {
+          setMyMembership(null)
+        }
+      })
     }
     if (activeTab === 'roles') {
       import('../../lib/endpoints').then(({ rolesApi, membersApi }) => {
@@ -512,10 +533,12 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
               <span style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f', fontFamily: SF }}>{selectedMember.userFullName}</span>
               <span style={{ flex: 1 }} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', department: selectedMember.userDepartment || '', employeeId: selectedMember.userEmployeeId || '', ktpNumber: selectedMember.userKtpNumber || '', dateOfBirth: isoDate(selectedMember.userDateOfBirth), address: selectedMember.userAddress || '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                </button>
-                {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
+                {canEditSelectedMember && (
+                  <button onClick={() => { setEditMemberModal(selectedMember); setEditMemberRole(selectedMember.role); setEditMemberError(''); setEditMemberForm({ fullName: selectedMember.userFullName || '', email: selectedMember.userEmail || '', phoneNumber: selectedMember.userPhoneNumber || '', department: selectedMember.userDepartment || '', employeeId: selectedMember.userEmployeeId || '', ktpNumber: selectedMember.userKtpNumber || '', dateOfBirth: isoDate(selectedMember.userDateOfBirth), address: selectedMember.userAddress || '' }) }} style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                  </button>
+                )}
+                {canEditSelectedMember && selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
                   <button title={selectedMember.isPlatformUser ? 'Hapus akun dari seluruh platform' : 'Keluarkan dari company ini'} onClick={async () => { if (confirm(selectedMember.isPlatformUser ? `Hapus akun ${selectedMember.userFullName}? Akun akan dinonaktifkan, dikeluarkan dari semua company, dan data pribadinya dianonimkan. Riwayat transaksi tetap disimpan.` : `Keluarkan ${selectedMember.userFullName} dari company ini? Akunnya tetap ada dan bisa dimasukkan kembali.`)) {
                   // Hub-admin list = daftar AKUN (dari /api/users) → hapus akun.
                   // Tenant list = daftar MEMBERSHIP (dari /api/members) → keluarkan dari tenant.
@@ -803,7 +826,10 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                             const userRes = await usersApi.create({ fullName: addUserForm.fullName, email: addUserForm.email, password: addUserForm.password, phoneNumber: addUserForm.phoneNumber || undefined, department: addUserForm.department || undefined, employeeId: addUserForm.employeeId || undefined, ktpNumber: addUserForm.ktpNumber || undefined, dateOfBirth: addUserForm.dateOfBirth || undefined, address: addUserForm.address || undefined, status: 'active' })
                             if (userRes.error) {
                               const detail = userRes.details?.[0]?.message
-                              setAddUserError(detail ? `${userRes.error}: ${detail}` : userRes.error)
+                              // Hindari pesan dobel "Invalid email: Invalid email"
+                              // — untuk error satu field, backend sering mengirim
+                              // error & detail dengan teks identik.
+                              setAddUserError(detail && detail !== userRes.error ? `${userRes.error}: ${detail}` : userRes.error)
                               return
                             }
                             setShowAddUserForm(false)
@@ -843,7 +869,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Work</span>
                         </div>
                         <GroupedRow icon={<Briefcase size={14} />} iconBg="#ff2d55" label="Job Title" value={selectedMember.jobTitle} editable={false} />
-                        <GroupedRow icon={<Building size={14} />} iconBg="#30b0c7" label="Department" value={selectedMember.userDepartment} onClick={() => handleOpenEditMember(selectedMember)} isLast />
+                        <GroupedRow icon={<Building size={14} />} iconBg="#30b0c7" label="Department" value={selectedMember.userDepartment} onClick={canEditSelectedMember ? () => handleOpenEditMember(selectedMember) : undefined} isLast />
                         <div style={{ padding: '8px 14px', fontSize: 11, color: '#8e8e93', fontFamily: SF, background: 'rgba(0,0,0,0.02)' }}>Jabatan & posisi diatur dari halaman Company</div>
                       </div>
 
@@ -851,17 +877,26 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                         <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Identitas</span>
                         </div>
-                        <GroupedRow icon={<User size={14} />} iconBg="#5856d6" label="Employee ID" value={selectedMember.userEmployeeId} onClick={() => handleOpenEditMember(selectedMember)} />
-                        <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="No. KTP" value={selectedMember.userKtpNumber} onClick={() => handleOpenEditMember(selectedMember)} />
-                        <GroupedRow icon={<User size={14} />} iconBg="#30b0c7" label="Tanggal Lahir" value={isoDate(selectedMember.userDateOfBirth)} onClick={() => handleOpenEditMember(selectedMember)} />
-                        <GroupedRow icon={<User size={14} />} iconBg="#34c759" label="Alamat" value={selectedMember.userAddress} onClick={() => handleOpenEditMember(selectedMember)} isLast />
+                        {canViewSelectedPii ? (
+                          <>
+                            <GroupedRow icon={<User size={14} />} iconBg="#5856d6" label="Employee ID" value={selectedMember.userEmployeeId} onClick={canEditSelectedMember ? () => handleOpenEditMember(selectedMember) : undefined} />
+                            <GroupedRow icon={<User size={14} />} iconBg="#8e8e93" label="No. KTP" value={selectedMember.userKtpNumber} onClick={canEditSelectedMember ? () => handleOpenEditMember(selectedMember) : undefined} />
+                            <GroupedRow icon={<User size={14} />} iconBg="#30b0c7" label="Tanggal Lahir" value={isoDate(selectedMember.userDateOfBirth)} onClick={canEditSelectedMember ? () => handleOpenEditMember(selectedMember) : undefined} />
+                            <GroupedRow icon={<User size={14} />} iconBg="#34c759" label="Alamat" value={selectedMember.userAddress} onClick={canEditSelectedMember ? () => handleOpenEditMember(selectedMember) : undefined} isLast />
+                          </>
+                        ) : (
+                          /* PII sesama disembunyikan untuk member biasa —
+                             backend sudah men-null-kan nilainya, UI menyembunyikan
+                             barisnya supaya tidak tampil sebagai field kosong. */
+                          <GroupedRow icon={<User size={14} />} iconBg="#5856d6" label="Employee ID" value={selectedMember.userEmployeeId} isLast />
+                        )}
                       </div>
 
                       <div style={{ background: 'white', borderRadius: 12, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
                         <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, fontWeight: 600, color: '#8e8e93', fontFamily: SF, textTransform: 'uppercase', letterSpacing: '0.02em' }}>Access</span>
                         </div>
-                        <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'hub-admin' ? '#af52de' : '#34c759'} label={selectedMember.isPlatformUser ? 'Perusahaan' : 'Role'} value={selectedMember.isPlatformUser ? (cardTenants.length > 0 ? cardTenants.map((t: any) => `${t.name} (${t.role})`).join(', ') : 'Belum ada company') : selectedMember.role} onClick={selectedMember.isPlatformUser ? undefined : () => handleOpenEditMember(selectedMember)} />
+                        <GroupedRow icon={<ShieldCheck size={14} />} iconBg={selectedMember.role === 'owner' ? '#ff9500' : selectedMember.role === 'hub-admin' ? '#af52de' : '#34c759'} label={selectedMember.isPlatformUser ? 'Perusahaan' : 'Role'} value={selectedMember.isPlatformUser ? (cardTenants.length > 0 ? cardTenants.map((t: any) => `${t.name} (${t.role})`).join(', ') : 'Belum ada company') : selectedMember.role} onClick={canEditSelectedMember && !selectedMember.isPlatformUser ? () => handleOpenEditMember(selectedMember) : undefined} />
                         <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 24, height: 24, borderRadius: 6, background: selectedMember.userStatus === 'active' ? 'rgba(52,199,89,0.12)' : 'rgba(142,142,147,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -871,19 +906,21 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 12, color: selectedMember.userStatus === 'active' ? '#34c759' : '#8e8e93', fontFamily: SF, fontWeight: 500 }}>{selectedMember.userStatus === 'active' ? 'Active' : 'Inactive'}</span>
-                            <div
-                              onClick={() => {
-                                const newStatus = selectedMember.userStatus === 'active' ? 'inactive' : 'active'
-                                import('../../lib/endpoints').then(({ usersApi }) => {
-                                  usersApi.update(selectedMember.userId, { status: newStatus })
-                                  setSelectedMember({ ...selectedMember, userStatus: newStatus })
-                                  setMembers(prev => prev.map((x: any) => x.id === selectedMember.id ? { ...x, userStatus: newStatus } : x))
-                                })
-                              }}
-                              style={{ width: 32, height: 18, borderRadius: 9, background: selectedMember.userStatus === 'active' ? '#34c759' : '#e5e5ea', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}
-                            >
-                              <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'white', position: 'absolute', top: 2, left: selectedMember.userStatus === 'active' ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
-                            </div>
+                            {canEditSelectedMember && (
+                              <div
+                                onClick={() => {
+                                  const newStatus = selectedMember.userStatus === 'active' ? 'inactive' : 'active'
+                                  import('../../lib/endpoints').then(({ usersApi }) => {
+                                    usersApi.update(selectedMember.userId, { status: newStatus })
+                                    setSelectedMember({ ...selectedMember, userStatus: newStatus })
+                                    setMembers(prev => prev.map((x: any) => x.id === selectedMember.id ? { ...x, userStatus: newStatus } : x))
+                                  })
+                                }}
+                                style={{ width: 32, height: 18, borderRadius: 9, background: selectedMember.userStatus === 'active' ? '#34c759' : '#e5e5ea', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}
+                              >
+                                <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'white', position: 'absolute', top: 2, left: selectedMember.userStatus === 'active' ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -892,13 +929,14 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
 
                   {/* Refined Apple Action Buttons */}
                   <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                    <button
-                      onClick={() => {
-                        setResetPasswordModalMember(selectedMember)
-                        setResetPasswordNewPass('')
-                        setResetPasswordError('')
-                        setResetPasswordSuccess(false)
-                      }}
+                    {canEditSelectedMember && (
+                      <button
+                        onClick={() => {
+                          setResetPasswordModalMember(selectedMember)
+                          setResetPasswordNewPass('')
+                          setResetPasswordError('')
+                          setResetPasswordSuccess(false)
+                        }}
                       style={{
                         flex: 1,
                         padding: '10px 14px',
@@ -916,9 +954,10 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,122,255,0.14)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,122,255,0.08)'}
                     >
-                      Reset Password
-                    </button>
-                    {selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
+                        Reset Password
+                      </button>
+                    )}
+                    {canEditSelectedMember && selectedMember.role !== 'owner' && selectedMember.role !== 'hub-admin' && (
                       <button
                         onClick={() => setRemoveTenantModalMember(selectedMember)}
                         style={{
@@ -965,19 +1004,21 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const newStatus = m.userStatus === 'active' ? 'inactive' : 'active'
-                              import('../../lib/endpoints').then(({ usersApi }) => {
-                                usersApi.update(m.userId, { status: newStatus })
-                                setMembers(prev => prev.map((x: any) => x.id === m.id ? { ...x, userStatus: newStatus } : x))
-                              })
-                            }}
-                            style={{ width: 32, height: 18, borderRadius: 9, background: m.userStatus === 'active' ? '#34c759' : '#e5e5ea', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}
-                          >
-                            <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'white', position: 'absolute', top: 2, left: m.userStatus === 'active' ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
-                          </div>
+                          {canManageRoles && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const newStatus = m.userStatus === 'active' ? 'inactive' : 'active'
+                                import('../../lib/endpoints').then(({ usersApi }) => {
+                                  usersApi.update(m.userId, { status: newStatus })
+                                  setMembers(prev => prev.map((x: any) => x.id === m.id ? { ...x, userStatus: newStatus } : x))
+                                })
+                              }}
+                              style={{ width: 32, height: 18, borderRadius: 9, background: m.userStatus === 'active' ? '#34c759' : '#e5e5ea', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}
+                            >
+                              <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'white', position: 'absolute', top: 2, left: m.userStatus === 'active' ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }} />
+                            </div>
+                          )}
                           <span style={{ padding: '2px 8px', borderRadius: 10, background: m.role === 'owner' ? 'rgba(255,149,0,0.12)' : m.role === 'hub-admin' ? 'rgba(175,82,222,0.12)' : m.role === 'admin' ? 'rgba(0,122,255,0.12)' : m.role === 'member' ? 'rgba(52,199,89,0.12)' : 'rgba(142,142,147,0.12)', color: m.role === 'owner' ? '#ff9500' : m.role === 'hub-admin' ? '#af52de' : m.role === 'admin' ? '#007aff' : m.role === 'member' ? '#248a3d' : '#8e8e93', fontSize: 11, fontWeight: 600, fontFamily: SF, textTransform: 'capitalize' }}>{['owner', 'admin', 'member', 'hub-admin'].includes(m.role) ? m.role : (m.userStatus || '-')}</span>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                         </div>
@@ -1387,6 +1428,7 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setEditMemberModal(null)}>
           <div style={{ background: 'white', borderRadius: 12, padding: 20, width: 400, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 15, fontWeight: 600, fontFamily: SF, color: '#1d1d1f', marginBottom: 14 }}>Edit {editMemberModal.userFullName}</div>
+            {editMemberError && <div style={{ fontSize: 12, color: '#ff3b30', fontFamily: SF, marginBottom: 10, background: 'rgba(255,59,48,0.06)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(255,59,48,0.12)' }}>{editMemberError}</div>}
             {[
               { key: 'fullName', label: 'Full Name', value: editMemberForm.fullName, type: 'text' },
               { key: 'email', label: 'Email', value: editMemberForm.email, type: 'text' },
@@ -1428,11 +1470,17 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   // apiJson tidak melempar error pada 4xx/5xx — cek manual
                   // sebelum optimistic update, kalau tidak UI bisa "berbohong"
                   // menampilkan perubahan yang sebenarnya ditolak server (403).
+                  // Error ditampilkan INLINE di modal (bukan alert() native yang
+                  // memblokir seluruh halaman — akar "freeze" F-2).
                   const updRes: any = await usersApi.update(editMemberModal.userId, payload)
-                  if (updRes?.error) { alert(updRes.error); return }
-                  if (editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin') {
+                  if (updRes?.error) { setEditMemberError(updRes.error); return }
+                  // Update role hanya di konteks TENANT list (id = membership id).
+                  // Di hub-admin account list id = user id + role = users.role
+                  // (selalu 'user') — memanggil updateRole di sini 404 dan
+                  // memicu alert palsu. Role tenant diedit dari window Company.
+                  if (!editMemberModal.isPlatformUser && editMemberModal.role !== 'owner' && editMemberModal.role !== 'hub-admin') {
                     const roleRes: any = await membersApi.updateRole(editMemberModal.id, editMemberRole)
-                    if (roleRes?.error) { alert(roleRes.error); return }
+                    if (roleRes?.error) { setEditMemberError(roleRes.error); return }
                   }
                   const memberPatch = {
                     userFullName: editMemberForm.fullName,
@@ -1448,7 +1496,8 @@ export function SettingsContent({ onLogout, onClose, onMinimize, onMaximize }: {
                   setMembers(prev => prev.map((x: any) => x.id === editMemberModal.id ? { ...x, ...memberPatch } : x))
                   setSelectedMember((prev: any) => prev ? { ...prev, ...memberPatch } : prev)
                   setEditMemberModal(null)
-                } catch { alert('Failed to update') }
+                  setEditMemberError('')
+                } catch { setEditMemberError('Gagal menyimpan perubahan') }
               }} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#007aff', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SF }}>Save</button>
             </div>
           </div>
