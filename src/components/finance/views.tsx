@@ -5,15 +5,15 @@ const card = 'rounded-[28px] bg-white p-6 shadow-sm'
 const idr = (n: number) => 'Rp' + new Intl.NumberFormat('id-ID').format(Math.round(n))
 const input = 'w-full rounded-xl border border-track bg-white px-3 py-2 text-sm outline-none focus:border-forest'
 
-// Tombol aksi per baris tabel (muncul di baris yang belum final)
+// Tombol aksi per baris tabel — HANYA yang punya endpoint nyata.
+// (Bayar PO / Post jurnal / Terbitkan bukti potong dll. butuh backend terpisah.)
 export const rowActions: Record<string, string> = {
-  Expenses: 'Setujui', 'Payables & Recurring': 'Bayar', 'Deposit & Advance': 'Alokasi', 'Company Report': 'Finalisasi', Accounting: 'Post',
-  'Tax Report': 'Bayar', 'Payroll Tax': 'Bayar', Withholding: 'Terbitkan',
-  'Payroll Run': 'Approve', 'Compensation Review': 'Setujui', 'Business Case': 'Setujui', 'Risk & Decision': 'Putuskan',
+  Expenses: 'Setujui', 'Deposit & Advance': 'Alokasi',
+  'Compensation Review': 'Setujui', 'Business Case': 'Setujui', 'Risk & Decision': 'Putuskan',
 }
 
 // ---------- Bars ----------
-type Bar = [label: string, pct: number, text: string]
+export type Bar = [label: string, pct: number, text: string]
 const bars: Record<string, { title: string; data: Bar[] }> = {
   'Budget Planning': { title: 'Penggunaan Budget', data: [['Sales', 90, 'Rp812 jt / Rp900 jt'], ['Operations', 100, 'Rp1,5 M / Rp1,4 M'], ['HR', 68, 'Rp410 jt / Rp600 jt']] },
   'Cost Analysis': { title: 'Porsi Biaya', data: [['Produksi', 46, '46%'], ['Pemasaran', 25, '25%'], ['Administrasi', 16, '16%'], ['Lainnya', 13, '13%']] },
@@ -83,34 +83,103 @@ function Statement({ title, rows }: { title: string; rows: Row[] }) {
 }
 
 // ---------- Invoice Builder ----------
-function InvoiceForm() {
-  const [items, setItems] = useState([{ d: 'Jasa implementasi', q: 1, p: 15_000_000 }])
+function InvoiceForm({
+  live,
+  onCreated,
+}: {
+  live?: { clientNames: Record<string, string> }
+  onCreated?: () => void
+}) {
+  const [clientId, setClientId] = useState('')
+  const [items, setItems] = useState([{ d: '', q: 1, p: 0 }])
+  const [sending, setSending] = useState(false)
+  const [msg, setMsg] = useState('')
   const set = (i: number, k: 'd' | 'q' | 'p', v: string) =>
     setItems(items.map((x, j) => (j === i ? { ...x, [k]: k === 'd' ? v : Number(v) || 0 } : x)))
   const sub = items.reduce((s, x) => s + x.q * x.p, 0)
+
+  const submit = async () => {
+    if (!clientId || !sub || sending) return
+    setSending(true)
+    setMsg('')
+    try {
+      const { invoicesApi } = await import('../../lib/endpoints')
+      const now = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const localDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+      const ymd = localDate.replace(/-/g, '')
+      const due = new Date(now.getTime() + 14 * 86_400_000)
+      const dueLocal = `${due.getFullYear()}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}`
+      const res = await invoicesApi.create({
+        invoiceNumber: `INV-${ymd}-${Math.floor(1000 + Math.random() * 9000)}`,
+        clientId,
+        issueDate: localDate,
+        dueDate: dueLocal,
+        taxRate: 11,
+        discountAmount: 0,
+        items: items
+          .filter((x) => x.d.trim() && x.q > 0)
+          .map((x) => ({ itemName: x.d.trim(), quantity: x.q, unitPrice: x.p })),
+      })
+      if (res?.error) {
+        setMsg(String(res.error))
+      } else {
+        setMsg('')
+        setItems([{ d: '', q: 1, p: 0 }])
+        setClientId('')
+        onCreated?.()
+      }
+    } catch {
+      setMsg('Gagal membuat invoice.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const clientOptions = Object.entries(live?.clientNames ?? {})
   return (
     <section className={card}>
       <h2 className="text-lg font-medium">Buat Invoice</h2>
+      <label className="mt-3 block text-xs text-muted">
+        Pelanggan
+        <select className={`${input} mt-1`} value={clientId} onChange={(e) => setClientId(e.target.value)} aria-label="Pelanggan">
+          <option value="">— Pilih pelanggan —</option>
+          {clientOptions.map(([id, name]) => (
+            <option key={id} value={id}>{name}</option>
+          ))}
+        </select>
+      </label>
       <div className="mt-4 grid grid-cols-12 gap-2 text-xs text-muted">
         <span className="col-span-6">Deskripsi</span><span className="col-span-2">Qty</span><span className="col-span-4">Harga</span>
       </div>
       <div className="mt-1 space-y-2">
         {items.map((x, i) => (
           <div key={i} className="grid grid-cols-12 gap-2">
-            <input className={`${input} col-span-6`} value={x.d} onChange={(e) => set(i, 'd', e.target.value)} aria-label="Deskripsi" />
+            <input className={`${input} col-span-6`} value={x.d} onChange={(e) => set(i, 'd', e.target.value)} aria-label="Deskripsi" placeholder="Item / jasa" />
             <input className={`${input} col-span-2`} type="number" value={x.q} onChange={(e) => set(i, 'q', e.target.value)} aria-label="Qty" />
             <input className={`${input} col-span-4`} type="number" value={x.p} onChange={(e) => set(i, 'p', e.target.value)} aria-label="Harga" />
           </div>
         ))}
       </div>
-      <button type="button" onClick={() => setItems([...items, { d: '', q: 1, p: 0 }])} className="mt-3 rounded-full border border-forest px-4 py-1.5 text-sm font-medium text-forest">
-        + Tambah baris
-      </button>
+      <div className="mt-3 flex items-center justify-between">
+        <button type="button" onClick={() => setItems([...items, { d: '', q: 1, p: 0 }])} className="rounded-full border border-forest px-4 py-1.5 text-sm font-medium text-forest">
+          + Tambah baris
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!clientId || sub <= 0 || sending}
+          className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-white disabled:opacity-40"
+        >
+          {sending ? 'Menyimpan…' : 'Simpan Invoice'}
+        </button>
+      </div>
       <dl className="mt-5 space-y-1.5 border-t border-track pt-4 text-sm">
         <div className="flex justify-between text-muted"><dt>Subtotal</dt><dd>{idr(sub)}</dd></div>
         <div className="flex justify-between text-muted"><dt>PPN 11%</dt><dd>{idr(sub * 0.11)}</dd></div>
         <div className="flex justify-between text-base font-medium"><dt>Total</dt><dd>{idr(sub * 1.11)}</dd></div>
       </dl>
+      <p className="mt-2 text-xs text-loss" role="status">{msg}</p>
     </section>
   )
 }
@@ -140,43 +209,54 @@ function TaxCalc() {
   )
 }
 
-// ---------- Scenario ----------
-const scenarios: Record<string, [string, string, string]> = {
-  'Best case': ['Rp7,4 M', 'Rp4,3 M', 'Rp3,1 M'], 'Base case': ['Rp6,8 M', 'Rp4,1 M', 'Rp2,7 M'], 'Worst case': ['Rp6,0 M', 'Rp4,2 M', 'Rp1,8 M'],
-}
-function Scenario() {
-  const [s, setS] = useState('Base case')
+// ---------- Scenario (live) ----------
+function Scenario({
+  scenarios,
+}: {
+  scenarios: Array<{ id: string; name: string; revenueTarget: number; costTarget: number; assumption: string | null }>
+}) {
+  const [sel, setSel] = useState(scenarios[0]?.id ?? '')
+  const active = scenarios.find((s) => s.id === sel) ?? scenarios[0]
   return (
     <section className={card}>
       <h2 className="text-lg font-medium">Skenario</h2>
       <div className="mt-4 flex gap-2">
-        {Object.keys(scenarios).map((k) => (
-          <button key={k} type="button" onClick={() => setS(k)} aria-pressed={k === s}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium ${k === s ? 'bg-forest text-white' : 'border border-track text-muted'}`}>{k}</button>
+        {scenarios.map((s) => (
+          <button key={s.id} type="button" onClick={() => setSel(s.id)} aria-pressed={s.id === active?.id}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium ${s.id === active?.id ? 'bg-forest text-white' : 'border border-track text-muted'}`}>{s.name}</button>
         ))}
       </div>
-      <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
-        {['Revenue', 'Biaya', 'Laba'].map((l, i) => (
-          <div key={l} className="rounded-2xl bg-canvas p-4"><p className="text-xs text-muted">{l}</p><p className="mt-1 text-xl font-medium">{scenarios[s][i]}</p></div>
-        ))}
-      </div>
+      {active && (
+        <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
+          {[
+            ['Revenue', idr(active.revenueTarget)],
+            ['Biaya', idr(active.costTarget)],
+            ['Laba', idr(active.revenueTarget - active.costTarget)],
+          ].map(([l, v]) => (
+            <div key={l} className="rounded-2xl bg-canvas p-4"><p className="text-xs text-muted">{l}</p><p className="mt-1 text-xl font-medium">{v}</p></div>
+          ))}
+        </div>
+      )}
     </section>
   )
 }
 
-// ---------- Risk matrix ----------
-const risks: [string, number, number][] = [['Fluktuasi kurs', 0, 2], ['Kenaikan bahan baku', 0, 1], ['Keterlambatan proyek', 1, 1]]
-function RiskMatrix() {
+// ---------- Risk matrix (live) ----------
+function RiskMatrix({
+  risks,
+}: {
+  risks: Array<{ id: string; name: string; impactAmount: number; impactLevel: number; probability: number; status: string }>
+}) {
   return (
     <section className={card}>
       <h2 className="text-lg font-medium">Matriks Risiko</h2>
       <p className="mt-1 text-xs text-muted">Baris: dampak (tinggi ke rendah) · Kolom: probabilitas (rendah ke tinggi)</p>
       <div className="mt-4 grid grid-cols-3 gap-2">
-        {[0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => {
+        {[2, 1, 0].flatMap((r) => [0, 1, 2].map((c) => {
           const sev = 2 - r + c
           return (
             <div key={`${r}${c}`} className={`min-h-16 rounded-2xl p-2 text-xs ${sev >= 3 ? 'bg-[#fdeaea]' : sev === 2 ? 'bg-[#fff8f4]' : 'bg-lime/30'}`}>
-              {risks.filter((x) => x[1] === r && x[2] === c).map((x) => <p key={x[0]} className="font-medium">{x[0]}</p>)}
+              {risks.filter((x) => x.impactLevel === r && x.probability === c).map((x) => <p key={x.id} className="font-medium">{x.name}</p>)}
             </div>
           )
         }))}
@@ -185,31 +265,31 @@ function RiskMatrix() {
   )
 }
 
-// ---------- Components & Rules ----------
-const rules0: [string, string, string, boolean][] = [
-  ['Gaji Pokok', 'Pendapatan', 'Tetap', true], ['Tunjangan Transport', 'Pendapatan', 'Per hari hadir', true],
-  ['Tunjangan Makan', 'Pendapatan', 'Per hari hadir', false], ['Lembur', 'Pendapatan', '1,5x upah per jam', true],
-  ['BPJS Kesehatan', 'Potongan', '1% gaji', true], ['BPJS Ketenagakerjaan', 'Potongan', '2% gaji', true],
-]
-function Rules() {
-  const [rules, setRules] = useState(rules0)
-  const toggle = (i: number) => setRules(rules.map((r, j) => (j === i ? [r[0], r[1], r[2], !r[3]] : r)))
+// ---------- Components & Rules (live, toggle → PATCH) ----------
+function Rules({
+  components,
+  onToggle,
+}: {
+  components: Array<{ id: string; name: string; type: string; rule: string | null; isActive: boolean }>
+  onToggle: (id: string, next: boolean) => void
+}) {
   return (
     <section className={card}>
       <h2 className="text-lg font-medium">Komponen & Aturan Aktif</h2>
       <ul className="mt-3 divide-y divide-track">
-        {rules.map(([n, t, rule, on], i) => (
-          <li key={n} className="flex items-center justify-between gap-3 py-3">
+        {components.map((c) => (
+          <li key={c.id} className="flex items-center justify-between gap-3 py-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{n}</p>
-              <p className="text-xs text-muted">{t} · {rule}</p>
+              <p className="truncate text-sm font-medium">{c.name}</p>
+              <p className="text-xs text-muted">{c.type === 'potongan' ? 'Potongan' : 'Pendapatan'} · {c.rule ?? '—'}</p>
             </div>
-            <button type="button" role="switch" aria-checked={on} aria-label={`Aktifkan ${n}`} onClick={() => toggle(i)}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? 'bg-forest' : 'bg-track'}`}>
-              <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
+            <button type="button" role="switch" aria-checked={c.isActive} aria-label={`Aktifkan ${c.name}`} onClick={() => onToggle(c.id, !c.isActive)}
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${c.isActive ? 'bg-forest' : 'bg-track'}`}>
+              <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${c.isActive ? 'left-[22px]' : 'left-0.5'}`} />
             </button>
           </li>
         ))}
+        {components.length === 0 && <li className="py-4 text-center text-sm text-muted">Belum ada komponen.</li>}
       </ul>
     </section>
   )
@@ -307,14 +387,38 @@ function Reconcile() {
   )
 }
 
-export function ItemView({ item }: { item: string }): ReactNode {
-  if (item === 'Invoice Builder') return <InvoiceForm />
+export function ItemView({
+  item,
+  liveBars,
+  liveStatement,
+  live,
+  onCreated,
+  liveReady,
+  onToggleComponent,
+}: {
+  item: string
+  liveBars?: { title: string; data: Bar[] } | null
+  liveStatement?: { title: string; rows: Array<[string, string, 'h' | 'r' | 't']> } | null
+  live?: { clientNames: Record<string, string>; scenarios: Array<{ id: string; name: string; revenueTarget: number; costTarget: number; assumption: string | null }>; payrollComponents: Array<{ id: string; name: string; type: string; rule: string | null; isActive: boolean }>; risks: Array<{ id: string; name: string; impactAmount: number; impactLevel: number; probability: number; status: string }> }
+  onCreated?: () => void
+  liveReady?: boolean
+  onToggleComponent?: (id: string, next: boolean) => void
+}): ReactNode {
+  if (item === 'Invoice Builder') return <InvoiceForm live={live} onCreated={onCreated} />
   if (item === 'Tax Setup & Calculator') return <TaxCalc />
-  if (item === 'Scenario & Forecast') return <Scenario />
-  if (item === 'Risk & Decision') return <RiskMatrix />
-  if (item === 'Components & Rules') return <Rules />
-  if (item === 'Payroll Run') return <PayrollEmployees />
-  if (item === 'Bank Reconciliation') return <Reconcile />
+  // Halaman wired: widget & laporan dari data live; sembunyikan saat loading/error (tanpa data demo).
+  if (item === 'Bank Reconciliation' || item === 'Withholding') return null
+  if (item === 'Scenario & Forecast') return liveReady && live && live.scenarios.length > 0 ? <Scenario scenarios={live.scenarios} /> : null
+  if (item === 'Components & Rules') return liveReady && live && onToggleComponent ? <Rules components={live.payrollComponents} onToggle={onToggleComponent} /> : null
+  if (item === 'Risk & Decision') return liveReady && live ? <RiskMatrix risks={live.risks} /> : null
+  if (item === 'Payroll Run' || item === 'Accounting' || item === 'Tax Report' || item === 'Compensation Review' || item === 'Deposit & Advance' || item === 'Payroll Tax') return null
+  if (item === 'P&L' || item === 'Balance Sheet' || item === 'Company Report') return liveStatement ? <Statement {...liveStatement} /> : null
+  if (
+    ['Receivables', 'Budget Planning', 'Cost Analysis', 'Fixed Assets', 'Inventory Valuation',
+      'HPP / COGS Review', 'Gross Margin', 'Payables & Recurring', 'Utilities', 'Business Case'].includes(item)
+  ) {
+    return liveBars ? <Bars {...liveBars} /> : null
+  }
   if (statements[item]) return <Statement {...statements[item]} />
   if (bars[item]) return <Bars {...bars[item]} />
   return null

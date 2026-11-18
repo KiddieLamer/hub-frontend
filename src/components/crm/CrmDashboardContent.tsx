@@ -29,12 +29,14 @@ import {
   type ApiClientTask,
   type ApiClientWarranty,
 } from './api'
-import { clientsApi, clientActivitiesApi, clientTasksApi, clientWarrantyApi, tenantsApi, membersApi } from '../../lib/endpoints'
+import { clientsApi, clientActivitiesApi, clientTasksApi, clientWarrantyApi, tenantsApi, membersApi, usersApi } from '../../lib/endpoints'
 import { isPlatformMode } from '../../lib/api'
 import { OpportunityStepper } from './OpportunityStepper'
 import { LeadScoreCard } from './LeadScoreCard'
+import { RelationshipCard } from './RelationshipCard'
 import { WarrantyCard } from './WarrantyCard'
 import { LeadSidebar } from './LeadSidebar'
+import CustomersTableCard from './CustomersTableCard'
 import { CustomerModal, type MemberOption } from './CustomerModal'
 import { LocationMapCard } from './LocationMapCard'
 import { ContactCard } from './ContactCard'
@@ -96,6 +98,23 @@ export function CrmDashboardContent() {
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false)
   const [commandInfoModal, setCommandInfoModal] = useState<'quality' | 'access' | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  // Id user login — dipakai ActivityLogCard untuk menampilkan tombol hapus pada catatan sendiri.
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    usersApi
+      .getMe()
+      .then((res) => {
+        if (!cancelled && res?.user?.id) setCurrentUserId(res.user.id)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  // Directory view: tabel seluruh customer (toggle dari sidebar).
+  const [showCustomersTable, setShowCustomersTable] = useState(false)
   const [tenantName, setTenantName] = useState<string>('')
   // Hub-admin "Platform view" — gabungan semua company (tanpa scope tenant).
   const [platformMode, setPlatformMode] = useState<boolean>(() => isPlatformMode())
@@ -341,6 +360,15 @@ export function CrmDashboardContent() {
     })
   }
 
+  const handleSocialsSave = (patch: Partial<LeadItem>) => {
+    if (!selectedLead) return
+    setActionError(null)
+    patchLead(selectedLead.id, mergeLeadPatch(selectedLead, patch)).catch((err) => {
+      console.error('Gagal update sosial media:', err)
+      setActionError('Gagal menyimpan sosial media.')
+    })
+  }
+
   const handleCompanySave = (patch: Partial<LeadItem>) => {
     if (!selectedLead) return
     setActionError(null)
@@ -395,6 +423,19 @@ export function CrmDashboardContent() {
       console.error('Gagal menghapus task:', err)
       setActionError('Gagal menghapus task.')
     }
+  }
+
+  /** Hapus catatan sendiri — soft delete di BE; tombstone terlihat admin. */
+  const handleDeleteActivity = async (activityId: string) => {
+    if (!selectedLead) return
+    setActionError(null)
+    const res = await clientActivitiesApi.remove(selectedLead.id, activityId)
+    if (res?.error) {
+      setActionError(typeof res.error === 'string' ? res.error : 'Gagal menghapus catatan.')
+      return
+    }
+    // Muat ulang detail supaya tombstone (dengan nama penghapus) akurat dari server.
+    await loadDetails(selectedLead.id)
   }
 
   const handleAddActivity = async (input: { type: string; content: string }) => {
@@ -473,10 +514,30 @@ export function CrmDashboardContent() {
             selectedLeadId={selectedLead?.id ?? ''}
             onSelectLead={setSelectedLeadId}
             onAddClick={handleOpenCreateModal}
+            onToggleCustomersTable={() => setShowCustomersTable((v) => !v)}
           />
         )}
 
         {/* ===== MAIN CONTENT AREA ===== */}
+        {showCustomersTable ? (
+        <div className="h-full lg:col-span-9 max-lg:h-auto">
+          <CustomersTableCard
+            onSelect={(clientId) => {
+              // Client dari halaman tabel mungkin belum ada di `leads` (state
+              // hanya memuat halaman pertama) — fetch, map, append, lalu pilih.
+              clientsApi.get(clientId).then((data: any) => {
+                const c = data?.client
+                if (!c) return
+                const lead = enrichOwner(mapClientToLead(c), members)
+                setLeads((prev) => (prev.some((l) => l.id === lead.id) ? prev : [...prev, lead]))
+                setSelectedLeadId(lead.id)
+                setShowCustomersTable(false)
+              }).catch(() => setShowCustomersTable(false))
+            }}
+            onClose={() => setShowCustomersTable(false)}
+          />
+        </div>
+        ) : (
         <div className="h-full space-y-4 overflow-y-auto pr-1.5 lg:col-span-9 max-lg:h-auto max-lg:overflow-visible">
 
           {/* Top Command Bar */}
@@ -532,10 +593,10 @@ export function CrmDashboardContent() {
 
               <button
                 onClick={() => setCommandInfoModal('quality')}
-                title="Rincian skor kualitas lead"
+                title="Rincian skor & cara mencapai grade terbaik"
                 className="flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
               >
-                <Sliders className="h-3.5 w-3.5 text-slate-500" /> Quality
+                <Sliders className="h-3.5 w-3.5 text-slate-500" /> Data health
               </button>
 
               <button
@@ -676,6 +737,7 @@ export function CrmDashboardContent() {
                   <SocialMediaCard
                     socials={selectedLead.socialMedia}
                     customerName={selectedLead.company || selectedLead.name}
+                    onSave={handleSocialsSave}
                   />
 
                   <CompanyCard
@@ -702,6 +764,8 @@ export function CrmDashboardContent() {
                   <ActivityLogCard
                     activities={selectedLead.activities}
                     onAddActivity={handleAddActivity}
+                    onDeleteActivity={handleDeleteActivity}
+                    currentUserId={currentUserId}
                   />
                 </div>
 
@@ -713,7 +777,10 @@ export function CrmDashboardContent() {
                     status={selectedLead.status}
                     statusDirection={selectedLead.statusDirection}
                     insights={selectedLead.insights}
+                    onGradeClick={() => setCommandInfoModal('quality')}
                   />
+
+                  <RelationshipCard clientId={selectedLead.id} />
 
                   <WarrantyCard
                     warranty={selectedLead.warranty ?? null}
@@ -727,6 +794,7 @@ export function CrmDashboardContent() {
           )}
 
         </div>
+        )}
 
       </div>
 
@@ -758,6 +826,10 @@ export function CrmDashboardContent() {
             type={commandInfoModal}
             lead={selectedLead}
             onClose={() => setCommandInfoModal(null)}
+            onEditClick={() => {
+              setCommandInfoModal(null)
+              setModalConfig({ isOpen: true, mode: 'edit' })
+            }}
           />
         )}
       </Suspense>

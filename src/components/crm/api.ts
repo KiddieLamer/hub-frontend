@@ -49,6 +49,8 @@ export interface ApiClientActivity {
   authorId: string | null
   authorName: string | null
   authorAvatar: string | null
+  deletedAt: string | null
+  deletedByName: string | null
 }
 
 export interface ApiClientTask {
@@ -477,6 +479,9 @@ export function mapActivity(activity: ApiClientActivity): ActivityNote {
     authorAvatar: activity.authorAvatar || initialsAvatar(activity.authorName || 'User'),
     content: activity.content,
     timestamp: relativeTime(activity.createdAt),
+    authorId: activity.authorId,
+    deleted: Boolean(activity.deletedAt),
+    deletedBy: activity.deletedByName || undefined,
   }
 }
 

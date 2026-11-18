@@ -131,15 +131,19 @@ export const tenantsApi = {
 export const clientsApi = {
   // Hub-admin platform mode: tanpa X-Tenant-ID (lihat lib/api.ts). Kirim
   // scope=all supaya backend tahu caller minta gabungan semua tenant.
-  list: (search?: string, limit?: number) => {
+  list: (search?: string, limit?: number, page?: number, status?: string) => {
     const params: Record<string, string> = {}
     if (search) params.search = search
     if (limit) params.limit = String(limit)
+    if (page) params.page = String(page)
+    if (status) params.status = status
     if (isPlatformMode()) params.scope = 'all'
     const qs = Object.keys(params).length > 0 ? `?${new URLSearchParams(params)}` : ''
     return apiFetch(`/api/clients${qs}`).then(r => apiJson(r))
   },
   get: (id: string) => apiFetch(`/api/clients/${id}`).then(r => apiJson(r)),
+  /** Agregat "Riwayat kerja sama" — dihitung live dari projects/invoices/quotations/bookings. */
+  stats: (id: string) => apiFetch(`/api/clients/${id}/stats`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/clients', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
   delete: (id: string) => apiFetch(`/api/clients/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
@@ -255,6 +259,14 @@ export const payrollApi = {
     if (params?.year) q.set('year', String(params.year))
     const qs = q.toString()
     return apiFetch(`/api/hris/payroll${qs ? `?${qs}` : ''}`).then(r => apiJson(r))
+  },
+  /** Payroll seluruh tenant (owner/admin/hub-admin) — untuk Payroll Run di Finance. */
+  listAll: (params?: { month?: number; year?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.month) q.set('month', String(params.month))
+    if (params?.year) q.set('year', String(params.year))
+    const qs = q.toString()
+    return apiFetch(`/api/hris/payroll/all${qs ? `?${qs}` : ''}`).then(r => apiJson(r))
   },
   get: (id: string) => apiFetch(`/api/hris/payroll/${id}`).then(r => apiJson(r)),
   getProfile: () => apiFetch('/api/hris/payroll/profile').then(r => apiJson(r)),
@@ -382,6 +394,8 @@ export const invoicesApi = {
     return apiFetch(`/api/finance/invoices${qs ? `?${qs}` : ''}`).then(r => apiJson(r))
   },
   stats: () => apiFetch('/api/finance/invoices/stats').then(r => apiJson(r)),
+  /** Seluruh payment tenant (mutasi kas masuk) — untuk Cash Flow & Bank Rec. */
+  paymentsAll: () => apiFetch('/api/finance/invoices/payments/all').then(r => apiJson(r)),
   get: (id: string) => apiFetch(`/api/finance/invoices/${id}`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/finance/invoices', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/finance/invoices/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
@@ -573,6 +587,24 @@ export const purchaseRequestsApi = {
   submit: (id: string) =>
     apiFetch(`/api/procurement/purchase-requests/${id}/submit`, { method: 'POST', body: JSON.stringify({}) }).then(r => apiJson(r)),
 }
+// ============ FINANCE - EXTRAS (scenarios/deposits/tax-codes/components/compensations/business-cases/risks) ============
+// CRUD generik: list() → {<key>:[...]}, create/patch/delete per id.
+const financeExtrasApi = (path: string, key: string, singular: string) => ({
+  list: () => apiFetch(`/api/finance/${path}`).then(r => apiJson(r)),
+  create: (data: Record<string, unknown>) => apiFetch(`/api/finance/${path}`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/finance/${path}/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  remove: (id: string) => apiFetch(`/api/finance/${path}/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
+  _key: key,
+  _singular: singular,
+})
+export const financeScenariosApi = financeExtrasApi('scenarios', 'scenarios', 'scenario')
+export const financeDepositsApi = financeExtrasApi('deposits', 'deposits', 'deposit')
+export const financeTaxCodesApi = financeExtrasApi('tax-codes', 'taxCodes', 'taxCode')
+export const financePayrollComponentsApi = financeExtrasApi('payroll-components', 'payrollComponents', 'payrollComponent')
+export const financeCompensationsApi = financeExtrasApi('compensations', 'compensations', 'compensation')
+export const financeBusinessCasesApi = financeExtrasApi('business-cases', 'businessCases', 'businessCase')
+export const financeRisksApi = financeExtrasApi('risks', 'risks', 'risk')
+
 export const purchaseOrdersApi = {
   list: () => apiFetch('/api/procurement/purchase-orders').then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/procurement/purchase-orders', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),

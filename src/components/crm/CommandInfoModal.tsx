@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X, Sliders, KeyRound, Loader2, Check, XCircle, AlertCircle, ShieldCheck, Users } from 'lucide-react'
+import { X, Sliders, KeyRound, Loader2, Check, XCircle, Minus, ShieldCheck, Users } from 'lucide-react'
 import type { LeadItem } from './types'
 import { scoreBreakdown } from './api'
 import { membersApi, tenantsApi } from '../../lib/endpoints'
@@ -8,6 +8,8 @@ interface CommandInfoModalProps {
   type: 'quality' | 'access'
   lead: LeadItem
   onClose: () => void
+  /** Dipanggil saat user klik "Lengkapi data customer" — buka modal edit. */
+  onEditClick?: () => void
 }
 
 interface TenantMember {
@@ -32,14 +34,30 @@ function initialsAvatar(name: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
 
-export function CommandInfoModal({ type, lead, onClose }: CommandInfoModalProps) {
+export function CommandInfoModal({ type, lead, onClose, onEditClick }: CommandInfoModalProps) {
   const isQuality = type === 'quality'
   const breakdown = scoreBreakdown(lead)
+
+  // Turunan skor: total kelengkapan, bonus, faktor bolong, dan target grade berikutnya.
+  const completeness = breakdown.factors.reduce((s, f) => s + f.earned, 0)
+  const maxCompleteness = breakdown.factors.reduce((s, f) => s + f.weight, 0)
+  const bonusSum = breakdown.bonus.reduce((s, b) => s + b.earned, 0)
+  const missingFactors = breakdown.factors.filter((f) => f.earned === 0)
+  const nextTarget =
+    breakdown.score < 50
+      ? { grade: 'C' as const, at: 50 }
+      : breakdown.score < 70
+        ? { grade: 'B' as const, at: 70 }
+        : breakdown.score < 85
+          ? { grade: 'A' as const, at: 85 }
+          : null
 
   const [members, setMembers] = useState<TenantMember[]>([])
   const [tenantName, setTenantName] = useState('')
   const [loadingMembers, setLoadingMembers] = useState(false)
   const [accessError, setAccessError] = useState<string | null>(null)
+  // Checklist ringkas: default hanya faktor yang bolong; yang lengkap disembunyikan.
+  const [showFilled, setShowFilled] = useState(false)
 
   useEffect(() => {
     if (isQuality) return
@@ -72,7 +90,7 @@ export function CommandInfoModal({ type, lead, onClose }: CommandInfoModalProps)
 
   return (
     <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-lg space-y-5 rounded-3xl border border-white/80 bg-white/90 p-6 shadow-2xl backdrop-blur-xl max-h-[90vh] overflow-y-auto">
+      <div className="w-full max-w-lg space-y-4 rounded-3xl border border-white/80 bg-white/90 p-5 shadow-2xl backdrop-blur-xl max-h-[90vh] overflow-y-auto">
 
         {/* Header Modal */}
         <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
@@ -82,7 +100,7 @@ export function CommandInfoModal({ type, lead, onClose }: CommandInfoModalProps)
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">
-                {isQuality ? 'Lead Quality Score' : 'Check Access'}
+                {isQuality ? 'Data health' : 'Check Access'}
               </h3>
               <p className="text-xs text-slate-500">
                 {lead.company || lead.name}
@@ -98,78 +116,149 @@ export function CommandInfoModal({ type, lead, onClose }: CommandInfoModalProps)
         </div>
 
         {isQuality ? (
-          /* ===== MODE QUALITY: rincian skor ===== */
-          <div className="space-y-4 text-xs">
-            <div className="flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-slate-50 p-4">
-              <div
-                className={`flex h-16 w-16 items-center justify-center rounded-full text-lg font-bold ${breakdown.score >= 80 ? 'bg-[#BCE893] text-slate-900' : breakdown.score >= 60 ? 'bg-[#FDE68A] text-slate-900' : 'bg-[#FECACA] text-slate-900'}`}
-              >
-                {breakdown.score}
+          /* ===== MODE QUALITY: rincian skor (ringkas) ===== */
+          <div className="space-y-3 text-xs">
+            {/* Hero: skor + progress menuju grade berikutnya */}
+            <div className="rounded-2xl border border-[#0d9488]/20 bg-gradient-to-br from-[#0d9488]/10 via-white/60 to-transparent p-3.5">
+              <div className="flex items-center gap-3.5">
+                <div
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-bold shadow-inner ${breakdown.score >= 80 ? 'bg-[#BCE893] text-slate-900' : breakdown.score >= 60 ? 'bg-[#FDE68A] text-slate-900' : 'bg-[#FECACA] text-slate-900'}`}
+                >
+                  {breakdown.score}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-bold text-slate-900">{breakdown.grade}</p>
+                    {nextTarget ? (
+                      <span className="rounded-full bg-[#0d9488]/10 px-2 py-0.5 text-[10px] font-bold text-[#0d9488]">
+                        {nextTarget.at - breakdown.score} poin lagi ke Grade {nextTarget.grade}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-[#E2F896] px-2 py-0.5 text-[10px] font-bold text-slate-900">
+                        Grade tertinggi tercapai
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-slate-500">
+                    Kelengkapan data {completeness}/{maxCompleteness} poin · bonus{' '}
+                    {bonusSum >= 0 ? '+' : ''}
+                    {bonusSum}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-bold text-slate-900">{breakdown.grade}</p>
-                <p className="text-slate-500">
-                  Kelengkapan data {breakdown.factors.reduce((s, f) => s + f.earned, 0)}/
-                  {breakdown.factors.reduce((s, f) => s + f.weight, 0)} poin
-                  {breakdown.bonus.length > 0 && ` + ${breakdown.bonus.reduce((s, b) => s + b.earned, 0)} bonus`}
-                </p>
+
+              {/* Bar skor dengan penanda ambang grade */}
+              <div className="mt-3.5">
+                <div className="relative h-1.5 rounded-full bg-slate-200/80">
+                  <div
+                    className="h-full rounded-full bg-[#0d9488] transition-all"
+                    style={{ width: `${Math.min(breakdown.score, 100)}%` }}
+                  />
+                  {[50, 70, 85].map((mark) => (
+                    <div
+                      key={mark}
+                      className="absolute -top-0.5 h-2.5 w-px bg-slate-300"
+                      style={{ left: `${mark}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="relative mt-1 h-3 text-[9px] font-semibold text-slate-400">
+                  {[50, 70, 85].map((mark) => (
+                    <span
+                      key={mark}
+                      className="absolute"
+                      style={{ left: `${mark}%`, transform: 'translateX(-50%)' }}
+                    >
+                      {mark === 50 ? 'C' : mark === 70 ? 'B' : 'A'}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="font-semibold text-slate-600">Kelengkapan Data</p>
-              {breakdown.factors.map((factor) => (
-                <div key={factor.label} className="flex items-center justify-between gap-2 rounded-2xl border border-slate-200/70 bg-white/80 p-2.5">
-                  <div className="flex items-center gap-2">
+            {/* Checklist kelengkapan — default hanya faktor yang bolong */}
+            <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white/80">
+              <div className="flex items-center justify-between border-b border-slate-100 px-3.5 py-2.5">
+                <p className="font-semibold text-slate-600">
+                  Kelengkapan data{missingFactors.length > 0 && ` — ${missingFactors.length} belum diisi`}
+                </p>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                  {completeness}/{maxCompleteness}
+                </span>
+              </div>
+              <ul className="divide-y divide-slate-100/80">
+                {(missingFactors.length === 0 || showFilled ? breakdown.factors : missingFactors).map((factor) => (
+                  <li key={factor.label} className="flex items-center gap-2.5 px-3.5 py-1.5">
                     {factor.earned > 0 ? (
                       <Check className="h-4 w-4 shrink-0 text-emerald-600" />
                     ) : (
                       <XCircle className="h-4 w-4 shrink-0 text-slate-300" />
                     )}
-                    <span className={factor.earned > 0 ? 'font-semibold text-slate-800' : 'text-slate-500'}>
+                    <span className={factor.earned > 0 ? 'font-semibold text-slate-800' : 'text-slate-400'}>
                       {factor.label}
                     </span>
-                  </div>
-                  <span className="shrink-0 font-semibold text-slate-600">
-                    {factor.earned}/{factor.weight}
-                  </span>
-                </div>
-              ))}
+                    <span className="ml-auto shrink-0">
+                      {factor.earned > 0 ? (
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                          {factor.earned}/{factor.weight}
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-[10px] font-bold text-slate-400">
+                          +{factor.weight}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {missingFactors.length > 0 && missingFactors.length < breakdown.factors.length && (
+                <button
+                  onClick={() => setShowFilled((v) => !v)}
+                  className="w-full border-t border-slate-100 px-3.5 py-2 text-left text-[11px] font-semibold text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
+                >
+                  {showFilled
+                    ? 'Sembunyikan faktor yang sudah lengkap'
+                    : `Tampilkan ${breakdown.factors.length - missingFactors.length} faktor yang sudah lengkap`}
+                </button>
+              )}
             </div>
 
+            {/* Bonus & penalti pipeline */}
             {breakdown.bonus.length > 0 && (
-              <div className="space-y-2">
-                <p className="font-semibold text-slate-600">Bonus Pipeline</p>
-                {breakdown.bonus.map((bonus) => (
-                  <div key={bonus.label} className="flex items-center justify-between gap-2 rounded-2xl border border-emerald-200/70 bg-emerald-50/60 p-2.5">
-                    <div className="flex items-center gap-2">
-                      <Check className="h-4 w-4 shrink-0 text-emerald-600" />
-                      <span className="font-semibold text-emerald-800">{bonus.label}</span>
-                    </div>
-                    <span className="shrink-0 font-semibold text-emerald-700">
-                      {bonus.earned > 0 ? '+' : ''}
-                      {bonus.earned}
-                    </span>
-                  </div>
-                ))}
+              <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white/80">
+                <div className="border-b border-slate-100 px-3.5 py-2.5">
+                  <p className="font-semibold text-slate-600">Bonus &amp; penalti pipeline</p>
+                </div>
+                <ul className="divide-y divide-slate-100/80">
+                  {breakdown.bonus.map((bonus) => (
+                    <li key={bonus.label} className="flex items-center gap-2.5 px-3.5 py-1.5">
+                      {bonus.earned > 0 ? (
+                        <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+                      ) : (
+                        <Minus className="h-4 w-4 shrink-0 text-rose-500" />
+                      )}
+                      <span className={bonus.earned > 0 ? 'font-semibold text-slate-800' : 'text-slate-400'}>
+                        {bonus.label}
+                      </span>
+                      <span
+                        className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${bonus.earned > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}
+                      >
+                        {bonus.earned > 0 ? '+' : ''}
+                        {bonus.earned}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 
-            <div className="space-y-2 rounded-2xl border border-amber-200/70 bg-amber-50/60 p-3.5">
-              <p className="flex items-center gap-1.5 font-bold text-amber-800">
-                <AlertCircle className="h-4 w-4" /> Cara meningkatkan skor
+            {/* Catatan penutup — faktor bolong + poinnya sudah ada di checklist;
+                target grade sudah di chip hero, jadi gak perlu seksi terpisah. */}
+            {missingFactors.length === 0 && (
+              <p className="rounded-2xl border border-emerald-200/70 bg-emerald-50/60 px-3.5 py-2.5 text-center font-semibold text-emerald-700">
+                Semua data profil sudah lengkap. Pertahankan interaksi aktif.
               </p>
-              <ul className="list-inside list-disc space-y-1 text-amber-700">
-                {breakdown.factors
-                  .filter((f) => f.earned === 0)
-                  .map((f) => (
-                    <li key={f.label}>
-                      {f.hint} <span className="font-semibold">(+{f.weight})</span>
-                    </li>
-                  ))}
-                {breakdown.factors.every((f) => f.earned > 0) && <li>Semua data profil sudah lengkap. Pertahankan interaksi aktif.</li>}
-              </ul>
-            </div>
+            )}
           </div>
         ) : (
           /* ===== MODE ACCESS: siapa bisa lihat record ini ===== */
@@ -233,10 +322,18 @@ export function CommandInfoModal({ type, lead, onClose }: CommandInfoModalProps)
           </div>
         )}
 
-        <div className="flex items-center justify-end border-t border-slate-200/60 pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/60 pt-3">
+          {isQuality && onEditClick && (
+            <button
+              onClick={onEditClick}
+              className="rounded-full bg-[#0d9488] px-5 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-[#0fa396]"
+            >
+              Lengkapi data customer
+            </button>
+          )}
           <button
             onClick={onClose}
-            className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-slate-800"
+            className="ml-auto rounded-full border border-slate-200 bg-white px-5 py-2 text-xs font-semibold text-slate-600 shadow-2xs transition-colors hover:bg-slate-50"
           >
             Tutup
           </button>

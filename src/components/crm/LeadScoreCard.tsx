@@ -11,6 +11,8 @@ export interface LeadScoreCardProps {
   insights?: LeadScoreInsight[]
   onMoreClick?: () => void
   onPinClick?: () => void
+  /** Dipanggil saat angka skor/grade diklik — buka rincian cara menaikkan grade. */
+  onGradeClick?: () => void
   /** Dipanggil saat user menyimpan daftar insight (edit / tambah / hapus). */
   onSaveInsights?: (insights: LeadScoreInsight[]) => void | Promise<void>
   className?: string
@@ -42,6 +44,7 @@ export function LeadScoreCard({
   insights = defaultInsights,
   onMoreClick,
   onPinClick,
+  onGradeClick,
   onSaveInsights,
   className = '',
 }: LeadScoreCardProps) {
@@ -186,7 +189,7 @@ export function LeadScoreCard({
     >
       {/* Header Card */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold tracking-tight text-slate-900">Lead Score</h3>
+        <h3 className="text-xl font-bold tracking-tight text-slate-900">Data health</h3>
         <div className="flex items-center gap-1.5">
           {canEdit && !editing && (
             <button
@@ -257,23 +260,32 @@ export function LeadScoreCard({
           ))}
         </svg>
 
-        {/* Center Content Inside Stadium Ring */}
-        <div className="absolute inset-0 flex items-center justify-center gap-3.5 px-6">
-          {/* Big Score Text */}
-          <span className="text-5xl font-black leading-none tracking-tight text-slate-900 md:text-6xl">
-            {score}
-          </span>
-
-          {/* Grade & Status Badge */}
-          <div className="flex flex-col items-start gap-1">
-            <span className="text-sm font-bold tracking-wide text-slate-800">
-              {grade}
+        {/* Center Content Inside Stadium Ring — klik untuk buka rincian cara naik grade */}
+        <div className="absolute inset-0 flex items-center justify-center px-6">
+          <button
+            type="button"
+            onClick={onGradeClick}
+            disabled={!onGradeClick}
+            aria-label="Lihat rincian skor dan cara mencapai grade terbaik"
+            title={onGradeClick ? 'Klik untuk lihat cara mencapai Grade A' : undefined}
+            className={`flex items-center justify-center gap-3.5 rounded-2xl px-3 py-1.5 transition-colors ${onGradeClick ? 'cursor-pointer hover:bg-white/50' : 'cursor-default'}`}
+          >
+            {/* Big Score Text */}
+            <span className="text-5xl font-black leading-none tracking-tight text-slate-900 md:text-6xl">
+              {score}
             </span>
-            <div className="flex items-center gap-1 rounded-full border border-[#D0EE7C] bg-[#E2F896] px-2.5 py-0.5 text-xs font-bold text-slate-900 shadow-2xs">
-              <span className="text-[11px]">{arrowSymbol}</span>
-              <span>{status}</span>
-            </div>
-          </div>
+
+            {/* Grade & Status Badge */}
+            <span className="flex flex-col items-start gap-1">
+              <span className="text-sm font-bold tracking-wide text-slate-800">
+                {grade}
+              </span>
+              <span className="flex items-center gap-1 rounded-full border border-[#D0EE7C] bg-[#E2F896] px-2.5 py-0.5 text-xs font-bold text-slate-900 shadow-2xs">
+                <span className="text-[11px]">{arrowSymbol}</span>
+                <span>{status}</span>
+              </span>
+            </span>
+          </button>
         </div>
       </div>
 

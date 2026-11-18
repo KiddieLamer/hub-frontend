@@ -36,6 +36,8 @@ interface TaskItem {
   // Untuk chip priority + tanda overdue di kartu.
   priority?: string;
   dueDateRaw?: string | null;
+  // Client yang di-handle project (null = internal/tanpa client).
+  clientName?: string | null;
 }
 
 
@@ -311,6 +313,8 @@ export function TasksBoardContent() {
       team,
       // Tag company asal (platform view) — jangan hilang di mapping.
       tenantName: p.tenantName ?? null,
+      // Client yang di-handle (opsional — project bisa tanpa client).
+      clientName: clients.find((c) => c.id === p.clientId)?.name ?? null,
     }
   })
 
@@ -1135,6 +1139,13 @@ export function TasksBoardContent() {
 
               {/* Milestones */}
               <div className="mt-4 pt-4 border-t border-zinc-100">
+                  {/* Client yang di-handle — opsional */}
+                  <div className="flex items-center justify-between text-[12px] text-slate-700 mb-2">
+                    <span className="text-zinc-400 font-semibold uppercase tracking-wider text-[10px]">Client</span>
+                    <span className="font-medium">{clients.find((c) => c.id === detailProject.clientId)?.name || '— internal (tanpa client) —'}</span>
+                  </div>
+
+
                 <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">Milestones ({detailProject.milestones.length})</p>
                 {detailProject.milestones.length === 0 ? (
                   <p className="text-[12px] text-zinc-400">Belum ada milestone.</p>
@@ -1263,6 +1274,12 @@ function ProjectCard({
             {project.tenantName && (
               <span className="text-[9px] font-bold uppercase tracking-wider text-white/90 bg-zinc-900/70 px-2 py-1 rounded-full">
                 {project.tenantName}
+              </span>
+            )}
+            {/* Client yang di-handle — tidak tampil bila project internal */}
+            {project.clientName && (
+              <span className="text-[9px] font-semibold text-slate-600 bg-white/70 border border-slate-200/70 px-2 py-1 rounded-full max-w-[120px] truncate">
+                🧑‍💼 {project.clientName}
               </span>
             )}
           </div>

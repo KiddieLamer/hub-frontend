@@ -97,6 +97,8 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
   const [isHubAdmin, setIsHubAdmin] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [socialContent, setSocialContent] = useState<SocialContentItem[]>([])
+  // Directory CRM tenant ini (dipakai kartu ringkasan CRM).
+  const [crmClients, setCrmClients] = useState<{ id: string; name: string; status: string; picName: string | null }[]>([])
   const [projectStats, setProjectStats] = useState<any>(null)
   const [projects, setProjects] = useState<any[]>([])
   // Sumber event Progress Tracker (heatmap aktivitas lintas modul).
@@ -181,6 +183,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
         setProjectStats((statRes as any)?.stats ?? null)
         setProjects((projRes as any)?.projects || [])
         setSocialContent(extractSocial((cliRes as any)?.clients || []))
+        setCrmClients((cliRes as any)?.clients || [])
         setTaskList((taskRes as any)?.tasks || [])
         setPurchaseReqList((prRes as any)?.purchaseRequests || [])
         setPurchaseOrderList((poRes as any)?.purchaseOrders || [])
@@ -709,6 +712,52 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
           </div>
 
           {/* Last content on social media */}
+          {/* ===== RINGKASAN CRM ===== */}
+          <div className="col-span-12 @3xl:col-span-6 @6xl:col-span-4 bg-white rounded-3xl p-5 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">CRM</span>
+              <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                {crmClients.length} client
+              </span>
+            </div>
+            {crmClients.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-[12px] text-slate-400 py-4">
+                Belum ada client. Tambahkan lewat window CRM.
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {([['lead', 'Lead'], ['prospect', 'Prospect'], ['active', 'Active'], ['churned', 'Churned']] as const).map(([st, label]) => {
+                    const n = crmClients.filter((c) => c.status === st).length
+                    const colors: Record<string, string> = {
+                      lead: 'text-sky-600 bg-sky-50 border-sky-100',
+                      prospect: 'text-violet-600 bg-violet-50 border-violet-100',
+                      active: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+                      churned: 'text-zinc-500 bg-slate-50 border-slate-200',
+                    }
+                    return (
+                      <div key={st} className={`rounded-xl border px-2 py-2 text-center ${colors[st]}`}>
+                        <div className="text-lg font-extrabold leading-none">{n}</div>
+                        <div className="text-[9px] font-semibold uppercase tracking-wider mt-1 opacity-80">{label}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="space-y-1">
+                  {crmClients.slice(0, 3).map((c) => (
+                    <div key={c.id} className="flex items-center justify-between text-[12px] text-slate-600">
+                      <span className="truncate">{c.name}</span>
+                      <span className="text-[10px] text-slate-400 shrink-0 ml-2">{c.picName || '—'}</span>
+                    </div>
+                  ))}
+                  {crmClients.length > 3 && (
+                    <div className="text-[10px] text-slate-400">+{crmClients.length - 3} lainnya</div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
           <LastSocialContentCard
             items={socialContent}
             onAddClick={() => window.dispatchEvent(new Event('hub-nav-crm'))}
@@ -800,7 +849,7 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             company={tenant}
             logoUrl={logoUrl}
             onEditLogo={() => openEdit('logoUrl', logoUrl)}
-            onEditField={(field: 'name' | 'email' | 'phoneNumber' | 'address' | 'approvalThreshold' | SocialField) => openEdit(field, (tenant as any)?.[field])}
+            onEditField={(field: 'name' | 'email' | 'phoneNumber' | 'address' | 'bankName' | 'bankAccountNumber' | 'approvalThreshold' | SocialField) => openEdit(field, (tenant as any)?.[field])}
             onEditGmap={() => openEdit('gmapLink', tenant?.gmapLink)}
             onEditGdrive={() => openEdit('gdriveLink', tenant?.gdriveLink)}
           />
@@ -840,6 +889,8 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             editField === 'xUrl' ? 'Edit Akun X' :
             editField === 'threadsUrl' ? 'Edit Akun Threads' :
             editField === 'taxId' ? 'Edit NPWP' :
+            editField === 'bankName' ? 'Edit Bank' :
+            editField === 'bankAccountNumber' ? 'Edit Nomor Rekening' :
             editField === 'phoneNumber' ? 'Edit Telepon' :
             'Edit ' + editField.charAt(0).toUpperCase() + editField.slice(1)
           }
@@ -870,6 +921,8 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
                 editField === 'phoneNumber' ? '+62 812 3456 7890' :
                 editField === 'website' ? 'https://perusahaan.com' :
                 editField === 'taxId' ? '00.000.000.0-000.000' :
+                editField === 'bankName' ? 'BCA / Mandiri / BRI ...' :
+                editField === 'bankAccountNumber' ? '90340222748' :
                 editField === 'approvalThreshold' ? '10000000' : ''
               }
               className={inputCls}

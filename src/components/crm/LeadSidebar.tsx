@@ -7,9 +7,10 @@ interface LeadSidebarProps {
   selectedLeadId: string
   onSelectLead: (id: string) => void
   onAddClick: () => void
+  onToggleCustomersTable?: () => void
 }
 
-export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }: LeadSidebarProps) {
+export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick, onToggleCustomersTable }: LeadSidebarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -207,9 +208,21 @@ export function LeadSidebar({ leads, selectedLeadId, onSelectLead, onAddClick }:
       <div className="flex h-10 shrink-0 items-center justify-between overflow-hidden px-1">
         {!isSearchOpen ? (
           <>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">CRM</h1>
+            {/* Kiri: judul + directory customers, digroup rapat agar tidak melayang di tengah */}
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">CRM</h1>
 
-            {/* Deretan Tombol Ikon Asli */}
+              {onToggleCustomersTable && (
+                <button
+                  onClick={onToggleCustomersTable}
+                  title="Directory Customers (tabel + filter)"
+                  className="rounded-full border border-slate-200/50 p-2 text-slate-600 shadow-xs transition-colors hover:bg-white/80 hover:text-slate-900"
+                >
+                  <Users className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {/* Kanan: deretan tombol aksi */}
             <div className="flex items-center gap-1.5 transition-all">
               <button
                 onClick={onAddClick}

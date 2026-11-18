@@ -1,4 +1,5 @@
-import { Share2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Share2, Edit2, Check, X } from 'lucide-react'
 import type { SocialHandles } from './types'
 
 // lucide-react v1.x tidak lagi menyediakan brand icon — pakai SVG inline
@@ -26,59 +27,118 @@ const TwitterIcon = ({ className }: { className?: string }) => (
 interface SocialMediaCardProps {
   customerName: string
   socials?: SocialHandles
+  /** Simpan inline (pola ContactCard) — parent yang memanggil PATCH client. */
+  onSave?: (patch: { socialMedia: SocialHandles }) => void
   className?: string
 }
 
-export function SocialMediaCard({ customerName, socials, className = '' }: SocialMediaCardProps) {
-  const hasSocials = socials && (socials.instagram || socials.linkedin || socials.twitter)
+const HANDLE_FIELDS: Array<{ key: keyof SocialHandles; label: string; icon: React.ReactNode; placeholder: string }> = [
+  { key: 'instagram', label: 'Instagram', icon: <InstagramIcon className="h-4 w-4 text-pink-600" />, placeholder: '@username' },
+  { key: 'linkedin', label: 'LinkedIn', icon: <LinkedinIcon className="h-4 w-4 text-blue-600" />, placeholder: 'linkedin.com/in/...' },
+  { key: 'twitter', label: 'Twitter / X', icon: <TwitterIcon className="h-4 w-4 text-sky-500" />, placeholder: '@username' },
+]
+
+export function SocialMediaCard({ customerName, socials, onSave, className = '' }: SocialMediaCardProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [form, setForm] = useState<SocialHandles>({
+    instagram: socials?.instagram || '',
+    linkedin: socials?.linkedin || '',
+    twitter: socials?.twitter || '',
+  })
+
+  // Sinkronkan form + reset mode edit saat ganti customer / data baru dari server.
+  useEffect(() => {
+    setForm({
+      instagram: socials?.instagram || '',
+      linkedin: socials?.linkedin || '',
+      twitter: socials?.twitter || '',
+    })
+    setIsEditing(false)
+  }, [socials])
+
+  const handleSave = () => {
+    onSave?.({
+      socialMedia: {
+        instagram: form.instagram?.trim() || undefined,
+        linkedin: form.linkedin?.trim() || undefined,
+        twitter: form.twitter?.trim() || undefined,
+      },
+    })
+    setIsEditing(false)
+  }
 
   return (
-    <div className={`space-y-3 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md ${className}`}>
+    <div className={`space-y-3 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md transition-all ${className}`}>
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-slate-900">Social Media</h3>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-          <Share2 className="h-4 w-4" />
-        </div>
+        {!isEditing ? (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 shadow-2xs transition-colors hover:bg-slate-200/80"
+          >
+            <Edit2 className="h-3.5 w-3.5 text-slate-500" /> Edit
+          </button>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setIsEditing(false)}
+              className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition-colors hover:bg-slate-100"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white shadow-xs"
+            >
+              <Check className="h-3.5 w-3.5" /> Save
+            </button>
+          </div>
+        )}
       </div>
 
-      {!hasSocials ? (
-        <div className="flex flex-col items-center justify-center space-y-1.5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 py-4 text-center">
-          <span className="text-xs font-semibold text-slate-700">Belum Terhubung</span>
-          <p className="max-w-[180px] text-[11px] font-medium text-slate-400">
-            Belum ada akun sosial media yang ditautkan untuk {customerName}.
-          </p>
-        </div>
+      {!isEditing ? (
+        socials && (socials.instagram || socials.linkedin || socials.twitter) ? (
+          <div className="space-y-2 text-xs">
+            {HANDLE_FIELDS.map(
+              (field) =>
+                socials?.[field.key] && (
+                  <div key={field.key} className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      {field.icon}
+                      <span className="font-medium text-slate-700">{field.label}</span>
+                    </div>
+                    <span className="font-semibold text-slate-900">{socials?.[field.key]}</span>
+                  </div>
+                )
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center space-y-1.5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 py-4 text-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+              <Share2 className="h-4 w-4" />
+            </div>
+            <span className="text-xs font-semibold text-slate-700">Belum Terhubung</span>
+            <p className="max-w-[180px] text-[11px] font-medium text-slate-400">
+              Belum ada akun sosial media yang ditautkan untuk {customerName}. Klik Edit untuk menautkan.
+            </p>
+          </div>
+        )
       ) : (
-        <div className="space-y-2 text-xs">
-          {socials?.instagram && (
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
-              <div className="flex items-center gap-2">
-                <InstagramIcon className="h-4 w-4 text-pink-600" />
-                <span className="font-medium text-slate-700">Instagram</span>
-              </div>
-              <span className="font-semibold text-slate-900">{socials.instagram}</span>
+        <div className="space-y-3 text-xs">
+          {HANDLE_FIELDS.map((field) => (
+            <div key={field.key}>
+              <span className="flex items-center gap-1.5 font-medium text-slate-400">
+                {field.icon} {field.label}
+              </span>
+              <input
+                type="text"
+                value={form[field.key] || ''}
+                onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+                placeholder={field.placeholder}
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+              />
             </div>
-          )}
-
-          {socials?.linkedin && (
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
-              <div className="flex items-center gap-2">
-                <LinkedinIcon className="h-4 w-4 text-blue-600" />
-                <span className="font-medium text-slate-700">LinkedIn</span>
-              </div>
-              <span className="font-semibold text-slate-900">{socials.linkedin}</span>
-            </div>
-          )}
-
-          {socials?.twitter && (
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-2xs">
-              <div className="flex items-center gap-2">
-                <TwitterIcon className="h-4 w-4 text-sky-500" />
-                <span className="font-medium text-slate-700">Twitter / X</span>
-              </div>
-              <span className="font-semibold text-slate-900">{socials.twitter}</span>
-            </div>
-          )}
+          ))}
         </div>
       )}
     </div>

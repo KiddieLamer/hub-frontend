@@ -35,6 +35,11 @@ export interface ActivityNote {
   authorAvatar: string
   content: string
   timestamp: string
+  /** Untuk tombol hapus: hanya tampil pada catatan milik user login. */
+  authorId?: string | null
+  /** Tombstone — hanya terkirim oleh BE untuk admin (owner/admin/hub-admin). */
+  deleted?: boolean
+  deletedBy?: string
 }
 
 export interface WarrantyInfo {

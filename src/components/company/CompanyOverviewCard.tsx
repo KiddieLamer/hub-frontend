@@ -10,7 +10,7 @@ interface Props {
   company?: any
   logoUrl?: string | null
   onEditLogo?: () => void
-  onEditField?: (field: 'name' | 'email' | 'phoneNumber' | 'address' | 'approvalThreshold' | SocialField) => void
+  onEditField?: (field: 'name' | 'email' | 'phoneNumber' | 'address' | 'bankName' | 'bankAccountNumber' | 'approvalThreshold' | SocialField) => void
   onEditGmap?: () => void
   onEditGdrive?: () => void
 }
@@ -43,6 +43,8 @@ export default function CompanyOverviewCard({
     { key: 'email' as const, label: 'Email', value: company?.email },
     { key: 'phoneNumber' as const, label: 'Telepon', value: company?.phoneNumber },
     { key: 'address' as const, label: 'Lokasi', value: company?.address },
+    { key: 'bankName' as const, label: 'Bank', value: company?.bankName },
+    { key: 'bankAccountNumber' as const, label: 'No. Rekening', value: company?.bankAccountNumber },
     { key: 'approvalThreshold' as const, label: 'Approval limit', value: approval },
   ]
 

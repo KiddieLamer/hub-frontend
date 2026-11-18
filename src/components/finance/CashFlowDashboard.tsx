@@ -1,40 +1,30 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode, SVGProps } from 'react'
+import { ChevronDown, Eye as EyeLucide, EyeOff as EyeOffLucide } from 'lucide-react'
+import { expenseClaimsApi } from '../../lib/endpoints'
+import { idrCompact, type UseFinanceLiveResult } from './useFinanceLive'
 
 // ======================================================================
-// DATA (mock, dalam Rupiah)
+// Cash Flow dashboard — SEMUA angka dari data live (useFinanceLive).
+// Saldo kas = estimasi (invoice terbayar − klaim dibayar).
 // ======================================================================
+
 type Currency = 'USD' | 'IDR' | 'MYR'
 const currencies: Currency[] = ['USD', 'IDR', 'MYR']
-const balanceByCurrency: Record<Currency, { symbol: string; amount: number; locale: string }> = {
-  USD: { symbol: '$', amount: 212_400.5, locale: 'en-US' },
-  IDR: { symbol: 'Rp', amount: 3_480_000_000, locale: 'id-ID' },
-  MYR: { symbol: 'RM', amount: 998_700.25, locale: 'en-MY' },
+const balanceCurrency: Record<Currency, { symbol: string; locale: string }> = {
+  USD: { symbol: '$', locale: 'en-US' },
+  IDR: { symbol: 'Rp', locale: 'id-ID' },
+  MYR: { symbol: 'RM', locale: 'en-MY' },
 }
 
-const costCategories = [
-  { id: 'rent', label: 'Sewa', amount: 500e6, icon: 'home', active: true },
-  { id: 'logistic', label: 'Logistik', amount: 217e6, icon: 'bus', active: false },
-  { id: 'marketing', label: 'Marketing', amount: 100e6, icon: 'bag', active: false },
-  { id: 'admin', label: 'Admin', amount: 100e6, icon: 'receipt', active: false },
-] as const
-
-const revenueSources = [
-  { id: 'service', label: 'Jasa', amount: 1850e6, share: 26 },
-  { id: 'product', label: 'Penjualan Produk', amount: 3630e6, share: 51, highlight: true },
-  { id: 'project', label: 'Proyek', amount: 1210e6, share: 17 },
-  { id: 'others', label: 'Lainnya', amount: 420e6, share: 6 },
-]
-
-const transactions = [
-  { id: 't1', title: 'Pembayaran PT Maju Jaya', meta: 'Hari ini, 09.00', amount: 180e6 },
-  { id: 't2', title: 'Vendor Logistik', meta: 'Kemarin, 14.30', amount: -72e6 },
-  { id: 't3', title: 'Sewa Kantor Oktober', meta: '1 Okt 2026', amount: -45e6 },
-]
-
 const rp = (n: number) =>
-  n >= 1e9 ? `Rp${(n / 1e9).toLocaleString('id-ID', { maximumFractionDigits: 2 })} M` : `Rp${Math.round(n / 1e6).toLocaleString('id-ID')} jt`
+  n >= 1e9 ? `Rp${(n / 1e9).toLocaleString('id-ID', { maximumFractionDigits: 2 })} M` : `Rp${(n / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
 const rpSigned = (n: number) => `${n > 0 ? '+' : '-'}${rp(Math.abs(n))}`
+const shortD = (d: string | null) => {
+  if (!d) return '—'
+  const date = new Date(d.includes('T') ? d : d.replace(' ', 'T'))
+  return Number.isNaN(date.getTime()) ? d : date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+}
 
 // ======================================================================
 // ICONS
@@ -45,13 +35,13 @@ const Base = ({ children, ...p }: IconProps) => (
     {children}
   </svg>
 )
-const EyeIcon = (p: IconProps) => (<Base {...p}><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" /><circle cx="12" cy="12" r="2.6" /></Base>)
-const EyeOffIcon = (p: IconProps) => (<Base {...p}><path d="M3 3l18 18" /><path d="M10.6 6a9.8 9.8 0 0 1 1.4-.1c6.4 0 10 6.1 10 6.1a17 17 0 0 1-3.2 3.9M6.3 7.7A17 17 0 0 0 2 12s3.6 6.5 10 6.5a9.6 9.6 0 0 0 4-.9" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></Base>)
+const EyeIcon = (p: IconProps) => <EyeLucide strokeWidth={1.8} {...p} />
+const EyeOffIcon = (p: IconProps) => <EyeOffLucide strokeWidth={1.8} {...p} />
 const CopyIcon = (p: IconProps) => (<Base {...p}><rect x="9" y="9" width="11" height="11" rx="2.5" /><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15" /></Base>)
 const DotsIcon = (p: IconProps) => (<Base {...p} fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></Base>)
-const ArrowUpRightIcon = (p: IconProps) => (<Base {...p}><path d="M7 17 17 7" /><path d="M8 7h9v9" /></Base>)
 const UploadIcon = (p: IconProps) => (<Base {...p}><path d="M12 15V4" /><path d="m7.5 8.5 4.5-4.5 4.5 4.5" /><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></Base>)
 const HandCoinIcon = (p: IconProps) => (<Base {...p}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5V12a2.5 2.5 0 0 1-2.5 2.5H13l-4 3.5v-3.5H6.5A2.5 2.5 0 0 1 4 12Z" /><path d="M12 6.5v5M10 8.5h4" /></Base>)
+const ArrowUpRightIcon = (p: IconProps) => (<Base {...p}><path d="M7 17 17 7" /><path d="M8 7h9v9" /></Base>)
 const BagIcon = (p: IconProps) => (<Base {...p}><path d="M5.5 8h13l-1 11.5a1.5 1.5 0 0 1-1.5 1.4H8a1.5 1.5 0 0 1-1.5-1.4Z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></Base>)
 const CoinBagIcon = (p: IconProps) => (<Base {...p}><path d="M9.5 3.5h5l-1 2.5h-3Z" /><path d="M10 6c-3.5 2-5 5-5 8.2C5 18 8 20.5 12 20.5s7-2.5 7-6.3C19 11 17.5 8 14 6" /><path d="M12 11v5M10.5 12.5h2.2a1.1 1.1 0 0 1 0 2.2h-1.4a1.1 1.1 0 0 0 0 2.2H13.5" /></Base>)
 const ReceiptIcon = (p: IconProps) => (<Base {...p}><path d="M6 3.5h12v17l-2.5-1.6-1.8 1.6-1.7-1.6-1.7 1.6-1.8-1.6L6 20.5Z" /><path d="M9.5 9h5M9.5 13h5" /></Base>)
@@ -63,11 +53,6 @@ const SparkIcon = (p: IconProps) => (<Base {...p}><path d="M12 3c.6 4.7 2.3 6.4 
 const TargetIcon = (p: IconProps) => (<Base {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></Base>)
 const iconMap = { home: HomeIcon, bus: BusIcon, bag: BagIcon, receipt: ReceiptIcon } as const
 
-// ======================================================================
-// BALANCE CARD
-// ======================================================================
-const ACCOUNT_NUMBER = '90340222748'
-
 function Flag({ code }: { code: Currency }) {
   if (code !== 'USD') return null
   return (
@@ -78,16 +63,34 @@ function Flag({ code }: { code: Currency }) {
   )
 }
 
-function BalanceCard() {
+function BalanceCard({
+  kas,
+  loading,
+  bankName,
+  bankAccountNumber,
+  onCatatKasKeluar,
+  onOpenBankRec,
+}: {
+  kas: number
+  loading: boolean
+  bankName: string | null
+  bankAccountNumber: string | null
+  onCatatKasKeluar?: () => void
+  onOpenBankRec?: () => void
+}) {
   const [currency, setCurrency] = useState<Currency>('IDR')
   const [hidden, setHidden] = useState(false)
   const [copied, setCopied] = useState(false)
-  const { symbol, amount, locale } = balanceByCurrency[currency]
-  const formatted = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+  const { symbol, locale } = balanceCurrency[currency]
+  // Kurs USD/MYR belum tersedia — hanya IDR yang menampilkan nilai real.
+  const amount = currency === 'IDR' ? kas : null
+  const formatted = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount ?? 0)
+  const acct = bankAccountNumber ?? ''
 
   const copy = async () => {
+    if (!acct) return
     try {
-      await navigator.clipboard.writeText(ACCOUNT_NUMBER)
+      await navigator.clipboard.writeText(acct)
       setCopied(true)
       setTimeout(() => setCopied(false), 1200)
     } catch {
@@ -108,38 +111,50 @@ function BalanceCard() {
           ))}
         </div>
         <div>
-          <p className="text-xs text-muted">Rekening Operasional</p>
-          <button type="button" onClick={copy} className="mt-0.5 flex items-center gap-2 text-lg font-medium tracking-wide">
-            {ACCOUNT_NUMBER}
+          <p className="text-xs text-muted">Rekening Operasional{bankName ? ` — ${bankName}` : ''}</p>
+          <button type="button" onClick={copy} title={acct ? 'Salin nomor rekening' : undefined}
+            className="mt-0.5 flex items-center gap-2 text-lg font-medium tracking-wide">
+            {acct || '—'}
             <CopyIcon className={copied ? 'text-gain' : ''} />
           </button>
+          {!acct && !loading && (
+            <p className="mt-1 text-[11px] text-muted">Atur no. rekening di modul Company.</p>
+          )}
         </div>
       </div>
 
       <div className="mt-8">
         <p className="text-sm text-muted">Saldo Kas Aktif</p>
         <div className="mt-1 flex items-center gap-3">
-          <p className="text-5xl font-medium tracking-tight md:text-6xl">{hidden ? `${symbol}••••••` : `${symbol}${formatted}`}</p>
+          <p className="text-5xl font-medium tracking-tight md:text-6xl">
+            {loading || hidden || amount === null ? `${symbol}••••••` : `${symbol}${formatted}`}
+          </p>
           <button type="button" aria-label={hidden ? 'Tampilkan saldo' : 'Sembunyikan saldo'} onClick={() => setHidden((v) => !v)}
             className="grid size-9 shrink-0 place-items-center rounded-full bg-canvas text-lg text-muted">
             {hidden ? <EyeOffIcon /> : <EyeIcon />}
           </button>
         </div>
+        {currency !== 'IDR' && amount === null && (
+          <p className="mt-1 text-xs text-muted">Kurs {currency} belum tersedia — nilai ditampilkan dalam IDR.</p>
+        )}
       </div>
 
       <div className="mt-8 flex items-end justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="flex items-center gap-2 rounded-full bg-forest px-5 py-2.5 text-sm font-medium text-white">
+          <button type="button" disabled title="Pembayaran tercatat lewat invoice di CRM"
+            className="flex items-center gap-2 rounded-full bg-forest px-5 py-2.5 text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed">
             <UploadIcon />
             Catat Kas Masuk
           </button>
-          <button type="button" className="flex items-center gap-2 rounded-full border border-forest px-5 py-2.5 text-sm font-medium text-forest">
+          <button type="button" onClick={onCatatKasKeluar}
+            className="flex items-center gap-2 rounded-full border border-forest px-5 py-2.5 text-sm font-medium text-forest">
             <HandCoinIcon />
             Catat Kas Keluar
           </button>
           <button type="button" aria-label="More" className="px-1 text-forest"><DotsIcon /></button>
         </div>
-        <button type="button" aria-label="Buka detail kas" className="grid size-16 place-items-center rounded-full bg-lime text-2xl text-forest transition-transform hover:scale-105">
+        <button type="button" aria-label="Buka detail kas" title="Buka mutasi kas (Bank Reconciliation)" onClick={onOpenBankRec}
+          className="grid size-16 place-items-center rounded-full bg-lime text-2xl text-forest transition-transform hover:scale-105">
           <ArrowUpRightIcon />
         </button>
       </div>
@@ -147,9 +162,6 @@ function BalanceCard() {
   )
 }
 
-// ======================================================================
-// HIGHLIGHT CARD (lime)
-// ======================================================================
 function Stat({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   const [hidden, setHidden] = useState(false)
   return (
@@ -168,7 +180,7 @@ function Stat({ label, value, icon }: { label: string; value: string; icon: Reac
   )
 }
 
-function HighlightCard() {
+function HighlightCard({ laba, delta, piutang, hutang, loading }: { laba: number; delta: number | null; piutang: number; hutang: number; loading: boolean }) {
   return (
     <section className="relative flex flex-col justify-between overflow-hidden rounded-[28px] bg-lime p-7 shadow-sm lg:col-span-5">
       <svg viewBox="0 0 100 100" className="pointer-events-none absolute -right-6 top-2 size-52 text-lime-deep/70" aria-hidden="true">
@@ -184,13 +196,21 @@ function HighlightCard() {
       <div className="relative mt-8">
         <p className="text-sm text-forest/70">Laba Bersih Bulan Ini</p>
         <div className="mt-1 flex flex-wrap items-center gap-3">
-          <p className="text-5xl font-medium tracking-tight text-forest">Rp1,9 M</p>
-          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gain">+22% vs bulan lalu</span>
+          <p className="text-5xl font-medium tracking-tight text-forest">{loading ? '–' : rp(laba)}</p>
+          {delta !== null ? (
+            <span className={`rounded-full bg-white px-2.5 py-1 text-xs font-medium ${delta >= 0 ? 'text-gain' : 'text-loss'}`}>
+              {delta >= 0 ? '+' : ''}{delta}% vs bulan lalu
+            </span>
+          ) : (
+            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-forest/60">
+              – vs bulan lalu
+            </span>
+          )}
         </div>
       </div>
       <div className="relative mt-8 flex gap-3">
-        <Stat label="Piutang" value="Rp2,3 M" icon={<CoinBagIcon />} />
-        <Stat label="Hutang" value="Rp1,1 M" icon={<ReceiptIcon />} />
+        <Stat label="Piutang" value={loading ? '–' : rp(piutang)} icon={<CoinBagIcon />} />
+        <Stat label="Hutang" value={loading ? '–' : rp(hutang)} icon={<ReceiptIcon />} />
       </div>
     </section>
   )
@@ -245,11 +265,25 @@ function useCountUp(target: number, duration = 900) {
   return value
 }
 
-function CostCard() {
-  const total = costCategories.reduce((s, c) => s + c.amount, 0)
+function CostCard({
+  costItems,
+  monthLabel,
+  chip,
+  monthValue,
+  monthOptions,
+  onMonthChange,
+}: {
+  costItems: Array<{ id: string; label: string; amount: number; icon: 'home' | 'bus' | 'bag' | 'receipt' }>
+  monthLabel: string
+  chip: { dir: 'naik' | 'turun'; pct: number } | null
+  monthValue: string
+  monthOptions: Array<{ value: string; label: string }>
+  onMonthChange: (m: string) => void
+}) {
+  const total = costItems.reduce((s, c) => s + c.amount, 0)
   const animatedTotal = useCountUp(total)
-  const segments = buildSegments(costCategories, total)
-  const [selectedId, setSelectedId] = useState<string>(costCategories.find((c) => c.active)?.id ?? costCategories[0].id)
+  const segments = buildSegments(costItems, total)
+  const [selectedId, setSelectedId] = useState<string>(costItems[0]?.id ?? '')
   const [hoverId, setHoverId] = useState<string | null>(null)
   const [drawn, setDrawn] = useState(false)
   useEffect(() => {
@@ -257,7 +291,7 @@ function CostCard() {
     return () => clearTimeout(t)
   }, [])
   const highlightId = hoverId ?? selectedId
-  const hovered = costCategories.find((c) => c.id === hoverId)
+  const hovered = costItems.find((c) => c.id === hoverId)
   const reduced = prefersReducedMotion()
 
   return (
@@ -267,7 +301,19 @@ function CostCard() {
           <span className="grid size-11 place-items-center rounded-full border border-track text-lg"><BagIcon /></span>
           <h2 className="text-lg font-medium">Biaya</h2>
         </div>
-        <button type="button" className="rounded-full border border-track px-4 py-2 text-sm font-medium">Oktober</button>
+        <div className="relative">
+          <select
+            value={monthValue}
+            onChange={(e) => onMonthChange(e.target.value)}
+            aria-label="Pilih bulan biaya"
+            className="appearance-none rounded-full border border-track px-4 py-2 pr-8 text-sm font-medium bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-forest/30"
+          >
+            {monthOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
+        </div>
       </div>
 
       <div className="relative mx-auto mt-5 size-[170px]">
@@ -290,29 +336,35 @@ function CostCard() {
           ) : (
             <>
               <p className="text-2xl font-normal">{rp(animatedTotal)}</p>
-              <p className="text-sm font-medium text-loss">+12%</p>
+              {chip && <p className={`text-sm font-medium ${chip.dir === 'naik' ? 'text-loss' : 'text-gain'}`}>{chip.dir === 'naik' ? '+' : '-'}{chip.pct}%</p>}
             </>
           )}
         </div>
       </div>
 
-      <p className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-full border border-track px-3 py-1.5 text-xs font-medium">
-        <SparkIcon className="text-sm" />
-        Biaya sewa naik <span className="text-loss">8,4%</span>
-      </p>
+      {chip && (
+        <p className="mx-auto mt-3 flex w-fit items-center gap-2 rounded-full border border-track px-3 py-1.5 text-xs font-medium">
+          <SparkIcon className="text-sm" />
+          {chip.dir === 'naik' ? 'Naik' : 'Turun'} {chip.pct}% vs bulan sebelumnya
+        </p>
+      )}
 
-      <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-        {costCategories.map((c) => {
-          const Icon = iconMap[c.icon]
-          return (
-            <li key={c.id} onMouseEnter={() => setHoverId(c.id)} onMouseLeave={() => setHoverId(null)} onClick={() => setSelectedId(c.id)}
-              className={`flex cursor-pointer items-center gap-1.5 transition-colors ${highlightId === c.id ? 'font-medium text-ink' : 'text-muted/80'}`}>
-              <Icon className="text-sm" />
-              <span className="truncate">{c.label} {rp(c.amount)}</span>
-            </li>
-          )
-        })}
-      </ul>
+      {costItems.length === 0 ? (
+        <p className="mt-4 text-center text-sm text-muted">Belum ada biaya tercatat.</p>
+      ) : (
+        <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+          {costItems.map((c) => {
+            const Icon = iconMap[c.icon]
+            return (
+              <li key={c.id} onMouseEnter={() => setHoverId(c.id)} onMouseLeave={() => setHoverId(null)} onClick={() => setSelectedId(c.id)}
+                className={`flex cursor-pointer items-center gap-1.5 transition-colors ${highlightId === c.id ? 'font-medium text-ink' : 'text-muted/80'}`}>
+                <Icon className="text-sm" />
+                <span className="truncate">{c.label} {rp(c.amount)}</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </section>
   )
 }
@@ -320,10 +372,19 @@ function CostCard() {
 // ======================================================================
 // REVENUE CARD
 // ======================================================================
-function RevenueCard() {
-  const goal = 8400e6
-  const earned = 7110e6
-  const goalPct = Math.min(100, (earned / goal) * 100)
+function RevenueCard({
+  earned,
+  deltaPct,
+  sources,
+  goal,
+}: {
+  earned: number
+  deltaPct: number | null
+  sources: Array<{ id: string; label: string; amount: number; share: number; highlight?: boolean }>
+  goal: number | null
+}) {
+  const goalPct = goal && goal > 0 ? Math.min(100, (earned / goal) * 100) : null
+  const total = sources.reduce((s, x) => s + x.amount, 0) || 1
   return (
     <section className="rounded-[28px] bg-white p-6 shadow-sm lg:col-span-4">
       <div className="flex items-start justify-between">
@@ -331,30 +392,43 @@ function RevenueCard() {
           <span className="grid size-11 place-items-center rounded-full border border-track text-lg"><CoinBagIcon /></span>
           <h2 className="text-lg font-medium">Pendapatan</h2>
         </div>
-        <div className="w-28">
-          <p className="flex items-center justify-end gap-1.5 text-sm font-medium"><TargetIcon className="text-ember" />{rp(goal)}</p>
-          <div className="mt-1.5 h-1 rounded-full bg-track"><div className="h-full rounded-full bg-ember" style={{ width: `${goalPct}%` }} /></div>
-        </div>
+        {goalPct !== null && goal !== null && (
+          <div className="w-28">
+            <p className="flex items-center justify-end gap-1.5 text-sm font-medium"><TargetIcon className="text-ember" />{rp(goal)}</p>
+            <div className="mt-1.5 h-1 rounded-full bg-track"><div className="h-full rounded-full bg-ember" style={{ width: `${goalPct}%` }} /></div>
+          </div>
+        )}
       </div>
 
       <p className="mt-6 text-5xl font-medium tracking-tight">{rp(earned)}</p>
-      <p className="mt-1 text-xs text-muted"><span className="font-medium text-gain">+18%</span> vs bulan lalu</p>
+      <p className="mt-1 text-xs text-muted">
+        {deltaPct !== null ? (
+          <><span className={`font-medium ${deltaPct >= 0 ? 'text-gain' : 'text-loss'}`}>{deltaPct >= 0 ? '+' : ''}{deltaPct}%</span> vs bulan lalu</>
+        ) : (
+          <><span className="font-medium text-muted">–</span> vs bulan lalu</>
+        )}
+      </p>
 
-      <ul className="mt-6 space-y-4">
-        {revenueSources.map((s) => (
-          <li key={s.id}>
-            <div className="mb-1.5 flex items-center justify-between text-sm text-muted"><span>{s.label}</span><span>{rp(s.amount)}</span></div>
-            <div className="relative h-2.5 rounded-full bg-track">
-              <div className={`h-full rounded-full ${s.highlight ? 'bg-lime-deep' : 'bg-[#cfd1ce]'}`} style={{ width: `${s.highlight ? s.share : s.share * 0.6}%` }} />
-              {s.highlight && (
-                <span className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-forest px-2 py-0.5 text-[11px] font-medium text-white" style={{ left: `${s.share}%` }}>
-                  {s.share}%
-                </span>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      {sources.length === 0 ? (
+        <p className="mt-6 text-sm text-muted">Belum ada pendapatan tercatat.</p>
+      ) : (
+        <ul className="mt-6 space-y-4">
+          {sources.map((s) => (
+            <li key={s.id}>
+              <div className="mb-1.5 flex items-center justify-between text-sm text-muted"><span>{s.label}</span><span>{rp(s.amount)}</span></div>
+              <div className="relative h-2.5 rounded-full bg-track">
+                <div className={`h-full rounded-full ${s.highlight ? 'bg-lime-deep' : 'bg-[#cfd1ce]'}`} style={{ width: `${s.highlight ? s.share : s.share * 0.6}%` }} />
+                {s.highlight && (
+                  <span className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-forest px-2 py-0.5 text-[11px] font-medium text-white" style={{ left: `${s.share}%` }}>
+                    {s.share}%
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+          <li className="text-[11px] text-muted">Pendapatan per pelanggan · total {rp(total)}</li>
+        </ul>
+      )}
     </section>
   )
 }
@@ -368,8 +442,17 @@ function Logo({ text }: { text: string }) {
   return <span className="grid size-11 shrink-0 place-items-center rounded-full border border-track bg-white text-sm font-semibold text-forest">{text}</span>
 }
 
-function TransactionsCard() {
-  const [pending, setPending] = useState<'pending' | 'approved' | 'declined'>('pending')
+function TransactionsCard({
+  pendingClaim,
+  events,
+  onApprove,
+  onReject,
+}: {
+  pendingClaim: { id: string; title: string; amount: number } | null
+  events: Array<{ id: string; title: string; meta: string; amount: number }>
+  onApprove: (id: string) => void
+  onReject: (id: string) => void
+}) {
   return (
     <section className="rounded-[28px] bg-white p-6 shadow-sm lg:col-span-5">
       <div className="flex items-center justify-between">
@@ -380,20 +463,21 @@ function TransactionsCard() {
         <button type="button" aria-label="More" className="grid size-10 place-items-center rounded-full border border-track"><DotsIcon /></button>
       </div>
 
-      {pending === 'pending' && (
+      {pendingClaim && (
         <div className="mt-5 flex items-center gap-3 rounded-2xl border border-ember/40 bg-[#fff8f4] p-3">
-          <Logo text="KJ" />
+          <Logo text={initials(pendingClaim.title)} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">CV Kertas Jaya · Rp24 jt</p>
+            <p className="truncate text-sm font-medium">{pendingClaim.title} · {rp(pendingClaim.amount)}</p>
             <p className="text-xs text-ember">Menunggu persetujuan pembayaran</p>
           </div>
-          <button type="button" aria-label="Setujui" onClick={() => setPending('approved')} className="grid size-9 place-items-center rounded-full bg-lime text-forest"><CheckIcon /></button>
-          <button type="button" aria-label="Tolak" onClick={() => setPending('declined')} className="grid size-9 place-items-center rounded-full border border-track"><CloseIcon /></button>
+          <button type="button" aria-label="Setujui" onClick={() => onApprove(pendingClaim.id)} className="grid size-9 place-items-center rounded-full bg-lime text-forest"><CheckIcon /></button>
+          <button type="button" aria-label="Tolak" onClick={() => onReject(pendingClaim.id)} className="grid size-9 place-items-center rounded-full border border-track"><CloseIcon /></button>
         </div>
       )}
 
       <ul className="mt-2 divide-y divide-track">
-        {transactions.map((t) => (
+        {events.length === 0 && <li className="py-6 text-center text-sm text-muted">Belum ada transaksi kas.</li>}
+        {events.map((t) => (
           <li key={t.id} className="flex items-center gap-3 py-4">
             <Logo text={initials(t.title)} />
             <div className="min-w-0 flex-1">
@@ -409,14 +493,148 @@ function TransactionsCard() {
 }
 
 // ======================================================================
-export default function CashFlowDashboard() {
+export default function CashFlowDashboard({
+  live,
+  onCatatKasKeluar,
+  onOpenBankRec,
+}: {
+  live: UseFinanceLiveResult
+  onCatatKasKeluar?: () => void
+  onOpenBankRec?: () => void
+}) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const now = new Date()
+  const thisM = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`
+  const prevD = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const prevM = `${prevD.getFullYear()}-${pad(prevD.getMonth() + 1)}`
+  const monthLabel = now.toLocaleDateString('id-ID', { month: 'long' })
+
+  // Bulan terpilih untuk kartu Biaya (default: bulan berjalan) + opsi 12 bulan terakhir.
+  const [costMonth, setCostMonth] = useState(thisM)
+  const monthOptions = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
+    return { value, label: d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) }
+  })
+  const costMonthLabel = monthOptions.find((o) => o.value === costMonth)?.label ?? costMonth
+  const monthBeforeCost = (() => {
+    const [y, m] = costMonth.split('-').map(Number)
+    const d = new Date(y, m - 2, 1)
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
+  })()
+
+  const nonDraft = live.invoices.filter((i) => !['draft', 'cancelled'].includes(i.status))
+  const claimsPaid = live.claims.filter((c) => c.status === 'paid')
+  const claimsRealized = live.claims.filter((c) => ['approved', 'paid'].includes(c.status))
+
+  const revOf = (m: string) => nonDraft.filter((i) => (i.issueDate || '').slice(0, 7) === m).reduce((s, i) => s + i.grandTotal, 0)
+  const bebanOf = (m: string) =>
+    claimsRealized.filter((c) => (c.expenseDate || '').slice(0, 7) === m).reduce((s, c) => s + c.amount, 0)
+
+  const kas = Math.max(0, nonDraft.reduce((s, i) => s + i.amountPaid, 0) - claimsPaid.reduce((s, c) => s + c.amount, 0))
+  const revThis = revOf(thisM)
+  const bebanThis = bebanOf(thisM)
+  const labaT = revThis - bebanThis
+  const labaL = revOf(prevM) - bebanOf(prevM)
+  const delta = labaL > 0 ? Math.round(((labaT - labaL) / Math.abs(labaL)) * 100) : null
+  const piutang = nonDraft.reduce((s, i) => s + (i.grandTotal - i.amountPaid), 0)
+  const hutang = live.purchaseOrders
+    .filter((p) => !['completed', 'cancelled', 'received', 'rejected'].includes(p.status))
+    .reduce((s, p) => s + p.grandTotal, 0)
+
+  // Biaya per kategori (klaim disetujui & dibayar) — difilter bulan terpilih
+  const costAgg = new Map<string, number>()
+  for (const c of claimsRealized) {
+    if ((c.expenseDate || '').slice(0, 7) !== costMonth) continue
+    costAgg.set(c.categoryId, (costAgg.get(c.categoryId) ?? 0) + c.amount)
+  }
+  const costItems = [...costAgg.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([id, amount], i) => ({
+      id,
+      label: live.categoryNames[id] ?? 'Lainnya',
+      amount,
+      icon: (['home', 'bus', 'bag', 'receipt'] as const)[i % 4],
+    }))
+  const bebanSelected = bebanOf(costMonth)
+  const bebanPrevSel = bebanOf(monthBeforeCost)
+  const costChip = bebanPrevSel > 0 && bebanSelected > 0
+    ? { dir: bebanSelected >= bebanPrevSel ? ('naik' as const) : ('turun' as const), pct: Math.abs(Math.round(((bebanSelected - bebanPrevSel) / bebanPrevSel) * 100)) }
+    : null
+
+  // Pendapatan per pelanggan
+  const revByClient = new Map<string, number>()
+  for (const i of nonDraft) revByClient.set(i.clientId, (revByClient.get(i.clientId) ?? 0) + i.grandTotal)
+  const sources = [...revByClient.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([id, amount], i) => ({
+      id,
+      label: live.clientNames[id] ?? '—',
+      amount,
+      share: Math.round((amount / (revByClient.size ? revThis || 1 : 1)) * 100),
+      highlight: i === 0,
+    }))
+  const goal = live.scenarios.length > 0
+    ? live.scenarios.reduce((s, x) => s + x.revenueTarget, 0) / live.scenarios.length
+    : null
+  const revDelta = revOf(prevM) > 0 ? Math.round(((revThis - revOf(prevM)) / revOf(prevM)) * 100) : null
+
+  // Transaksi: klaim menunggu approve + mutasi kas (payment masuk / klaim dibayar)
+  const pendingClaim = live.claims.find((c) => c.status === 'submitted') ?? null
+  const events = [
+    ...live.payments.map((p) => ({
+      id: `pay-${p.id}`,
+      title: `Pembayaran ${p.invoiceNumber ?? 'Invoice'}`,
+      meta: shortD(p.paymentDate),
+      amount: p.amount,
+    })),
+    ...claimsPaid.map((c) => ({
+      id: `claim-${c.id}`,
+      title: `Klaim dibayar — ${c.title}`,
+      meta: shortD(c.expenseDate),
+      amount: -c.amount,
+    })),
+  ]
+    .sort((a, b) => (a.meta < b.meta ? 1 : -1))
+    .slice(0, 6)
+
+  const handleApprove = async (id: string) => {
+    await expenseClaimsApi.approve(id, { approved: true }).catch(() => null)
+    live.reload()
+  }
+  const handleReject = async (id: string) => {
+    await expenseClaimsApi.approve(id, { approved: false, rejectionReason: 'Ditolak dari Cash Flow' }).catch(() => null)
+    live.reload()
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-      <BalanceCard />
-      <HighlightCard />
-      <CostCard />
-      <RevenueCard />
-      <TransactionsCard />
+      <BalanceCard
+        kas={live.loading ? 0 : kas}
+        loading={live.loading}
+        bankName={live.loading ? null : live.bankInfo.bankName}
+        bankAccountNumber={live.loading ? null : live.bankInfo.bankAccountNumber}
+        onCatatKasKeluar={onCatatKasKeluar}
+        onOpenBankRec={onOpenBankRec}
+      />
+      <HighlightCard laba={labaT} delta={live.loading ? null : delta} piutang={piutang} hutang={hutang} loading={live.loading} />
+      <CostCard
+        costItems={live.loading ? [] : costItems}
+        monthLabel={costMonthLabel}
+        chip={live.loading ? null : costChip}
+        monthValue={costMonth}
+        monthOptions={monthOptions}
+        onMonthChange={setCostMonth}
+      />
+      <RevenueCard earned={live.loading ? 0 : revThis} deltaPct={live.loading ? null : revDelta} sources={live.loading ? [] : sources} goal={live.loading ? null : goal} />
+      <TransactionsCard
+        pendingClaim={live.loading ? null : pendingClaim ? { id: pendingClaim.id, title: pendingClaim.title, amount: pendingClaim.amount } : null}
+        events={live.loading ? [] : events}
+        onApprove={handleApprove}
+        onReject={handleReject}
+      />
     </div>
   )
 }
