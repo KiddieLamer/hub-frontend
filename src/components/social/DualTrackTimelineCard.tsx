@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import type { TimelineAxisTick, TimelineMilestone, SocialPlatform } from './types/timeline'
+import { CONTENT_TYPE_LABELS } from './types/timeline'
 
 const PLATFORM_META: Record<
   SocialPlatform,
@@ -47,7 +48,7 @@ interface DualTrackTimelineCardProps {
     startPercent: number
     widthPercent: number
     label: string
-  }
+  } | null
   range?: TimelineRange
   onRangeChange?: (range: TimelineRange) => void
   axisTicks: TimelineAxisTick[]
@@ -55,6 +56,8 @@ interface DualTrackTimelineCardProps {
   onSelectMilestone?: (item: TimelineMilestone) => void
   /** Sinkron dengan tab platform di header dashboard ('overview' = All Channels) */
   syncPlatform?: SocialPlatform | 'overview'
+  /** Handle akun tenant di platform aktif (mis. "username" → ditampil @username) */
+  accountHandle?: string
 }
 
 export function DualTrackTimelineCard({
@@ -62,17 +65,14 @@ export function DualTrackTimelineCard({
   subtitle = 'Short-Form posts above the line, Feed & Long-Form schedule below. Hollow dots show upcoming scheduled posts.',
   todayLabel = 'Today',
   todayPositionPercent = 24,
-  highlightZone = {
-    startPercent: 80,
-    widthPercent: 13.5,
-    label: 'Campaign peak',
-  },
+  highlightZone = null,
   range = 'week',
   onRangeChange,
   axisTicks,
   milestones,
   onSelectMilestone,
   syncPlatform,
+  accountHandle,
 }: DualTrackTimelineCardProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<'all' | SocialPlatform>('all')
 
@@ -82,10 +82,27 @@ export function DualTrackTimelineCard({
     setSelectedPlatform(syncPlatform === 'overview' ? 'all' : syncPlatform)
   }, [syncPlatform])
 
-  const visibleMilestones =
+  // Filter channel (tab/syncPlatform) → filter tipe konten (chip header)
+  const [selectedType, setSelectedType] = useState<string | null>(null)
+  const channelFiltered =
     selectedPlatform === 'all'
       ? milestones
-      : milestones.filter((item) => item.platform === selectedPlatform)
+      : milestones.filter(
+          (item) => !item.platforms || item.platforms.length === 0 || item.platforms.includes(selectedPlatform)
+        )
+  // Hanya kategori yang benar-benar ada datanya yang jadi chip
+  const presentTypes = [
+    ...new Set(
+      channelFiltered.map((m) => m.contentType).filter((c): c is string => !!c)
+    ),
+  ]
+  const visibleMilestones = selectedType
+    ? channelFiltered.filter((m) => m.contentType === selectedType)
+    : channelFiltered
+
+  // Tab channel spesifik = fokus: sembunyikan channel lain & All Channels
+  const scopedPlatform: SocialPlatform | null =
+    syncPlatform && syncPlatform !== 'overview' ? syncPlatform : null
 
   return (
     <div className="bg-white rounded-[28px] p-6 border border-neutral-200/80 shadow-2xs">
@@ -96,29 +113,45 @@ export function DualTrackTimelineCard({
           <p className="text-xs text-neutral-500 mt-0.5">{subtitle}</p>
         </div>
 
-        {/* Legend: Pill Hitam (Short-Form), Pill Ungu (Feed & Long), Pill Outline (Scheduled) */}
-        <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-neutral-700">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3.5 h-1.5 rounded-full bg-black inline-block" />
-            Short-Form
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3.5 h-1.5 rounded-full bg-[#8F6CFC] inline-block" />
-            Feed &amp; Long
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3.5 h-1.5 rounded-full border border-[#D9C9FF] bg-white inline-block" />
-            Scheduled
-          </span>
-        </div>
+        {/* Filter tipe konten — hanya kategori yang ada datanya yang muncul */}
+        {presentTypes.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectedType(null)}
+              className={`px-3 py-1 rounded-full text-[11px] font-medium transition cursor-pointer whitespace-nowrap ${
+                !selectedType
+                  ? 'bg-neutral-900 text-white font-semibold shadow-2xs'
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              Semua
+            </button>
+            {presentTypes.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setSelectedType((prev) => (prev === t ? null : t))}
+                className={`px-3 py-1 rounded-full text-[11px] font-medium transition cursor-pointer whitespace-nowrap border ${
+                  selectedType === t
+                    ? 'bg-[#8F6CFC] border-[#8F6CFC] text-white font-semibold shadow-2xs'
+                    : 'bg-white text-neutral-500 border-neutral-200 hover:text-neutral-900'
+                }`}
+              >
+                {CONTENT_TYPE_LABELS[t] ?? t}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* FILTER CHANNEL (LOGO) + DROPDOWN RENTANG */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-1 bg-neutral-100/90 p-1 rounded-full w-fit max-w-full overflow-x-auto">
-          {FILTER_TABS.map((tab) => {
+          {FILTER_TABS.filter((tab) => !scopedPlatform || tab.id === scopedPlatform).map((tab) => {
             const active = selectedPlatform === tab.id
             const meta = tab.id === 'all' ? null : PLATFORM_META[tab.id]
+            const scoped = !!scopedPlatform && !!meta
             return (
               <button
                 key={tab.id}
@@ -134,7 +167,14 @@ export function DualTrackTimelineCard({
                     : 'text-neutral-500 hover:text-neutral-900'
                 }`}
               >
-                {meta ? (
+                {meta && scoped ? (
+                  <span className="flex items-center gap-1.5">
+                    <img src={meta.logo} alt={meta.name} className="h-5 w-5 object-contain" />
+                    {accountHandle && (
+                      <span className="text-[11px] font-semibold text-neutral-900">@{accountHandle}</span>
+                    )}
+                  </span>
+                ) : meta ? (
                   <img src={meta.logo} alt={meta.name} className="h-5 w-5 object-contain" />
                 ) : (
                   tab.label
@@ -179,6 +219,15 @@ export function DualTrackTimelineCard({
 
           {/* GARIS HORIZONTAL UTAMA (50% HEIGHT) */}
           <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 h-[1.5px] bg-neutral-200" />
+
+          {/* Empty state: belum ada konten di rentang ini */}
+          {milestones.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="text-xs text-neutral-400">
+                No content in this range — create tasks with type Social Media.
+              </p>
+            </div>
+          )}
 
           {/* INDIKATOR HARI INI */}
           <div
@@ -229,11 +278,17 @@ export function DualTrackTimelineCard({
                         <span className="text-[11px] font-bold text-black">
                           {item.dateLabel}
                         </span>
-                        <img
-                          src={badge.logo}
-                          alt={badge.name}
-                          className="h-4 w-4 object-contain shrink-0"
-                        />
+                        {(selectedPlatform === 'all'
+                          ? (item.platforms ?? [item.platform])
+                          : [selectedPlatform]
+                        ).map((p) => (
+                          <img
+                            key={p}
+                            src={PLATFORM_META[p as SocialPlatform]?.logo}
+                            alt={PLATFORM_META[p as SocialPlatform]?.name ?? p}
+                            className="h-4 w-4 object-contain shrink-0"
+                          />
+                        ))}
                       </div>
                       <div className="text-[11px] text-neutral-600 group-hover:text-neutral-950 font-medium">
                         {item.title}
@@ -250,11 +305,17 @@ export function DualTrackTimelineCard({
                         <span className="text-[11px] font-bold text-black">
                           {item.dateLabel}
                         </span>
-                        <img
-                          src={badge.logo}
-                          alt={badge.name}
-                          className="h-4 w-4 object-contain shrink-0"
-                        />
+                        {(selectedPlatform === 'all'
+                          ? (item.platforms ?? [item.platform])
+                          : [selectedPlatform]
+                        ).map((p) => (
+                          <img
+                            key={p}
+                            src={PLATFORM_META[p as SocialPlatform]?.logo}
+                            alt={PLATFORM_META[p as SocialPlatform]?.name ?? p}
+                            className="h-4 w-4 object-contain shrink-0"
+                          />
+                        ))}
                       </div>
                       <div className="text-[11px] text-neutral-600 group-hover:text-[#8F6CFC] font-medium">
                         {item.title}

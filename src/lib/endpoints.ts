@@ -459,6 +459,8 @@ export const tasksApi = {
   update: (id: string, data: Record<string, unknown>) => apiFetch(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(r => apiJson(r)),
   delete: (id: string) => apiFetch(`/api/tasks/${id}`, { method: 'DELETE' }).then(r => apiJson(r)),
   move: (id: string, data: Record<string, unknown>) => apiFetch(`/api/tasks/${id}/move`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
+  // Resolve short/share link sosmed (vt.tiktok.com dll) → URL final utk embed
+  resolveLink: (url: string) => apiFetch(`/api/tasks/resolve-link?url=${encodeURIComponent(url)}`).then(r => apiJson(r)),
   addComment: (id: string, data: Record<string, unknown>) => apiFetch(`/api/tasks/${id}/comments`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   // Multi-assignee: satu task bisa dikerjakan beberapa user (task_assignees).
   addAssignee: (id: string, userId: string) => apiFetch(`/api/tasks/${id}/assignees`, { method: 'POST', body: JSON.stringify({ userId }) }).then(r => apiJson(r)),

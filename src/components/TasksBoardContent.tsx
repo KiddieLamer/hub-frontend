@@ -23,6 +23,17 @@ import { canAccessPerm, fetchAccess, type AccessCtx, FALLBACK_ACCESS } from '../
 
 const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
 
+// Platform sosmed + logo — checkbox channel di modal task social_media
+const SOCIAL_PLATFORMS = [
+  { key: 'instagram', label: 'Instagram', logo: '/icons/social/instagram.png' },
+  { key: 'tiktok', label: 'TikTok', logo: '/icons/social/tiktok.png' },
+  { key: 'youtube', label: 'YouTube', logo: '/icons/social/youtube.png' },
+  { key: 'youtube_shorts', label: 'YouTube Shorts', logo: '/icons/social/youtube-shorts.png' },
+  { key: 'threads', label: 'Threads', logo: '/icons/social/threads.png' },
+  { key: 'x', label: 'X', logo: '/icons/social/x.png' },
+  { key: 'facebook', label: 'Facebook', logo: '/icons/social/facebook.png' },
+] as const
+
 interface TaskItem {
   id: string;
   title: string;
@@ -38,6 +49,11 @@ interface TaskItem {
   dueDateRaw?: string | null;
   // Client yang di-handle project (null = internal/tanpa client).
   clientName?: string | null;
+  // Kategori task (general / social_media / ...)
+  taskType?: string;
+  // Channel tujuan posting + link konten per channel (social_media task)
+  channels?: string[];
+  channelLinks?: Record<string, string>;
 }
 
 
@@ -71,6 +87,9 @@ interface TaskRow {
   id: string; projectId: string; columnId: string; title: string
   description: string | null; assignedTo: string | null; createdBy: string
   priority: string; dueDate: string | null; position: number; createdAt: string
+  taskType?: string; contentType?: string | null; contentFormat?: string | null
+  channels?: string[]; channelLinks?: Record<string, string>
+  updatedAt?: string
 }
 interface ColumnRow { id: string; projectId: string; name: string; position: number; colorCode: string }
 interface ProjectMemberRow { id: string; projectId: string; userId: string; roleInProject: string }
@@ -227,9 +246,18 @@ export function TasksBoardContent() {
   const [savingProject, setSavingProject] = useState(false)
 
   const [showCreateTask, setShowCreateTask] = useState(false)
-  const [createTaskForm, setCreateTaskForm] = useState({ title: '', columnId: '', priority: 'medium', dueDate: '', assignedTo: '', description: '' })
+  const [createTaskForm, setCreateTaskForm] = useState({ title: '', columnId: '', priority: 'medium', taskType: 'general', contentType: '', contentFormat: '', dueDate: '', assignedTo: '', description: '', channels: [] as string[] })
   const [createTaskError, setCreateTaskError] = useState('')
   const [creatingTask, setCreatingTask] = useState(false)
+  const [showEditTask, setShowEditTask] = useState(false)
+  const [editTaskId, setEditTaskId] = useState<string | null>(null)
+  const [editTaskError, setEditTaskError] = useState('')
+  const [savingTask, setSavingTask] = useState(false)
+  const [editTaskForm, setEditTaskForm] = useState({
+    title: '', columnId: '', priority: 'medium', taskType: 'general',
+    contentType: '', contentFormat: '', dueDate: '', description: '',
+    channels: [] as string[], channelLinks: {} as Record<string, string>,
+  })
 
   const memberName = (userId: string) => members.find((m) => m.userId === userId)?.userFullName
   const memberAvatar = (userId: string) => members.find((m) => m.userId === userId)?.userAvatarUrl || null
@@ -604,14 +632,27 @@ export function TasksBoardContent() {
 
   const openCreateTask = () => {
     if (!selectedProjectId || boardColumns.length === 0) return
-    setCreateTaskForm({ title: '', columnId: boardColumns[0].id, priority: 'medium', dueDate: '', assignedTo: '', description: '' })
+    setCreateTaskForm({ title: '', columnId: boardColumns[0].id, priority: 'medium', taskType: 'general', contentType: '', contentFormat: '', dueDate: '', assignedTo: '', description: '', channels: [] as string[] })
     setCreateTaskError('')
     setShowCreateTask(true)
+  }
+
+  const toggleCreateChannel = (key: string) => {
+    setCreateTaskForm((prev) => ({
+      ...prev,
+      channels: prev.channels.includes(key)
+        ? prev.channels.filter((c) => c !== key)
+        : [...prev.channels, key],
+    }))
   }
 
   const submitCreateTask = async () => {
     if (!createTaskForm.title || !createTaskForm.columnId) {
       setCreateTaskError('Title dan kolom wajib diisi')
+      return
+    }
+    if (createTaskForm.taskType === 'social_media' && createTaskForm.channels.length === 0) {
+      setCreateTaskError('Pilih minimal 1 channel sosmed')
       return
     }
     setCreatingTask(true); setCreateTaskError('')
@@ -622,6 +663,10 @@ export function TasksBoardContent() {
         title: createTaskForm.title,
         description: createTaskForm.description || undefined,
         priority: createTaskForm.priority,
+        taskType: createTaskForm.taskType,
+        contentType: createTaskForm.contentType || undefined,
+        contentFormat: createTaskForm.contentFormat || undefined,
+        channels: createTaskForm.taskType === 'social_media' ? createTaskForm.channels : undefined,
         dueDate: createTaskForm.dueDate || undefined,
         assignedTo: createTaskForm.assignedTo || undefined,
       })
@@ -632,6 +677,60 @@ export function TasksBoardContent() {
       setCreateTaskError(e?.message || 'Gagal membuat task')
     } finally {
       setCreatingTask(false)
+    }
+  }
+
+  const openEditTask = (taskId: string) => {
+    const row: any = boardTasks.find((t) => t.id === taskId)
+    if (!row) return
+    setEditTaskId(taskId)
+    setEditTaskForm({
+      title: row.title ?? '',
+      columnId: row.columnId ?? '',
+      priority: row.priority || 'medium',
+      taskType: row.taskType || 'general',
+      contentType: row.contentType || '',
+      contentFormat: row.contentFormat || '',
+      dueDate: row.dueDate ? String(row.dueDate).slice(0, 10) : '',
+      description: row.description || '',
+      channels: Array.isArray(row.channels) ? row.channels : [],
+      channelLinks: row.channelLinks && typeof row.channelLinks === 'object' ? { ...row.channelLinks } : {},
+    })
+    setEditTaskError('')
+    setShowEditTask(true)
+  }
+
+  const submitEditTask = async () => {
+    if (!editTaskId) return
+    if (!editTaskForm.title || !editTaskForm.columnId) {
+      setEditTaskError('Title dan kolom wajib diisi')
+      return
+    }
+    if (editTaskForm.taskType === 'social_media' && editTaskForm.channels.length === 0) {
+      setEditTaskError('Pilih minimal 1 channel sosmed')
+      return
+    }
+    setSavingTask(true); setEditTaskError('')
+    try {
+      const res: any = await tasksApi.update(editTaskId, {
+        title: editTaskForm.title,
+        columnId: editTaskForm.columnId,
+        description: editTaskForm.description || undefined,
+        priority: editTaskForm.priority,
+        taskType: editTaskForm.taskType,
+        contentType: editTaskForm.taskType === 'social_media' ? (editTaskForm.contentType || undefined) : undefined,
+        contentFormat: editTaskForm.taskType === 'social_media' ? (editTaskForm.contentFormat || undefined) : undefined,
+        channels: editTaskForm.taskType === 'social_media' ? editTaskForm.channels : [],
+        channelLinks: editTaskForm.taskType === 'social_media' ? editTaskForm.channelLinks : {},
+        dueDate: editTaskForm.dueDate || undefined,
+      })
+      if (res?.error) { setEditTaskError(String(res.error)); return }
+      setShowEditTask(false)
+      await Promise.all([openBoard(selectedProjectId), loadData()])
+    } catch (e: any) {
+      setEditTaskError(e?.message || 'Gagal menyimpan task')
+    } finally {
+      setSavingTask(false)
     }
   }
 
@@ -843,6 +942,9 @@ export function TasksBoardContent() {
                     columnId: t.columnId,
                     priority: t.priority,
                     dueDateRaw: t.dueDate,
+                    taskType: t.taskType,
+                    channels: (t as any).channels ?? [],
+                    channelLinks: (t as any).channelLinks ?? {},
                   },
                   row: t,
                   colIdx,
@@ -899,6 +1001,7 @@ export function TasksBoardContent() {
                       setNewTagDraft={setNewTagDraft}
                       tagBusy={tagBusy}
                       onAttachTag={(tagId) => attachTag(row.id, tagId)}
+                      onEdit={() => openEditTask(row.id)}
                       onDetachTag={(tagId) => detachTag(row.id, tagId)}
                       onCreateTag={(name) => createAndAttachTag(row.id, name)}
                       resolveName={memberName}
@@ -1213,6 +1316,68 @@ export function TasksBoardContent() {
               </select>
             </Field>
           </div>
+          <Field label="Tipe">
+            <select className={selectCls} value={createTaskForm.taskType} onChange={(e) => setCreateTaskForm({ ...createTaskForm, taskType: e.target.value })}>
+              <option value="general">General</option>
+              <option value="social_media">Social Media</option>
+            </select>
+          </Field>
+          {createTaskForm.taskType === 'social_media' && (
+            <>
+              <Field label="Tipe Konten">
+                <select className={selectCls} value={createTaskForm.contentType} onChange={(e) => setCreateTaskForm({ ...createTaskForm, contentType: e.target.value })}>
+                  <option value="">— pilih —</option>
+                  <optgroup label="Konten Mandiri">
+                    <option value="organic">Organic Content</option>
+                    <option value="honest_review">Honest / Unpaid Review</option>
+                    <option value="ugc_portfolio">UGC Portfolio</option>
+                    <option value="affiliate">Affiliate Content</option>
+                  </optgroup>
+                  <optgroup label="Kerja Sama Brand">
+                    <option value="collab">Collab (Collaboration)</option>
+                    <option value="endorsement">Endorsement</option>
+                    <option value="paid_promote">Paid Promote</option>
+                    <option value="barter">Barter Value</option>
+                    <option value="paid_ugc">Paid UGC</option>
+                    <option value="brand_ambassador">Brand Ambassador</option>
+                  </optgroup>
+                </select>
+              </Field>
+              <Field label="Format Konten">
+                <select className={selectCls} value={createTaskForm.contentFormat} onChange={(e) => setCreateTaskForm({ ...createTaskForm, contentFormat: e.target.value })}>
+                  <option value="">— pilih —</option>
+                  <option value="educational">Educational / How-To</option>
+                  <option value="entertainment">Entertainment</option>
+                  <option value="vlog">Vlog / Storytelling</option>
+                  <option value="review_comparison">Review &amp; Comparison</option>
+                  <option value="interactive">Interactive</option>
+                  <option value="bts">Behind The Scenes (BTS)</option>
+                </select>
+              </Field>
+              <Field label="Channel (minimal 1)">
+                <div className="flex flex-wrap gap-1.5">
+                  {SOCIAL_PLATFORMS.map((p) => {
+                    const checked = createTaskForm.channels.includes(p.key)
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => toggleCreateChannel(p.key)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition cursor-pointer ${
+                          checked
+                            ? 'bg-[#8F6CFC] border-[#8F6CFC] text-white'
+                            : 'bg-white text-zinc-600 border-zinc-300/60 hover:border-zinc-400'
+                        }`}
+                      >
+                        <img src={p.logo} alt="" className="h-3.5 w-3.5 object-contain" />
+                        {p.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+            </>
+          )}
           <Field label="Assignee (opsional)">
             <select className={selectCls} value={createTaskForm.assignedTo} onChange={(e) => setCreateTaskForm({ ...createTaskForm, assignedTo: e.target.value })}>
               <option value="">— belum ditentukan —</option>
@@ -1229,6 +1394,131 @@ export function TasksBoardContent() {
             <GhostBtn onClick={() => setShowCreateTask(false)}>Batal</GhostBtn>
             <SolidBtn onClick={submitCreateTask} disabled={creatingTask}>
               {creatingTask ? 'Creating…' : 'Create'}
+            </SolidBtn>
+          </div>
+        </Modal>
+      )}
+
+      {/* ============ MODAL: EDIT TASK ============ */}
+      {showEditTask && editTaskId && (
+        <Modal title="Edit Task" onClose={() => setShowEditTask(false)}>
+          {editTaskError && <div className="rounded-xl bg-red-50 px-3 py-2 text-[12px] text-red-600 mb-3">{editTaskError}</div>}
+          <Field label="Title">
+            <input className={inputCls} value={editTaskForm.title} onChange={(e) => setEditTaskForm({ ...editTaskForm, title: e.target.value })} placeholder="Judul task" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Kolom">
+              <select className={selectCls} value={editTaskForm.columnId} onChange={(e) => setEditTaskForm({ ...editTaskForm, columnId: e.target.value })}>
+                {boardColumns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Priority">
+              <select className={selectCls} value={editTaskForm.priority} onChange={(e) => setEditTaskForm({ ...editTaskForm, priority: e.target.value })}>
+                {['low', 'medium', 'high', 'urgent'].map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="Tipe">
+            <select className={selectCls} value={editTaskForm.taskType} onChange={(e) => setEditTaskForm({ ...editTaskForm, taskType: e.target.value })}>
+              <option value="general">General</option>
+              <option value="social_media">Social Media</option>
+            </select>
+          </Field>
+          {editTaskForm.taskType === 'social_media' && (
+            <>
+              <Field label="Tipe Konten">
+                <select className={selectCls} value={editTaskForm.contentType} onChange={(e) => setEditTaskForm({ ...editTaskForm, contentType: e.target.value })}>
+                  <option value="">— pilih —</option>
+                  <optgroup label="Konten Mandiri">
+                    <option value="organic">Organic Content</option>
+                    <option value="honest_review">Honest / Unpaid Review</option>
+                    <option value="ugc_portfolio">UGC Portfolio</option>
+                    <option value="affiliate">Affiliate Content</option>
+                  </optgroup>
+                  <optgroup label="Kerja Sama Brand">
+                    <option value="collab">Collab (Collaboration)</option>
+                    <option value="endorsement">Endorsement</option>
+                    <option value="paid_promote">Paid Promote</option>
+                    <option value="barter">Barter Value</option>
+                    <option value="paid_ugc">Paid UGC</option>
+                    <option value="brand_ambassador">Brand Ambassador</option>
+                  </optgroup>
+                </select>
+              </Field>
+              <Field label="Format Konten">
+                <select className={selectCls} value={editTaskForm.contentFormat} onChange={(e) => setEditTaskForm({ ...editTaskForm, contentFormat: e.target.value })}>
+                  <option value="">— pilih —</option>
+                  <option value="educational">Educational / How-To</option>
+                  <option value="entertainment">Entertainment</option>
+                  <option value="vlog">Vlog / Storytelling</option>
+                  <option value="review_comparison">Review &amp; Comparison</option>
+                  <option value="interactive">Interactive</option>
+                  <option value="bts">Behind The Scenes (BTS)</option>
+                </select>
+              </Field>
+              <Field label="Channel (minimal 1)">
+                <div className="flex flex-wrap gap-1.5">
+                  {SOCIAL_PLATFORMS.map((p) => {
+                    const checked = editTaskForm.channels.includes(p.key)
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => setEditTaskForm((prev) => ({
+                          ...prev,
+                          channels: prev.channels.includes(p.key)
+                            ? prev.channels.filter((c) => c !== p.key)
+                            : [...prev.channels, p.key],
+                        }))}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition cursor-pointer ${
+                          checked
+                            ? 'bg-[#8F6CFC] border-[#8F6CFC] text-white'
+                            : 'bg-white text-zinc-600 border-zinc-300/60 hover:border-zinc-400'
+                        }`}
+                      >
+                        <img src={p.logo} alt="" className="h-3.5 w-3.5 object-contain" />
+                        {p.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+              {editTaskForm.channels.length > 0 && (
+                <Field label="Link konten per channel (wajib sebelum Done)">
+                  <div className="space-y-2">
+                    {editTaskForm.channels.map((ch) => {
+                      const p = SOCIAL_PLATFORMS.find((x) => x.key === ch)
+                      return (
+                        <div key={ch} className="flex items-center gap-2">
+                          <img src={p?.logo} alt="" className="h-4 w-4 object-contain shrink-0" />
+                          <span className="text-[11px] font-semibold text-zinc-600 w-20 shrink-0">{p?.label}</span>
+                          <input
+                            className={inputCls}
+                            placeholder={`https://${ch === 'youtube_shorts' ? 'youtube' : ch}.com/...`}
+                            value={editTaskForm.channelLinks[ch] ?? ''}
+                            onChange={(e) => setEditTaskForm((prev) => ({
+                              ...prev,
+                              channelLinks: { ...prev.channelLinks, [ch]: e.target.value },
+                            }))}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                </Field>
+              )}
+            </>
+          )}
+          <Field label="Due Date">
+            <input className={inputCls} type="date" value={editTaskForm.dueDate} onChange={(e) => setEditTaskForm({ ...editTaskForm, dueDate: e.target.value })} />
+          </Field>
+          <Field label="Description">
+            <textarea className={inputCls} rows={2} value={editTaskForm.description} onChange={(e) => setEditTaskForm({ ...editTaskForm, description: e.target.value })} />
+          </Field>
+          <div className="flex justify-end gap-2 mt-5">
+            <GhostBtn onClick={() => setShowEditTask(false)}>Batal</GhostBtn>
+            <SolidBtn onClick={submitEditTask} disabled={savingTask}>
+              {savingTask ? 'Saving…' : 'Save'}
             </SolidBtn>
           </div>
         </Modal>
@@ -1374,6 +1664,7 @@ function Card({
   onAttachTag,
   onDetachTag,
   onCreateTag,
+  onEdit,
 }: {
   item: TaskItem;
   isExpanded: boolean;
@@ -1403,6 +1694,7 @@ function Card({
   onAttachTag: (tagId: string) => void;
   onDetachTag: (tagId: string) => void;
   onCreateTag: (name: string) => void;
+  onEdit: (taskId: string) => void;
 }) {
 
 
@@ -1433,6 +1725,11 @@ function Card({
         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/50 text-zinc-700">
           {item.columnId ? (columns.find((c) => c.id === item.columnId)?.name || '') : ''}
         </span>
+        {item.taskType === 'social_media' && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#8F6CFC]/90 text-white">
+            Social Media
+          </span>
+        )}
         {item.priority && item.priority !== 'medium' && (
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
             item.priority === 'urgent' ? 'bg-red-500/80 text-white'
@@ -1470,7 +1767,18 @@ function Card({
         >
           <div className="flex justify-between items-center mb-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Detail Task</span>
-            <span className="text-[10px] font-medium text-zinc-500">{item.date}</span>
+            <div className="flex items-center gap-2">
+              {canWrite && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(item.id)}
+                  className="text-[10px] font-semibold text-zinc-600 hover:text-zinc-900 underline underline-offset-2 cursor-pointer"
+                >
+                  Edit Task
+                </button>
+              )}
+              <span className="text-[10px] font-medium text-zinc-500">{item.date}</span>
+            </div>
           </div>
 
 
