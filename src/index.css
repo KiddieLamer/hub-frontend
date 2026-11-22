@@ -1,6 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-@import url('https://db.onlinewebfonts.com/c/16e715573b2b3072037cf4ab26fc8bb8?family=SK+Reykjavik+Rounded+Regular');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
+
+/* Font modul Assets (gaya Shipbox) */
+.font-jakarta {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* SK Reykjavik Rounded — self-hosted (public/fonts/) supaya tidak kena blokir
+   Cross-Origin-Resource-Policy CDN onlinewebfonts. Sumber font: onlinewebfonts
+   (lisensi CC BY 4.0) — file identik dengan yang tadinya di-import. */
+@font-face {
+  font-family: 'SK Reykjavik Rounded Regular';
+  src: url('/fonts/sk-reykjavik-rounded.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 @theme {
   --font-heading: 'SK Reykjavik Rounded Regular', sans-serif;
@@ -11,14 +27,17 @@
   --color-card-light: #1E1E1E;
   /* Finance dashboard tokens */
   --color-lime: #b7f565;
-  --color-lime-deep: #9ce94d;
-  --color-forest: #145b1f;
-  --color-muted: #717171;
-  --color-canvas: #f0f1ef;
-  --color-ink: #171717;
+  /* Finance dashboard tokens — Shipbox design system
+     (lime #84E100, navy #141B29, canvas #F8F9FB, border #EAEDF2) */
+  --color-lime: #84e100;
+  --color-lime-deep: #77cc00;
+  --color-forest: #141b29;
+  --color-muted: #8c95a4;
+  --color-canvas: #f8f9fb;
+  --color-ink: #141b29;
   --color-gain: #13933b;
   --color-loss: #df4a4a;
-  --color-track: #e4e4e1;
+  --color-track: #eaedf2;
   --color-ember: #ef6d42;
   /* CRM dashboard tokens */
   --color-rail: #e8ebf0;
@@ -124,4 +143,27 @@ html {
 
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* Tekstur & canvas — view Salary HRIS (persetujuan referensi Crextio) */
+.hris-canvas {
+  background:
+    radial-gradient(circle at 92% 85%, #F3DF96 0%, rgba(246, 232, 180, 0.72) 32%, rgba(250, 249, 246, 0) 68%),
+    linear-gradient(135deg, #F8F8F7 0%, #FAF8F2 55%, #F6E6AD 100%);
+}
+.hatch-track {
+  background-color: #ECEEF2;
+  background-image: repeating-linear-gradient(-45deg, #D5D8DF, #D5D8DF 1.5px, transparent 1.5px, transparent 4.5px);
+}
+.calendar-hatch-gray {
+  background-image: repeating-linear-gradient(-45deg, rgba(180, 184, 194, 0.45), rgba(180, 184, 194, 0.45) 1.5px, transparent 1.5px, transparent 6px);
+}
+.calendar-hatch-gold {
+  background-image: repeating-linear-gradient(-45deg, rgba(214, 186, 108, 0.48), rgba(214, 186, 108, 0.48) 1.5px, transparent 1.5px, transparent 6px);
+}
+.pill-hatch-gray {
+  background-image: repeating-linear-gradient(-45deg, #E2E4E9, #E2E4E9 1.5px, #F6F7F9 1.5px, #F6F7F9 4.5px);
+}
+.pill-hatch-gold {
+  background-image: repeating-linear-gradient(-45deg, #F4DE8A, #F4DE8A 1.5px, #FDF8E4 1.5px, #FDF8E4 4.5px);
 }

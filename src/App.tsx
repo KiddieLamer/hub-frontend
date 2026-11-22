@@ -4,6 +4,8 @@ import { Play, Star, TrendingUp, X, Mail, Lock, User, AlertCircle, CheckCircle }
 import { Portfolio } from './components/Portfolio'
 import { authApi } from './lib/endpoints'
 
+type GreetUser = { fullName: string; avatarUrl: string | null } | null
+
 const AVATARS: string[] = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100&h=100',
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100&h=100',
@@ -160,7 +162,7 @@ function ClientCard({ index, call }: { index: number; call: ClientCall }) {
   )
 }
 
-function LoginPage({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function LoginPage({ onClose, onSuccess }: { onClose: () => void; onSuccess: (user: GreetUser) => void }) {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -199,7 +201,7 @@ function LoginPage({ onClose, onSuccess }: { onClose: () => void; onSuccess: () 
           return
         }
         setSuccess(true)
-        setTimeout(() => { resetState(); onSuccess() }, 1200)
+        setTimeout(() => { resetState(); onSuccess(data.user ?? null) }, 1200)
       } catch {
         setError('Gagal login, coba lagi')
         setShakeKey((k) => k + 1)
@@ -372,7 +374,7 @@ function LoginPage({ onClose, onSuccess }: { onClose: () => void; onSuccess: () 
   )
 }
 
-function LandingPage({ onSuccess }: { onSuccess: () => void }) {
+function LandingPage({ onSuccess }: { onSuccess: (user: GreetUser) => void }) {
   const [showLogin, setShowLogin] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -391,7 +393,7 @@ function LandingPage({ onSuccess }: { onSuccess: () => void }) {
       if (data.error) {
         setError(data.error)
       } else {
-        onSuccess()
+        onSuccess(data.user ?? null)
       }
     } catch {
       setError('Email atau password salah')
@@ -531,7 +533,7 @@ function LandingPage({ onSuccess }: { onSuccess: () => void }) {
 
                   <p className="text-center text-xs text-neutral-400 mt-2">
                     Don&apos;t have an account?{' '}
-                    <button onClick={onSuccess} className="font-medium text-[#F25C40] hover:text-[#e04a30]">
+                    <button onClick={() => onSuccess(null)} className="font-medium text-[#F25C40] hover:text-[#e04a30]">
                       Get started
                     </button>
                   </p>
@@ -578,17 +580,23 @@ function App() {
   const [authState, setAuthState] = useState<'landing' | 'login' | 'portfolio'>(() => {
     return localStorage.getItem('hub-auth') as 'landing' | 'login' | 'portfolio' | null || 'landing'
   })
+  const [greetUser, setGreetUser] = useState<GreetUser>(null)
 
   useEffect(() => {
     if (authState === 'landing') localStorage.removeItem('hub-auth')
     else localStorage.setItem('hub-auth', authState)
   }, [authState])
 
+  const enterPortfolio = (user: GreetUser) => {
+    setGreetUser(user)
+    setAuthState('portfolio')
+  }
+
   return (
     <>
       <AnimatePresence mode="wait">
         {authState === 'landing' && (
-          <LandingPage key="landing" onSuccess={() => setAuthState('portfolio')} />
+          <LandingPage key="landing" onSuccess={enterPortfolio} />
         )}
       </AnimatePresence>
 
@@ -597,13 +605,17 @@ function App() {
           <LoginPage
             key="login"
             onClose={() => setAuthState('landing')}
-            onSuccess={() => setAuthState('portfolio')}
+            onSuccess={enterPortfolio}
           />
         )}
       </AnimatePresence>
 
       {authState === 'portfolio' && (
-        <Portfolio onLogout={() => setAuthState('landing')} />
+        <Portfolio
+          onLogout={() => setAuthState('landing')}
+          loginGreeting={greetUser}
+          onGreetingDone={() => setGreetUser(null)}
+        />
       )}
     </>
   )

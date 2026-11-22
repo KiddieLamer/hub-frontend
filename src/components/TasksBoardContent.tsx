@@ -53,6 +53,9 @@ interface ProjectItem {
   totalTasks: number;
   dueDate: string;
   team: TeamMemberRef[];
+  /** Enrichment backend untuk platform view (X-Platform-Scope: all) */
+  tenantName?: string | null;
+  clientName?: string | null;
 }
 
 /* ============ Data layer (API nyata) ============ */

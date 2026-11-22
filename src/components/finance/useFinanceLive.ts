@@ -64,6 +64,7 @@ export interface LiveClaim {
   status: string
   paymentMethod: string
   department: string | null
+  clientId: string | null
 }
 
 export interface LiveBudget {
@@ -141,7 +142,7 @@ export interface FinanceLive {
   /** Rekening operasional dari modul Company (tenants). */
   bankInfo: { bankName: string | null; bankAccountNumber: string | null }
   /** Identitas user login (untuk greeting header Finance). */
-  me: { fullName: string | null }
+  me: { fullName: string | null; avatarUrl: string | null }
   /** Jumlah notifikasi belum dibaca (bell header Finance). */
   unreadCount: number
   scenarios: LiveScenario[]
@@ -153,6 +154,8 @@ export interface FinanceLive {
   risks: LiveRisk[]
   categoryNames: Record<string, string>
   clientNames: Record<string, string>
+  /** Foto client CRM (avatarUrl) untuk logo transaksi — key clientId. */
+  clientAvatars: Record<string, string | null>
   vendorNames: Record<string, string>
 }
 
@@ -236,6 +239,7 @@ export function useFinanceLive(): UseFinanceLiveResult {
         status: String(c.status ?? 'draft'),
         paymentMethod: String(c.paymentMethod ?? 'reimbursement'),
         department: (c.department as string | null) ?? null,
+        clientId: (c.clientId as string | null) ?? null,
       }))
 
       const budgets: LiveBudget[] = (budgetList?.budgets ?? budgetList?.data ?? []).map((b: Record<string, unknown>) => ({
@@ -333,7 +337,7 @@ export function useFinanceLive(): UseFinanceLiveResult {
       }
 
       // Identitas user login + notifikasi belum dibaca
-      const me = { fullName: (meRes?.user?.fullName as string | null) ?? null }
+      const me = { fullName: (meRes?.user?.fullName as string | null) ?? null, avatarUrl: (meRes?.user?.avatarUrl as string | null) ?? null }
       const notifList = notifRes?.notifications ?? notifRes?.data ?? []
       const unreadCount = Array.isArray(notifList)
         ? notifList.filter((n: Record<string, unknown>) => !n.isRead && !n.readAt).length
@@ -342,7 +346,11 @@ export function useFinanceLive(): UseFinanceLiveResult {
       const categoryNames: Record<string, string> = {}
       for (const c of catList?.categories ?? []) categoryNames[String(c.id)] = String(c.name)
       const clientNames: Record<string, string> = {}
-      for (const c of clientList?.clients ?? []) clientNames[String(c.id)] = String(c.name)
+      const clientAvatars: Record<string, string | null> = {}
+      for (const c of clientList?.clients ?? []) {
+        clientNames[String(c.id)] = String(c.name)
+        clientAvatars[String(c.id)] = (c.avatarUrl as string | null) ?? null
+      }
 
       setData({
         invoices,
@@ -372,6 +380,7 @@ export function useFinanceLive(): UseFinanceLiveResult {
         risks,
         categoryNames,
         clientNames,
+        clientAvatars,
         vendorNames,
       })
     } catch {
@@ -400,7 +409,7 @@ const emptyLive: FinanceLive = {
   payments: [],
   payrolls: [],
   bankInfo: { bankName: null, bankAccountNumber: null },
-  me: { fullName: null },
+  me: { fullName: null, avatarUrl: null },
   unreadCount: 0,
   scenarios: [],
   deposits: [],
@@ -411,6 +420,7 @@ const emptyLive: FinanceLive = {
   risks: [],
   categoryNames: {},
   clientNames: {},
+  clientAvatars: {},
   vendorNames: {},
 }
 

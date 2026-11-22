@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
-const card = 'rounded-[28px] bg-white p-6 shadow-sm'
+const card = 'rounded-[20px] border border-[#EAEDF2] bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.02)]'
 const idr = (n: number) => 'Rp' + new Intl.NumberFormat('id-ID').format(Math.round(n))
 const input = 'w-full rounded-xl border border-track bg-white px-3 py-2 text-sm outline-none focus:border-forest'
 
@@ -291,98 +291,6 @@ function Rules({
         ))}
         {components.length === 0 && <li className="py-4 text-center text-sm text-muted">Belum ada komponen.</li>}
       </ul>
-    </section>
-  )
-}
-
-// ---------- Payroll Run: daftar karyawan ----------
-const emps: [name: string, dept: string, gross: number, allow: number, ded: number][] = [
-  ['Andi Pratama', 'Operations', 12e6, 4e6, 1.2e6], ['Sari Wulandari', 'Sales', 16e6, 6e6, 2.4e6],
-  ['Budi Hartono', 'Finance', 22e6, 8e6, 4.1e6], ['Dewi Lestari', 'HR', 11e6, 3e6, 0.9e6],
-]
-function PayrollEmployees() {
-  const [ok, setOk] = useState<string[]>([])
-  const net = (e: (typeof emps)[number]) => e[2] + e[3] - e[4]
-  const total = emps.filter((e) => ok.includes(e[0])).reduce((s, e) => s + net(e), 0)
-  return (
-    <section className={card}>
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium">Slip Gaji Karyawan</h2>
-        <button type="button" onClick={() => setOk(ok.length === emps.length ? [] : emps.map((e) => e[0]))}
-          className="rounded-full border border-forest px-4 py-1.5 text-sm font-medium text-forest">
-          {ok.length === emps.length ? 'Batalkan semua' : 'Approve semua'}
-        </button>
-      </div>
-      <ul className="mt-3 divide-y divide-track">
-        {emps.map((e) => (
-          <li key={e[0]} className="flex items-center gap-3 py-3">
-            <input type="checkbox" className="size-4 accent-[#0f3b2e]" checked={ok.includes(e[0])} aria-label={`Approve ${e[0]}`}
-              onChange={() => setOk(ok.includes(e[0]) ? ok.filter((x) => x !== e[0]) : [...ok, e[0]])} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{e[0]}</p>
-              <p className="text-xs text-muted">{e[1]} · Pokok {idr(e[2])} + Tunjangan {idr(e[3])} - Potongan {idr(e[4])}</p>
-            </div>
-            <p className="text-sm font-medium">{idr(net(e))}</p>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-2 flex justify-between border-t border-track pt-4 text-sm">
-        <span className="text-muted">Total disetujui ({ok.length}/{emps.length})</span><span className="text-base font-medium">{idr(total)}</span>
-      </div>
-    </section>
-  )
-}
-
-// ---------- Bank Reconciliation: bank vs jurnal ----------
-type Tx = { id: string; d: string; a: number }
-const bank: Tx[] = [{ id: 'b1', d: 'TRF PT Maju Jaya', a: 180e6 }, { id: 'b2', d: 'Biaya admin bank', a: -250e3 }, { id: 'b3', d: 'TRF Vendor Logistik', a: -72e6 }]
-const ledger: Tx[] = [{ id: 'l1', d: 'Penerimaan INV-1042', a: 180e6 }, { id: 'l2', d: 'Pembayaran Vendor Logistik', a: -72e6 }, { id: 'l3', d: 'Biaya admin bank', a: -300e3 }]
-const signed = (a: number) => (a < 0 ? '-' : '+') + idr(Math.abs(a))
-
-function Col({ title, list, sel, onSel, used }: { title: string; list: Tx[]; sel: string | null; onSel: (id: string) => void; used: string[] }) {
-  return (
-    <div>
-      <p className="mb-2 text-xs font-medium text-muted">{title}</p>
-      <ul className="space-y-2">
-        {list.map((t) => {
-          const m = used.includes(t.id)
-          return (
-            <li key={t.id}>
-              <button type="button" disabled={m} onClick={() => onSel(t.id)} aria-pressed={sel === t.id}
-                className={`w-full rounded-2xl border p-3 text-left text-sm ${m ? 'border-transparent bg-lime/40' : sel === t.id ? 'border-forest bg-white' : 'border-track bg-canvas'}`}>
-                <span className="block truncate">{m ? '✓ ' : ''}{t.d}</span>
-                <span className={`text-xs ${t.a < 0 ? 'text-loss' : 'text-gain'}`}>{signed(t.a)}</span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
-}
-
-function Reconcile() {
-  const [b, setB] = useState<string | null>(null)
-  const [l, setL] = useState<string | null>(null)
-  const [pairs, setPairs] = useState<string[]>([])
-  const [msg, setMsg] = useState('')
-  const match = () => {
-    const x = bank.find((t) => t.id === b), y = ledger.find((t) => t.id === l)
-    if (!x || !y) return
-    if (x.a !== y.a) return setMsg(`Nominal berbeda, selisih ${idr(Math.abs(x.a - y.a))}`)
-    setPairs([...pairs, x.id, y.id]); setB(null); setL(null); setMsg('')
-  }
-  return (
-    <section className={card}>
-      <h2 className="text-lg font-medium">Pencocokan Bank vs Jurnal</h2>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <Col title="Mutasi Bank" list={bank} sel={b} onSel={setB} used={pairs} />
-        <Col title="Jurnal" list={ledger} sel={l} onSel={setL} used={pairs} />
-      </div>
-      <div className="mt-4 flex items-center gap-3">
-        <button type="button" disabled={!b || !l} onClick={match} className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-white disabled:opacity-40">Match</button>
-        <p className="text-xs text-loss" role="status">{msg}</p>
-      </div>
     </section>
   )
 }

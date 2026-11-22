@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Search, X, Clock, Calendar, Hourglass, CreditCard, Shield, User } from 'lucide-react'
+import { Search, X, Clock, Calendar, Hourglass, CreditCard, Shield, User, Check } from 'lucide-react'
 import { usersApi, attendancesApi, overtimeApi, leavesApi, payrollApi, shiftsApi } from '../../lib/endpoints'
 import { getTenantId } from '../../lib/api'
+import SalaryView, { HrisNavbar } from './salary/SalaryView'
 
 function GroupedRow({
   icon,
@@ -76,13 +77,16 @@ function GroupedRow({
   )
 }
 
-export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () => void; onMinimize: () => void; onMaximize?: () => void }) {
+export function HRISContent(_props?: { onClose?: () => void; onMinimize?: () => void; onMaximize?: () => void }) {
   const SF = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif"
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'attendance' | 'leaves' | 'overtime' | 'payroll' | 'shifts' | 'profile'>('dashboard')
-  const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'attendance' | 'leaves' | 'overtime' | 'payroll' | 'salary' | 'shifts' | 'profile'>('salary')
   const [showEmployeeForm, setShowEmployeeForm] = useState(false)
   const [employeeValues, setEmployeeValues] = useState<Record<string, string>>({})
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const showToast = (msg: string) => {
+    setToastMessage(msg)
+    window.setTimeout(() => setToastMessage((prev) => (prev === msg ? null : prev)), 2600)
+  }
 
   // Dashboard state
   const [todayAttendance, setTodayAttendance] = useState<any>(null)
@@ -125,6 +129,7 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
     leaves: 'linear-gradient(135deg, #ff9500 0%, #c06a00 100%)',
     overtime: 'linear-gradient(135deg, #af52de 0%, #892ab8 100%)',
     payroll: 'linear-gradient(135deg, #30b0c7 0%, #00778a 100%)',
+    salary: 'linear-gradient(135deg, #b7f565 0%, #6f9e2c 100%)',
     shifts: 'linear-gradient(135deg, #5856d6 0%, #3634a3 100%)',
     profile: 'linear-gradient(135deg, #8e8e93 0%, #636366 100%)',
   }
@@ -135,6 +140,7 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
     leaves: 'Ajukan dan pantau status pengajuan cuti.',
     overtime: 'Catat dan pantau lembur karyawan.',
     payroll: 'Ringkasan gaji dan slip pembayaran.',
+    salary: 'Tim, kehadiran, cuti, dan gaji dalam satu panduan.',
     shifts: 'Jadwal shift dan rotasi tim.',
     profile: 'Data profil karyawan.',
   }
@@ -146,6 +152,7 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
     { id: 'overtime' as const, label: 'Lembur' },
   ]
   const empTabs = [
+    { id: 'salary' as const, label: 'Salary' },
     { id: 'payroll' as const, label: 'Gaji' },
     { id: 'shifts' as const, label: 'Shift' },
     { id: 'profile' as const, label: 'Profil' },
@@ -157,12 +164,10 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
     leaves: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
     overtime: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
     payroll: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    salary: 'M2 6h20v12H2V6zm10 2.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z',
     shifts: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
     profile: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
   }
-
-  const btnSize = 12
-  const btnGap = 8
 
   // ============ DATA LOADING ============
   const loadDashboard = useCallback(async () => {
@@ -337,21 +342,6 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
   const greeting = now.getHours() < 12 ? 'Selamat Pagi' : now.getHours() < 18 ? 'Selamat Siang' : 'Selamat Malam'
   const userName = userProfile?.fullName || 'Admin'
 
-  const filteredMainTabs = mainTabs.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase()))
-  const filteredEmpTabs = empTabs.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase()))
-
-  const renderHrisItem = (tab: { id: string; label: string }) => {
-    const active = activeTab === tab.id
-    return (
-      <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 8px', borderRadius: 7, border: 'none', background: active ? '#007aff' : 'transparent', color: active ? 'white' : '#1d1d1f', fontSize: 13, fontWeight: active ? 500 : 400, fontFamily: SF, letterSpacing: '-0.01em', cursor: 'pointer', transition: 'background 0.12s', textAlign: 'left', width: '100%' }} onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }} onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent' }}>
-        <div style={{ width: 22, height: 22, borderRadius: 5, background: active ? 'rgba(255,255,255,0.25)' : iconBg[tab.id], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: active ? 'none' : '0 1px 2px rgba(0,0,0,0.12)' }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={iconPaths[tab.id]} /></svg>
-        </div>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tab.label}</span>
-      </button>
-    )
-  }
-
   const formatTime = (iso: string | null) => {
     if (!iso) return '--:--'
     const d = new Date(iso)
@@ -374,39 +364,15 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
   const totalPayroll = payrollList.length > 0 ? payrollList[0] : null
   const netSalary = totalPayroll?.netSalary || totalPayroll?.totalNet || 0
 
+  // Redesign HRIS: satu frame (navbar pill) untuk SEMUA tab — sidebar lama dihapus.
+  // Traffic lights ditangani chrome WindowShell, jadi tidak dirender duplikat di sini.
   return (
-    <div style={{ display: 'flex', height: '100%', fontFamily: SF, padding: 10, gap: 10 }}>
-      {/* Sidebar */}
-      <div style={{ width: 220, flexShrink: 0, background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', padding: '6px', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', gap: btnGap, padding: '12px 10px 10px' }}>
-          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'close' ? '#ff5f57' : 'linear-gradient(180deg, #ff5f57 0%, #e0443e 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose} onMouseEnter={() => setHoveredBtn('close')} onMouseLeave={() => setHoveredBtn(null)}>
-            {hoveredBtn === 'close' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 1L5 5M5 1L1 5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
-          </div>
-          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'minimize' ? '#febc2e' : 'linear-gradient(180deg, #febc2e 0%, #dea123 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMinimize} onMouseEnter={() => setHoveredBtn('minimize')} onMouseLeave={() => setHoveredBtn(null)}>
-            {hoveredBtn === 'minimize' && <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><path d="M1 1H5" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round"/></svg>}
-          </div>
-          <div style={{ width: btnSize, height: btnSize, borderRadius: '50%', background: hoveredBtn === 'maximize' ? '#28c840' : 'linear-gradient(180deg, #28c840 0%, #1aab29 100%)', cursor: 'pointer', boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onMaximize} onMouseEnter={() => setHoveredBtn('maximize')} onMouseLeave={() => setHoveredBtn(null)}>
-            {hoveredBtn === 'maximize' && <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><path d="M1 3L3 1L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M1 3L3 5L5 3" stroke="rgba(0,0,0,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-          </div>
-        </div>
-        <div style={{ padding: '0 6px 8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.06)', padding: '4px 8px' }}>
-            <Search size={13} color="#8e8e93" />
-            <input type="text" placeholder="Search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: 12, color: '#1d1d1f', fontFamily: SF }} />
-          </div>
-        </div>
-        <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>MAIN</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {filteredMainTabs.map((tab) => renderHrisItem(tab))}
-        </div>
-        <div style={{ fontSize: 10, fontWeight: 600, color: '#8e8e93', padding: '4px 10px', marginTop: 8, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: SF }}>EMPLOYEE</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {filteredEmpTabs.map((tab) => renderHrisItem(tab))}
-        </div>
-      </div>
-
-      {/* Content area */}
-      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0, background: '#ffffff', borderRadius: 12 }}>
+    <div className="hris-canvas" style={{ height: '100%', overflowY: 'auto', borderRadius: 12 }}>
+      <HrisNavbar activeTab={activeTab} onTabChange={(id) => setActiveTab(id as typeof activeTab)} onNotifyClick={showToast} />
+      {activeTab === 'salary' ? (
+        <SalaryView onActionToast={showToast} />
+      ) : (
+      <div style={{ margin: '6px 14px 14px', background: '#ffffff', borderRadius: 12, minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 12, padding: '12px 18px 0', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 2 }}>
             <button style={{ width: 24, height: 24, borderRadius: 5, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
@@ -869,6 +835,13 @@ export function HRISContent({ onClose, onMinimize, onMaximize }: { onClose: () =
         </div>
         )}
       </div>
+      )}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-[#1E1E1E] text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg animate-fade-in">
+          <Check className="w-3.5 h-3.5 text-[#F5D248]" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   )
 }

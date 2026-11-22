@@ -299,6 +299,7 @@ export function CrmDashboardContent() {
           address: customerData.address,
           company: customerData.company,
           website: customerData.website,
+          avatarUrl: customerData.avatarUrl,
           topic: customerData.topic,
           leadSource: customerData.leadSource,
           rating: customerData.rating,
@@ -330,6 +331,7 @@ export function CrmDashboardContent() {
             address: customerData.address,
             company: customerData.company,
             website: customerData.website,
+            avatarUrl: customerData.avatarUrl,
             topic: customerData.topic,
             leadSource: customerData.leadSource,
             rating: customerData.rating,
@@ -429,7 +431,7 @@ export function CrmDashboardContent() {
   const handleDeleteActivity = async (activityId: string) => {
     if (!selectedLead) return
     setActionError(null)
-    const res = await clientActivitiesApi.remove(selectedLead.id, activityId)
+    const res = await clientActivitiesApi.delete(selectedLead.id, activityId)
     if (res?.error) {
       setActionError(typeof res.error === 'string' ? res.error : 'Gagal menghapus catatan.')
       return

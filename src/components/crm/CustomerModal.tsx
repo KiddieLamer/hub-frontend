@@ -66,6 +66,7 @@ interface CustomerForm {
   address: string
   company: string
   website: string
+  avatarUrl: string
   topic: string
   leadSource: string
   rating: string
@@ -91,6 +92,7 @@ const emptyForm: CustomerForm = {
   address: '',
   company: '',
   website: '',
+  avatarUrl: '',
   topic: '',
   leadSource: 'Webinar',
   rating: 'Warm',
@@ -141,6 +143,7 @@ export function CustomerModal({
           address: initialData.address || '',
           company: initialData.company || '',
           website: initialData.website || '',
+          avatarUrl: initialData.avatarUrl || '',
           topic: initialData.topic || '',
           leadSource: initialData.leadSource || 'Webinar',
           rating: initialData.rating || 'Warm',
@@ -187,6 +190,7 @@ export function CustomerModal({
       address: formData.address,
       company: formData.company,
       website: formData.website,
+      avatarUrl: formData.avatarUrl || undefined,
       topic: formData.topic,
       leadSource: formData.leadSource,
       rating: formData.rating,
@@ -448,6 +452,19 @@ export function CustomerModal({
                       placeholder="Espresso Machine Lease"
                       value={formData.topic}
                       onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Foto Client (URL)</label>
+                  <div className="relative">
+                    <Globe className={iconClass} />
+                    <input
+                      type="text"
+                      placeholder="https://…/foto.jpg"
+                      value={formData.avatarUrl}
+                      onChange={(e) => setFormData({ ...formData, avatarUrl: e.target.value })}
                       className={inputClass}
                     />
                   </div>

@@ -7,12 +7,14 @@ interface ProjectCardProps {
   anchorY: number
   thumbnail: string
   onClick: () => void
+  /** zoom gambar ikon; default 1.2 (ikon ber-padding transparan). Ikon full-bleed pakai 1. */
+  iconScale?: number
 }
 
 const ICON_SIZE = 64
 const SQUIRCLE_RADIUS = 14.5
 
-export function ProjectCard({ title, anchorX, anchorY, thumbnail, onClick }: ProjectCardProps) {
+export function ProjectCard({ title, anchorX, anchorY, thumbnail, onClick, iconScale = 1.2 }: ProjectCardProps) {
   const [hovered, setHovered] = useState(false)
   const { pos, onMouseDown, getDragDistance } = useDraggable()
 
@@ -31,7 +33,8 @@ export function ProjectCard({ title, anchorX, anchorY, thumbnail, onClick }: Pro
       style={{
         position: 'absolute',
         left: `calc(${anchorX}% - 44px)`,
-        top: `calc(${anchorY}% - 56px)`,
+        // Baris ikon mengacu ke garis atas widget (top 72px); anchorY = nomor baris (0-4), jarak 16vh
+        top: `calc(72px + ${anchorY * 16}vh)`,
         transform: `translate(${pos.x}px, ${pos.y}px)`,
         zIndex: 2,
         cursor: 'pointer',
@@ -62,7 +65,7 @@ export function ProjectCard({ title, anchorX, anchorY, thumbnail, onClick }: Pro
               height: '100%',
               objectFit: 'cover',
               display: 'block',
-              transform: 'scale(1.2)',
+              transform: `scale(${iconScale})`,
               transformOrigin: 'center',
             }}
           />

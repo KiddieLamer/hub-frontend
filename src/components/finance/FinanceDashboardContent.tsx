@@ -14,7 +14,7 @@ import {
   financeScenariosApi,
   financeTaxCodesApi,
 } from '../../lib/endpoints'
-import { idrCompact, shortDate, useFinanceLive, type FinanceLive, type UseFinanceLiveResult } from './useFinanceLive'
+import { idrCompact, shortDate, useFinanceLive, type FinanceLive, type UseFinanceLiveResult, type LiveClaim, type LiveInvoice } from './useFinanceLive'
 import type { Bar } from './views'
 
 // ======================================================================
@@ -119,6 +119,7 @@ function Header({
   onGroup,
   onItem,
   userName,
+  avatarUrl,
   unreadCount,
 }: {
   groupId: string
@@ -126,6 +127,7 @@ function Header({
   onGroup: (id: string) => void
   onItem: (name: string) => void
   userName: string | null
+  avatarUrl: string | null
   unreadCount: number
 }) {
   const group = navGroups.find((g) => g.id === groupId) ?? navGroups[0]
@@ -135,8 +137,11 @@ function Header({
     <header className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-amber-200 to-orange-300 text-sm font-semibold text-forest">{initials}</div>
-          <h1 className="text-2xl font-medium tracking-tight">{firstName ? `Hello, ${firstName}` : 'Hello'}</h1>
+          <div className="relative grid size-10 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-amber-200 to-orange-300 text-sm font-semibold text-forest">
+            {initials}
+            {avatarUrl && <img src={avatarUrl} alt={initials} className="absolute inset-0 size-full object-cover" />}
+          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-ink">{firstName ? `Hello, ${firstName}` : 'Hello'}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" aria-label="Search" title="Pencarian Finance belum tersedia" disabled
@@ -966,7 +971,7 @@ function buildLivePage(item: string, live: FinanceLive): WiredPage | null {
     ]
     return {
       kpis,
-      rows: events.map((e) => [shortDate(e.date), e.desc, e.amount, e.src]),
+      rows: events.map((e) => [shortDate(e.date ?? ''), e.desc, e.amount, e.src]),
       cols: ['Tanggal', 'Keterangan', 'Jumlah', 'Sumber'],
     }
   }
@@ -1005,6 +1010,8 @@ type FieldDef = {
   type: 'text' | 'number' | 'date' | 'select' | 'textarea'
   options?: Array<{ value: string; label: string }>
   required?: boolean
+  /** Nilai awal field (mis. default date hari ini) */
+  defaultValue?: string | number
 }
 
 const HEADER_FORMS: Record<string, { title: string; fields: FieldDef[]; submit: (v: Record<string, unknown>) => Promise<unknown> }> = {
@@ -1113,18 +1120,6 @@ function ModulePage({ item, live, onOpenAddExpense }: { item: string; live: UseF
   const rows = isWiredPage ? (wired?.rows ?? []) : table.rows
   const rowMeta = wired?.rowMeta
 
-  const handleApprove = async (id: string) => {
-    if (approvingId) return
-    setApprovingId(id)
-    try {
-      const res = await expenseClaimsApi.approve(id, { approved: true })
-      if (res?.error) return
-      live.reload()
-    } finally {
-      setApprovingId(null)
-    }
-  }
-
   // Aksi baris per halaman — hanya endpoint yang benar-benar ada.
   const handleRowAction = async (id: string) => {
     if (approvingId) return
@@ -1188,9 +1183,9 @@ function ModulePage({ item, live, onOpenAddExpense }: { item: string; live: UseF
   const headerDisabled = !headerForm && item !== 'Utilities' && !PRINT_PAGES.has(item) && item !== 'Inventory Valuation'
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[28px] bg-white p-6 shadow-sm">
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-[#EAEDF2] bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.02)]">
         <div>
-          <h2 className="text-2xl font-medium tracking-tight">{item}</h2>
+          <h2 className="text-2xl font-extrabold tracking-tight text-ink">{item}</h2>
           <p className="mt-1 text-sm text-muted">{page.desc}</p>
         </div>
         <button
@@ -1198,7 +1193,7 @@ function ModulePage({ item, live, onOpenAddExpense }: { item: string; live: UseF
           onClick={onHeaderClick}
           disabled={headerDisabled}
           title={headerDisabled ? 'Butuh backend/modul terpisah' : undefined}
-          className="flex items-center gap-2 rounded-full bg-forest px-5 py-2.5 text-sm font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 rounded-full bg-lime px-5 py-2.5 text-sm font-bold text-forest shadow-[0_6px_18px_rgba(132,225,0,0.28)] transition hover:bg-lime-deep disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <PlusIcon />
           {page.action}
@@ -1207,9 +1202,9 @@ function ModulePage({ item, live, onOpenAddExpense }: { item: string; live: UseF
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {kpis.map(([label, value, delta], i) => (
-          <section key={label} className={`rounded-[28px] p-6 shadow-sm ${i === 0 ? 'bg-lime' : 'bg-white'}`}>
+          <section key={label} className={`rounded-[20px] border border-[#EAEDF2] p-6 shadow-[0_2px_12px_rgba(15,23,42,0.02)] ${i === 0 ? 'bg-lime' : 'bg-white'}`}>
             <p className={`text-sm ${i === 0 ? 'text-forest/70' : 'text-muted'}`}>{label}</p>
-            <p className="mt-2 text-3xl font-medium tracking-tight">{value}</p>
+            <p className="mt-2 text-3xl font-bold tracking-tight">{value}</p>
             {delta && (
               <p className={`mt-1 text-xs font-medium ${delta.startsWith('-') ? 'text-loss' : 'text-gain'}`}>{delta}</p>
             )}
@@ -1227,7 +1222,7 @@ function ModulePage({ item, live, onOpenAddExpense }: { item: string; live: UseF
         onToggleComponent={handleToggleComponent}
       />
 
-      <section className="rounded-[28px] bg-white p-6 shadow-sm">
+      <section className="rounded-[20px] border border-[#EAEDF2] bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.02)]">
         <h2 className="text-lg font-medium">{wired?.statement ? 'Ringkasan per Bulan' : table.title}</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[480px] text-left text-sm">
@@ -1349,7 +1344,7 @@ function FinanceEntryModal({
     try {
       const payload: Record<string, unknown> = { ...values }
       for (const f of fields) if (f.type === 'number' && payload[f.key] !== undefined) payload[f.key] = Number(payload[f.key])
-      const res = await submit(payload)
+      const res = (await submit(payload)) as { error?: string }
       if (res?.error) {
         setMsg(String(res.error))
         return
@@ -1572,7 +1567,7 @@ function FinanceDashboardContentInner() {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[#f7f7f5]">
+    <div className="font-jakarta h-full overflow-y-auto bg-canvas">
       <main className="mx-auto flex max-w-[1200px] flex-col gap-5 p-4 md:p-6">
         <Header
           groupId={groupId}
@@ -1580,6 +1575,7 @@ function FinanceDashboardContentInner() {
           onGroup={selectGroup}
           onItem={setItem}
           userName={live.me.fullName}
+          avatarUrl={live.me.avatarUrl}
           unreadCount={live.unreadCount}
         />
         {item === 'Cash Flow' ? (

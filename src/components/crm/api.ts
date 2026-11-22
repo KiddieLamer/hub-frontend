@@ -19,6 +19,7 @@ export interface ApiClient {
   industry: string | null
   website: string | null
   logoUrl: string | null
+  avatarUrl: string | null
   picName: string | null
   picEmail: string | null
   picPhone: string | null
@@ -347,6 +348,7 @@ export function mapClientToLead(client: ApiClient): LeadItem {
     address: client.address || '',
     company: client.name,
     website: client.website || '',
+    avatarUrl: client.avatarUrl || undefined,
     leadSource: client.source || 'Website',
     rating: client.rating || 'Warm',
     budget: client.budget || undefined,
@@ -384,6 +386,7 @@ interface LeadPatch {
   address?: string
   company?: string
   website?: string
+  avatarUrl?: string
   topic?: string
   leadSource?: string
   rating?: string
@@ -430,6 +433,7 @@ export function buildClientPatch(patch: LeadPatch): Record<string, unknown> {
     const url = normalizeWebsite(patch.website)
     if (url) payload.website = url
   }
+  put('avatarUrl', patch.avatarUrl)
   if (patch.tags) payload.tags = patch.tags.filter(Boolean)
   if (patch.socialMedia !== undefined) {
     const socials = Object.fromEntries(

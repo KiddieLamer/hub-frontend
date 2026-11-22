@@ -6,6 +6,8 @@ interface DockItem {
   href?: string
   onClick?: () => void
   isActive?: boolean
+  /** sisip px di dalam tile 44px untuk ikon full-bleed (artwork menyentuh tepi kanvas). Default 0. */
+  iconInset?: number
 }
 
 interface DockBarProps {
@@ -71,13 +73,32 @@ function DockIcon({ item }: { item: DockItem }) {
           transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)',
           display: 'block',
           background: 'none',
+          position: 'relative',
         }}
       >
-        <img
-          src={item.icon}
-          alt={item.label}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 10 }}
-        />
+        {item.iconInset ? (
+          // Ikon full-bleed: artwork disusutkan ke dalam tile supaya proporsional
+          // dengan ikon lain (yang punya margin bawaan di file gambarnya).
+          <img
+            src={item.icon}
+            alt={item.label}
+            style={{
+              position: 'absolute',
+              inset: item.iconInset,
+              width: `calc(100% - ${item.iconInset * 2}px)`,
+              height: `calc(100% - ${item.iconInset * 2}px)`,
+              objectFit: 'cover',
+              display: 'block',
+              borderRadius: 10 * ((44 - item.iconInset * 2) / 44),
+            }}
+          />
+        ) : (
+          <img
+            src={item.icon}
+            alt={item.label}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 10 }}
+          />
+        )}
       </Wrapper>
 
       {/* Active indicator dot */}

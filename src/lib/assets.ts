@@ -45,3 +45,6 @@ export const HRIS_ICON = '/icons/hris.png'
 
 /** Ikon modul Audit (jam / pelacakan waktu). */
 export const AUDIT_ICON = '/icons/audit.png'
+
+/** Ikon modul Social (layered checkmark — konten terjadwal/terpublish). */
+export const SOCIAL_ICON = '/icons/social.png'

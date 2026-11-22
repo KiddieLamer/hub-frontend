@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { ReactNode, SVGProps } from 'react'
 import { ChevronDown, Eye as EyeLucide, EyeOff as EyeOffLucide } from 'lucide-react'
 import { expenseClaimsApi } from '../../lib/endpoints'
-import { idrCompact, type UseFinanceLiveResult } from './useFinanceLive'
+import { bankLogoUrl, bankMonogram, resolveBank } from '../../lib/banks'
+import { type UseFinanceLiveResult } from './useFinanceLive'
 
 // ======================================================================
 // Cash Flow dashboard — SEMUA angka dari data live (useFinanceLive).
@@ -53,12 +54,21 @@ const SparkIcon = (p: IconProps) => (<Base {...p}><path d="M12 3c.6 4.7 2.3 6.4 
 const TargetIcon = (p: IconProps) => (<Base {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></Base>)
 const iconMap = { home: HomeIcon, bus: BusIcon, bag: BagIcon, receipt: ReceiptIcon } as const
 
+const FLAG_ISO: Record<Currency, string> = { USD: 'us', IDR: 'id', MYR: 'my' }
+const FLAG_FALLBACK_BG: Record<Currency, string> = { USD: '#d9363e', IDR: '#e70011', MYR: '#010066' }
+
 function Flag({ code }: { code: Currency }) {
-  if (code !== 'USD') return null
   return (
-    <span className="relative block size-6 overflow-hidden rounded-full bg-white ring-1 ring-black/5">
-      <span className="absolute inset-0 bg-[repeating-linear-gradient(#d9363e_0_2px,#fff_2px_4px)]" />
-      <span className="absolute left-0 top-0 h-3 w-3 bg-[#2b3a8c]" />
+    <span
+      className="relative block size-6 overflow-hidden rounded-full ring-1 ring-black/5"
+      style={{ backgroundColor: FLAG_FALLBACK_BG[code] }}
+    >
+      <img
+        src={`https://flagcdn.com/w40/${FLAG_ISO[code]}.png`}
+        alt={`Bendera ${code}`}
+        className="absolute inset-0 size-full object-cover"
+        onError={(e) => { e.currentTarget.style.display = 'none' }}
+      />
     </span>
   )
 }
@@ -80,6 +90,7 @@ function BalanceCard({
 }) {
   const [currency, setCurrency] = useState<Currency>('IDR')
   const [hidden, setHidden] = useState(false)
+  const bank = resolveBank(bankName)
   const [copied, setCopied] = useState(false)
   const { symbol, locale } = balanceCurrency[currency]
   // Kurs USD/MYR belum tersedia — hanya IDR yang menampilkan nilai real.
@@ -99,7 +110,7 @@ function BalanceCard({
   }
 
   return (
-    <section className="flex flex-col justify-between rounded-[28px] bg-white p-7 shadow-sm lg:col-span-7">
+    <section className="flex flex-col justify-between rounded-[20px] border border-[#EAEDF2] bg-white p-7 shadow-[0_2px_12px_rgba(15,23,42,0.02)] lg:col-span-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex rounded-full bg-canvas p-1">
           {currencies.map((code) => (
@@ -111,7 +122,15 @@ function BalanceCard({
           ))}
         </div>
         <div>
-          <p className="text-xs text-muted">Rekening Operasional{bankName ? ` — ${bankName}` : ''}</p>
+          <p className="flex items-center gap-1.5 text-xs text-muted">
+            {bank && (
+              <span className="relative grid size-5 shrink-0 place-items-center overflow-hidden rounded-md ring-1 ring-black/5" style={{ backgroundColor: bank.color }}>
+                <span className="text-[6px] font-bold leading-none text-white">{bankMonogram(bank)}</span>
+                <img src={bankLogoUrl(bank)} alt={`Logo ${bank.name}`} className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+              </span>
+            )}
+            Rekening Operasional{bankName ? ` — ${bankName}` : ''}
+          </p>
           <button type="button" onClick={copy} title={acct ? 'Salin nomor rekening' : undefined}
             className="mt-0.5 flex items-center gap-2 text-lg font-medium tracking-wide">
             {acct || '—'}
@@ -182,7 +201,7 @@ function Stat({ label, value, icon }: { label: string; value: string; icon: Reac
 
 function HighlightCard({ laba, delta, piutang, hutang, loading }: { laba: number; delta: number | null; piutang: number; hutang: number; loading: boolean }) {
   return (
-    <section className="relative flex flex-col justify-between overflow-hidden rounded-[28px] bg-lime p-7 shadow-sm lg:col-span-5">
+    <section className="relative flex flex-col justify-between overflow-hidden rounded-[20px] border border-[#EAEDF2] bg-lime p-7 shadow-[0_6px_24px_rgba(132,225,0,0.18)] lg:col-span-5">
       <svg viewBox="0 0 100 100" className="pointer-events-none absolute -right-6 top-2 size-52 text-lime-deep/70" aria-hidden="true">
         <path fill="currentColor" d="M50 0C54 30 70 46 100 50 70 54 54 70 50 100 46 70 30 54 0 50 30 46 46 30 50 0Z" />
       </svg>
@@ -267,14 +286,12 @@ function useCountUp(target: number, duration = 900) {
 
 function CostCard({
   costItems,
-  monthLabel,
   chip,
   monthValue,
   monthOptions,
   onMonthChange,
 }: {
   costItems: Array<{ id: string; label: string; amount: number; icon: 'home' | 'bus' | 'bag' | 'receipt' }>
-  monthLabel: string
   chip: { dir: 'naik' | 'turun'; pct: number } | null
   monthValue: string
   monthOptions: Array<{ value: string; label: string }>
@@ -295,18 +312,18 @@ function CostCard({
   const reduced = prefersReducedMotion()
 
   return (
-    <section className="rounded-[28px] bg-white p-6 shadow-sm lg:col-span-3">
-      <div className="flex items-center justify-between">
+    <section className="rounded-[20px] border border-[#EAEDF2] bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.02)] lg:col-span-4">
+      <div className="flex flex-wrap items-center justify-between gap-y-2">
         <div className="flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-full border border-track text-lg"><BagIcon /></span>
           <h2 className="text-lg font-medium">Biaya</h2>
         </div>
-        <div className="relative">
+        <div className="relative max-w-full">
           <select
             value={monthValue}
             onChange={(e) => onMonthChange(e.target.value)}
             aria-label="Pilih bulan biaya"
-            className="appearance-none rounded-full border border-track px-4 py-2 pr-8 text-sm font-medium bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-forest/30"
+            className="min-w-0 max-w-full appearance-none rounded-full border border-track px-4 py-2 pr-8 text-sm font-medium bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-forest/30"
           >
             {monthOptions.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -316,7 +333,7 @@ function CostCard({
         </div>
       </div>
 
-      <div className="relative mx-auto mt-5 size-[170px]">
+      <div className="relative mx-auto mt-5 aspect-square w-full max-w-[170px]">
         <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="size-full">
           {segments.map((s, i) => (
             <path key={s.id} d={s.d} pathLength={1} fill="none" strokeWidth={STROKE} strokeLinecap="round"
@@ -386,7 +403,7 @@ function RevenueCard({
   const goalPct = goal && goal > 0 ? Math.min(100, (earned / goal) * 100) : null
   const total = sources.reduce((s, x) => s + x.amount, 0) || 1
   return (
-    <section className="rounded-[28px] bg-white p-6 shadow-sm lg:col-span-4">
+    <section className="rounded-[20px] border border-[#EAEDF2] bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.02)] lg:col-span-4">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-full border border-track text-lg"><CoinBagIcon /></span>
@@ -438,23 +455,30 @@ function RevenueCard({
 // ======================================================================
 const initials = (t: string) => t.split(' ').slice(0, 2).map((w) => w[0]).join('')
 
-function Logo({ text }: { text: string }) {
-  return <span className="grid size-11 shrink-0 place-items-center rounded-full border border-track bg-white text-sm font-semibold text-forest">{text}</span>
+function Logo({ text, url }: { text: string; url?: string | null }) {
+  return (
+    <span className="relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-full border border-track bg-white text-sm font-semibold text-forest">
+      {text}
+      {url && <img src={url} alt={text} className="absolute inset-0 size-full object-cover" />}
+    </span>
+  )
 }
 
 function TransactionsCard({
   pendingClaim,
+  pendingLogoUrl,
   events,
   onApprove,
   onReject,
 }: {
   pendingClaim: { id: string; title: string; amount: number } | null
-  events: Array<{ id: string; title: string; meta: string; amount: number }>
+  pendingLogoUrl: string | null
+  events: Array<{ id: string; title: string; meta: string; amount: number; logoUrl: string | null }>
   onApprove: (id: string) => void
   onReject: (id: string) => void
 }) {
   return (
-    <section className="rounded-[28px] bg-white p-6 shadow-sm lg:col-span-5">
+    <section className="rounded-[20px] border border-[#EAEDF2] bg-white p-6 shadow-[0_2px_12px_rgba(15,23,42,0.02)] lg:col-span-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-full border border-track text-lg"><ReceiptIcon /></span>
@@ -465,7 +489,7 @@ function TransactionsCard({
 
       {pendingClaim && (
         <div className="mt-5 flex items-center gap-3 rounded-2xl border border-ember/40 bg-[#fff8f4] p-3">
-          <Logo text={initials(pendingClaim.title)} />
+          <Logo text={initials(pendingClaim.title)} url={pendingLogoUrl} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{pendingClaim.title} · {rp(pendingClaim.amount)}</p>
             <p className="text-xs text-ember">Menunggu persetujuan pembayaran</p>
@@ -479,7 +503,7 @@ function TransactionsCard({
         {events.length === 0 && <li className="py-6 text-center text-sm text-muted">Belum ada transaksi kas.</li>}
         {events.map((t) => (
           <li key={t.id} className="flex items-center gap-3 py-4">
-            <Logo text={initials(t.title)} />
+            <Logo text={initials(t.title)} url={t.logoUrl} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{t.title}</p>
               <p className="text-xs text-muted">{t.meta}</p>
@@ -507,16 +531,14 @@ export default function CashFlowDashboard({
   const thisM = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`
   const prevD = new Date(now.getFullYear(), now.getMonth() - 1, 1)
   const prevM = `${prevD.getFullYear()}-${pad(prevD.getMonth() + 1)}`
-  const monthLabel = now.toLocaleDateString('id-ID', { month: 'long' })
 
   // Bulan terpilih untuk kartu Biaya (default: bulan berjalan) + opsi 12 bulan terakhir.
   const [costMonth, setCostMonth] = useState(thisM)
   const monthOptions = Array.from({ length: 12 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
-    return { value, label: d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) }
+    return { value, label: d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }) }
   })
-  const costMonthLabel = monthOptions.find((o) => o.value === costMonth)?.label ?? costMonth
   const monthBeforeCost = (() => {
     const [y, m] = costMonth.split('-').map(Number)
     const d = new Date(y, m - 2, 1)
@@ -582,22 +604,28 @@ export default function CashFlowDashboard({
   const revDelta = revOf(prevM) > 0 ? Math.round(((revThis - revOf(prevM)) / revOf(prevM)) * 100) : null
 
   // Transaksi: klaim menunggu approve + mutasi kas (payment masuk / klaim dibayar)
+  const invoiceClientId = new Map(live.invoices.map((i) => [i.id, i.clientId]))
+  const clientAvatars = live.clientAvatars
   const pendingClaim = live.claims.find((c) => c.status === 'submitted') ?? null
   const events = [
     ...live.payments.map((p) => ({
       id: `pay-${p.id}`,
       title: `Pembayaran ${p.invoiceNumber ?? 'Invoice'}`,
       meta: shortD(p.paymentDate),
+      date: p.paymentDate ?? '',
       amount: p.amount,
+      logoUrl: clientAvatars[invoiceClientId.get(p.invoiceId) ?? ''] ?? null,
     })),
     ...claimsPaid.map((c) => ({
       id: `claim-${c.id}`,
       title: `Klaim dibayar — ${c.title}`,
       meta: shortD(c.expenseDate),
+      date: c.expenseDate,
       amount: -c.amount,
+      logoUrl: clientAvatars[c.clientId ?? ''] ?? null,
     })),
   ]
-    .sort((a, b) => (a.meta < b.meta ? 1 : -1))
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, 6)
 
   const handleApprove = async (id: string) => {
@@ -622,7 +650,6 @@ export default function CashFlowDashboard({
       <HighlightCard laba={labaT} delta={live.loading ? null : delta} piutang={piutang} hutang={hutang} loading={live.loading} />
       <CostCard
         costItems={live.loading ? [] : costItems}
-        monthLabel={costMonthLabel}
         chip={live.loading ? null : costChip}
         monthValue={costMonth}
         monthOptions={monthOptions}
@@ -631,6 +658,7 @@ export default function CashFlowDashboard({
       <RevenueCard earned={live.loading ? 0 : revThis} deltaPct={live.loading ? null : revDelta} sources={live.loading ? [] : sources} goal={live.loading ? null : goal} />
       <TransactionsCard
         pendingClaim={live.loading ? null : pendingClaim ? { id: pendingClaim.id, title: pendingClaim.title, amount: pendingClaim.amount } : null}
+        pendingLogoUrl={live.loading || !pendingClaim ? null : clientAvatars[pendingClaim.clientId ?? ''] ?? null}
         events={live.loading ? [] : events}
         onApprove={handleApprove}
         onReject={handleReject}

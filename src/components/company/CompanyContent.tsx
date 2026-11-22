@@ -9,6 +9,7 @@ import StatisticsSection from './StatisticsSection'
 import TopBannerCard from './TopBannerCard'
 import AddStaffModal from './AddStaffModal'
 import CompanyOverviewCard, { type SocialField } from './CompanyOverviewCard'
+import { BANKS, bankLogoUrl, bankMonogram } from '../../lib/banks'
 import StructureCard from './StructureCard'
 import ProgressHeatmapCard, { type ProgressEvent } from './ProgressHeatmapCard'
 import { tenantsApi } from '../../lib/endpoints'
@@ -900,7 +901,27 @@ export function CompanyContent({ onClose, onMinimize, onMaximize }: { onClose: (
             <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">Pengajuan di atas nominal ini otomatis naik ke Owner dalam rantai persetujuan (PR/PO).</p>
           )}
           {editError && <div className="rounded-xl bg-red-50 px-3 py-2 text-[12px] text-red-600 mb-3">{editError}</div>}
-          <Field label="Nilai">
+          {editField === 'bankName' && (
+            <Field label="Pilih bank">
+              <div className="grid grid-cols-4 gap-2">
+                {BANKS.map((b) => {
+                  const active = editValue.trim().toLowerCase() === b.name.toLowerCase()
+                  return (
+                    <button key={b.name} type="button" onClick={() => setEditValue(b.name)}
+                      className={`flex flex-col items-center gap-1.5 rounded-xl border p-2.5 transition-colors ${active ? 'border-[#1c1d22] bg-slate-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                      <span className="relative grid size-8 w-8 place-items-center overflow-hidden rounded-lg" style={{ backgroundColor: b.color }}>
+                        <span className="text-[9px] font-bold leading-none text-white">{bankMonogram(b)}</span>
+                        <img src={bankLogoUrl(b)} alt={b.name} className="absolute inset-0 size-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                      </span>
+                      <span className="text-[10px] leading-tight text-slate-600 text-center">{b.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-400">Bank lain? Ketik manual di bawah.</p>
+            </Field>
+          )}
+          <Field label={editField === 'bankName' ? 'Atau ketik manual' : 'Nilai'}>
             <input
               type={editField === 'email' ? 'email' : editField === 'approvalThreshold' ? 'number' : 'text'}
               value={editValue}

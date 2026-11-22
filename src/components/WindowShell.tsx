@@ -29,7 +29,7 @@ export function getSnapGeometry(mode: SnapMode): { x: number; y: number; w: numb
   const vw = window.innerWidth
   const vh = window.innerHeight
   const padding = 10
-  const topNav = 36 // space below menu bar if any
+  const topNav = 52 // reserve band top bar: island (11-43) + kapsul bell/logout (9-45) + napas 7px
 
   const usableW = vw - padding * 2
   const usableH = vh - topNav - padding

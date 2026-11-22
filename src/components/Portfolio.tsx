@@ -11,7 +11,7 @@ import { BrowserContent } from './BrowserContent'
 import { Bell } from 'lucide-react'
 import { notificationsApi } from '../lib/endpoints'
 import { fetchAccess, canAccessModule, FALLBACK_ACCESS, type AccessCtx } from '../lib/access'
-import { RANPO_AI_ICON, SUPPORT_ICON, FINANCE_ICON, SETTINGS_ICON, CATALOG_ICON, BROWSER_ICON, PROJECTS_ICON, CRM_ICON, POS_ICON, PROCUREMENT_ICON, COMPANY_ICON, ASSETS_ICON, HRIS_ICON, AUDIT_ICON } from '../lib/assets'
+import { RANPO_AI_ICON, SUPPORT_ICON, FINANCE_ICON, SETTINGS_ICON, CATALOG_ICON, BROWSER_ICON, PROJECTS_ICON, CRM_ICON, POS_ICON, PROCUREMENT_ICON, COMPANY_ICON, ASSETS_ICON, HRIS_ICON, AUDIT_ICON, SOCIAL_ICON } from '../lib/assets'
 
 import { HRISContent } from './hris/HRISContent'
 import { FinanceDashboardContent } from './finance/FinanceDashboardContent'
@@ -22,21 +22,24 @@ import { CatalogContent } from './catalog/CatalogContent'
 import { ProcurementDashboardContent } from './procurement/ProcurementDashboardContent'
 import { SettingsContent } from './settings/SettingsContent'
 import { CompanyContent } from './company/CompanyContent'
+import { SocialContent } from './social/SocialContent'
+import { NotesIsland, islandAlerts, type IslandAlert } from './island/NotesIsland'
 const PROJECTS = [
-  { title: 'HRIS', anchorX: 6, anchorY: 10, thumbnail: HRIS_ICON, isHRIS: true },
-  { title: 'CRM', anchorX: 6, anchorY: 26, thumbnail: CRM_ICON, isClients: true },
-  { title: 'Projects', anchorX: 6, anchorY: 42, thumbnail: PROJECTS_ICON, isProjects: true },
-  { title: 'Finance', anchorX: 6, anchorY: 58, thumbnail: FINANCE_ICON, isFinance: true },
-  { title: 'Procurement', anchorX: 6, anchorY: 74, thumbnail: PROCUREMENT_ICON, isProcurement: true },
-  { title: 'Ranpo AI', anchorX: 16, anchorY: 26, thumbnail: RANPO_AI_ICON, isRanpoAI: true },
-  { title: 'POS', anchorX: 16, anchorY: 42, thumbnail: POS_ICON, isPOS: true },
-  { title: 'Settings', anchorX: 16, anchorY: 58, thumbnail: SETTINGS_ICON, isSettings: true },
-  { title: 'Support', anchorX: 16, anchorY: 10, thumbnail: SUPPORT_ICON, isSupport: true },
-  { title: 'Assets', anchorX: 16, anchorY: 74, thumbnail: ASSETS_ICON, isAssets: true },
-  { title: 'Audit', anchorX: 26, anchorY: 10, thumbnail: AUDIT_ICON, isAudit: true },
-  { title: 'Catalog', anchorX: 26, anchorY: 26, thumbnail: CATALOG_ICON, isCatalog: true },
-  { title: 'Browser', anchorX: 26, anchorY: 42, thumbnail: BROWSER_ICON, isBrowser: true },
-  { title: 'Company', anchorX: 26, anchorY: 58, thumbnail: COMPANY_ICON, isCompany: true },
+  { title: 'HRIS', anchorX: 6, anchorY: 0, thumbnail: HRIS_ICON, isHRIS: true },
+  { title: 'CRM', anchorX: 6, anchorY: 1, thumbnail: CRM_ICON, isClients: true },
+  { title: 'Projects', anchorX: 6, anchorY: 2, thumbnail: PROJECTS_ICON, isProjects: true },
+  { title: 'Finance', anchorX: 6, anchorY: 3, thumbnail: FINANCE_ICON, isFinance: true },
+  { title: 'Procurement', anchorX: 6, anchorY: 4, thumbnail: PROCUREMENT_ICON, isProcurement: true },
+  { title: 'Ranpo AI', anchorX: 16, anchorY: 1, thumbnail: RANPO_AI_ICON, isRanpoAI: true },
+  { title: 'POS', anchorX: 16, anchorY: 2, thumbnail: POS_ICON, isPOS: true },
+  { title: 'Settings', anchorX: 16, anchorY: 3, thumbnail: SETTINGS_ICON, isSettings: true },
+  { title: 'Support', anchorX: 16, anchorY: 0, thumbnail: SUPPORT_ICON, isSupport: true },
+  { title: 'Assets', anchorX: 16, anchorY: 4, thumbnail: ASSETS_ICON, isAssets: true },
+  { title: 'Audit', anchorX: 26, anchorY: 0, thumbnail: AUDIT_ICON, isAudit: true },
+  { title: 'Catalog', anchorX: 26, anchorY: 1, thumbnail: CATALOG_ICON, isCatalog: true },
+  { title: 'Browser', anchorX: 26, anchorY: 2, thumbnail: BROWSER_ICON, isBrowser: true },
+  { title: 'Company', anchorX: 26, anchorY: 3, thumbnail: COMPANY_ICON, isCompany: true },
+  { title: 'Social', anchorX: 26, anchorY: 4, thumbnail: SOCIAL_ICON, isSocial: true, iconScale: 1 },
 ]
 
 // Wallpaper desktop disimpan sendiri (bukan CDN pihak ketiga) supaya produksi
@@ -110,6 +113,12 @@ const DOCK_ITEMS = [
     isApp: true,
   },
   {
+    label: 'Social',
+    icon: SOCIAL_ICON,
+    isApp: true,
+    iconInset: 5,
+  },
+  {
     label: 'Settings',
     icon: SETTINGS_ICON,
     isApp: true,
@@ -133,7 +142,12 @@ function NotesContent() {
   )
 }
 
-export function Portfolio({ onLogout }: { onLogout: () => void }) {
+export function Portfolio({ onLogout, loginGreeting = null, onGreetingDone }: {
+  onLogout: () => void
+  /** sapaan login yang diteruskan ke dynamic island (null = tidak ada) */
+  loginGreeting?: { fullName: string; avatarUrl: string | null } | null
+  onGreetingDone?: () => void
+}) {
   const [openProject, setOpenProject] = useState<number | null>(null)
   const [openOverlay, setOpenOverlay] = useState<'notes' | null>(null)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -163,7 +177,23 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
     const token = localStorage.getItem('hub-access-token')
     if (!token) return
     notificationsApi.list().then((res) => {
-      if (res?.notifications) setNotifications(res.notifications)
+      if (res?.notifications) {
+        setNotifications(res.notifications)
+        // Unread terbaru (maks 3) masuk antrean island — data nyata, bukan demo
+        res.notifications
+          .filter((n: any) => !n.read)
+          .slice(0, 3)
+          .forEach((n: any) => {
+            islandAlerts.push({
+              id: `notif-${n.id}`,
+              kind: 'notification',
+              title: n.title || 'Notifikasi',
+              subtitle: n.message,
+              badge: 'Baru',
+              module: n.module,
+            })
+          })
+      }
     }).catch(() => {})
   }, [])
 
@@ -195,14 +225,30 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
   const [openRanpoAI, setOpenRanpoAI] = useState(false)
   const [openPOS, setOpenPOS] = useState(false)
   const [openCompany, setOpenCompany] = useState(false)
+  const [openSocial, setOpenSocial] = useState(false)
 
   const [zIndices, setZIndices] = useState<Record<string, number>>({})
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   const bringToFront = (id: string) => {
+    setActiveId(id)
     setZIndices((prev) => {
       const maxZ = Math.max(50, ...Object.values(prev))
       return { ...prev, [id]: maxZ + 1 }
     })
+  }
+
+  // Buka modul dari alert island (module id lowercase → label dock)
+  const handleOpenAlert = (a: IslandAlert) => {
+    const idToLabel: Record<string, string> = {
+      hris: 'HRIS', clients: 'CRM', projects: 'Projects', finance: 'Finance',
+      procurement: 'Procurement', settings: 'Settings', ranpo: 'Ranpo AI', pos: 'POS',
+      support: 'Support', assets: 'Assets', audit: 'Audit', catalog: 'Catalog',
+      browser: 'Browser', company: 'Company', notes: 'Notes', social: 'Social',
+    }
+    const label = a.module ? idToLabel[a.module] : undefined
+    if (label) handleDockClick(label)
+    else if (a.href) window.open(a.href, '_blank')
   }
 
   const handleDockClick = (label: string) => {
@@ -222,6 +268,7 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
     else if (label === 'Catalog') { setOpenCatalog(true); id = 'catalog' }
     else if (label === 'Browser') { setOpenBrowser(true); id = 'browser' }
     else if (label === 'Company') { setOpenCompany(true); id = 'company' }
+    else if (label === 'Social') { setOpenSocial(true); id = 'social' }
     if (id) bringToFront(id)
   }
 
@@ -255,6 +302,8 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
       setOpenBrowser(true); id = 'browser'
     } else if (PROJECTS[index].isCompany) {
       setOpenCompany(true); id = 'company'
+    } else if (PROJECTS[index].isSocial) {
+      setOpenSocial(true); id = 'social'
     } else {
       setOpenProject(index); id = `project-${index}`
     }
@@ -264,7 +313,7 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
   const dockItems = DOCK_ITEMS.filter((item) => canAccessModule(item.label, access)).map((item) => ({
     ...item,
     onClick: (item as { href?: string }).href ? undefined : () => handleDockClick(item.label),
-      isActive: item.label === 'HRIS' ? openHRIS : item.label === 'CRM' ? openClients : item.label === 'Projects' ? openProjects : item.label === 'Finance' ? openFinance : item.label === 'Procurement' ? openProcurement : item.label === 'Settings' ? openSettings : item.label === 'Support' ? openSupport : item.label === 'Assets' ? openAssets : item.label === 'Audit' ? openAudit : item.label === 'Catalog' ? openCatalog : item.label === 'Browser' ? openBrowser : item.label === 'Notes' ? openOverlay === 'notes' : item.label === 'Ranpo AI' ? openRanpoAI : item.label === 'POS' ? openPOS : false,
+      isActive: item.label === 'HRIS' ? openHRIS : item.label === 'CRM' ? openClients : item.label === 'Projects' ? openProjects : item.label === 'Finance' ? openFinance : item.label === 'Procurement' ? openProcurement : item.label === 'Settings' ? openSettings : item.label === 'Support' ? openSupport : item.label === 'Assets' ? openAssets : item.label === 'Audit' ? openAudit : item.label === 'Catalog' ? openCatalog : item.label === 'Browser' ? openBrowser : item.label === 'Notes' ? openOverlay === 'notes' : item.label === 'Ranpo AI' ? openRanpoAI : item.label === 'POS' ? openPOS : item.label === 'Social' ? openSocial : false,
   }))
 
   return (
@@ -319,26 +368,65 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
       {/* Dashboard Widget */}
       <DashboardWidgets />
 
-      {/* Bell notification button */}
-      <div ref={notifRef} style={{ position: 'absolute', top: 24, right: 100, zIndex: 10 }}>
+      {/* Menubar capsule: notifikasi + logout — material senada dynamic island */}
+      <div
+        ref={notifRef}
+        style={{
+          position: 'absolute',
+          top: 9,
+          right: 24,
+          zIndex: 890, // selalu di atas window (≤900), di bawah island (900)
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          height: 36,
+          padding: '0 4px',
+          borderRadius: 999,
+          background: 'rgba(10,10,10,0.92)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          boxShadow: '0 1px 10px rgba(0,0,0,0.35)',
+        }}
+      >
         <button
           onClick={() => setShowNotifications(!showNotifications)}
+          title="Notifikasi"
           style={{
-            padding: 8,
-            borderRadius: 12,
-            background: 'rgba(255,255,255,0.1)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            backdropFilter: 'blur(5px)',
-            WebkitBackdropFilter: 'blur(5px)',
-            color: 'white',
-            cursor: 'pointer',
             position: 'relative',
+            width: 32,
+            height: 32,
+            display: 'grid',
+            placeItems: 'center',
+            borderRadius: 999,
+            background: 'none',
+            border: 'none',
+            color: 'rgba(255,255,255,0.92)',
+            cursor: 'pointer',
           }}
         >
-          <Bell size={18} />
+          <Bell size={16} />
           {notifications.filter((n) => !n.read).length > 0 && (
-            <span style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: '50%', background: '#ff3b30', border: '1.5px solid rgba(0,0,0,0.1)' }} />
+            <span style={{ position: 'absolute', top: 5, right: 5, width: 7, height: 7, borderRadius: '50%', background: '#ff3b30', border: '1.5px solid rgba(10,10,10,0.9)' }} />
           )}
+        </button>
+        <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.14)' }} />
+        <button
+          onClick={onLogout}
+          style={{
+            height: 28,
+            padding: '0 12px',
+            borderRadius: 999,
+            background: 'none',
+            border: 'none',
+            color: 'rgba(255,255,255,0.92)',
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 500,
+            fontSize: 12.5,
+            letterSpacing: '-0.01em',
+            cursor: 'pointer',
+          }}
+        >
+          Logout
         </button>
         {showNotifications && (
           <div style={{ position: 'absolute', top: 40, right: 0, width: 320, maxHeight: 400, overflowY: 'auto', background: 'white', borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.2)', border: '0.5px solid rgba(0,0,0,0.08)', padding: 8 }}>
@@ -362,31 +450,6 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
         )}
       </div>
 
-      {/* Logout button */}
-      <button
-        onClick={onLogout}
-        style={{
-          position: 'absolute',
-          top: 24,
-          right: 24,
-          zIndex: 10,
-          padding: '8px 16px',
-          borderRadius: 12,
-          background: 'rgba(255,255,255,0.1)',
-          border: '1px solid rgba(255,255,255,0.2)',
-          backdropFilter: 'blur(5px)',
-          WebkitBackdropFilter: 'blur(5px)',
-          color: 'white',
-          fontFamily: "'Inter', sans-serif",
-          fontWeight: 500,
-          fontSize: 13,
-          cursor: 'pointer',
-          letterSpacing: '-0.02em',
-        }}
-      >
-        Logout
-      </button>
-
       {/* Project cards */}
       {PROJECTS.map((project, i) => (
         <ProjectCard
@@ -395,6 +458,7 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           anchorX={project.anchorX}
           anchorY={project.anchorY}
           thumbnail={project.thumbnail}
+          iconScale={project.iconScale}
           onClick={() => handleProjectClick(i)}
         />
       ))}
@@ -429,11 +493,12 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           id="hris"
           title="HRIS"
           onClose={() => setOpenHRIS(false)}
-          noToolbar
+          wide
+          fill
           zIndex={zIndices['hris'] || 50}
           onFocus={() => bringToFront('hris')}
         >
-          <HRISContent onClose={() => setOpenHRIS(false)} onMinimize={() => setOpenHRIS(false)} />
+          <HRISContent />
         </WindowShell>
       )}
 
@@ -569,11 +634,10 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           onClose={() => setOpenAssets(false)}
           wide
           fill
-          noToolbar
           zIndex={zIndices['assets'] || 50}
           onFocus={() => bringToFront('assets')}
         >
-          <AssetsContent onClose={() => setOpenAssets(false)} onMinimize={() => setOpenAssets(false)} />
+          <AssetsContent />
         </WindowShell>
       )}
 
@@ -653,6 +717,30 @@ export function Portfolio({ onLogout }: { onLogout: () => void }) {
           <NotesContent />
         </WindowShell>
       )}
+
+      {/* Social window */}
+      {openSocial && (
+        <WindowShell
+          id="social"
+          title="Social"
+          onClose={() => setOpenSocial(false)}
+          wide
+          fill
+          zIndex={zIndices['social'] || 50}
+          onFocus={() => bringToFront('social')}
+        >
+          <SocialContent />
+        </WindowShell>
+      )}
+
+      {/* Dynamic Island — selalu melayang di atas semua window */}
+      <NotesIsland
+        moduleKey={activeId ?? 'desktop'}
+        badge={notifications.filter((n) => !n.read).length}
+        greeting={loginGreeting}
+        onGreetingDone={onGreetingDone}
+        onOpenAlert={handleOpenAlert}
+      />
     </div>
   )
 }

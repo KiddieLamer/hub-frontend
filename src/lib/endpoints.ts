@@ -581,6 +581,7 @@ export const vendorsApi = {
 }
 export const purchaseRequestsApi = {
   list: () => apiFetch('/api/procurement/purchase-requests').then(r => apiJson(r)),
+  get: (id: string) => apiFetch(`/api/procurement/purchase-requests/${id}`).then(r => apiJson(r)),
   create: (data: Record<string, unknown>) => apiFetch('/api/procurement/purchase-requests', { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
   approve: (id: string, data: { approved: boolean; rejectionReason?: string }) =>
     apiFetch(`/api/procurement/purchase-requests/${id}/approve`, { method: 'POST', body: JSON.stringify(data) }).then(r => apiJson(r)),
