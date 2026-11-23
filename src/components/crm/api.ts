@@ -349,6 +349,7 @@ export function mapClientToLead(client: ApiClient): LeadItem {
     company: client.name,
     website: client.website || '',
     avatarUrl: client.avatarUrl || undefined,
+    logoUrl: client.logoUrl || undefined,
     leadSource: client.source || 'Website',
     rating: client.rating || 'Warm',
     budget: client.budget || undefined,
@@ -387,6 +388,7 @@ interface LeadPatch {
   company?: string
   website?: string
   avatarUrl?: string
+  logoUrl?: string
   topic?: string
   leadSource?: string
   rating?: string
@@ -434,6 +436,7 @@ export function buildClientPatch(patch: LeadPatch): Record<string, unknown> {
     if (url) payload.website = url
   }
   put('avatarUrl', patch.avatarUrl)
+  put('logoUrl', patch.logoUrl)
   if (patch.tags) payload.tags = patch.tags.filter(Boolean)
   if (patch.socialMedia !== undefined) {
     const socials = Object.fromEntries(
@@ -458,6 +461,8 @@ export function mergeLeadPatch(lead: LeadItem, patch: LeadPatch): Record<string,
     address: patch.address !== undefined ? patch.address : lead.address,
     company: patch.company !== undefined ? patch.company : lead.company,
     website: patch.website !== undefined ? patch.website : lead.website,
+    avatarUrl: patch.avatarUrl !== undefined ? patch.avatarUrl : lead.avatarUrl,
+    logoUrl: patch.logoUrl !== undefined ? patch.logoUrl : lead.logoUrl,
     topic: patch.topic !== undefined ? patch.topic : lead.topic,
     leadSource: patch.leadSource !== undefined ? patch.leadSource : lead.leadSource,
     rating: patch.rating !== undefined ? patch.rating : lead.rating,

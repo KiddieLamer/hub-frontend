@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Edit2, Check, X, Mail, MapPin, CreditCard, Copy, Briefcase } from 'lucide-react'
+import { Edit2, Check, X, Mail, MapPin, CreditCard, Copy, Briefcase, Globe } from 'lucide-react'
 import type { LeadItem } from './types'
 import { PhoneActionRow } from './PhoneActionRow'
+import { ImageUrlField } from './ImageUrlField'
+
+// Field bergaya garis bawah, samakan dengan multi-step CustomerModal.
+const underlineInputClass =
+  'mt-1 w-full border-0 border-b border-slate-200 bg-transparent py-2 pl-0 pr-0 text-xs font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-[#0096C2] focus:outline-none focus:ring-0'
+const underlineInputWithIconClass =
+  'mt-1 w-full border-0 border-b border-slate-200 bg-transparent py-2 pl-0 pr-8 text-xs font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-[#0096C2] focus:outline-none focus:ring-0'
+const underlineSelectClass =
+  'border-0 border-b border-slate-200 bg-transparent px-0 py-2 text-xs font-semibold text-slate-900 focus:border-[#0096C2] focus:outline-none focus:ring-0'
 
 interface ContactCardProps {
   lead: LeadItem
@@ -12,6 +21,7 @@ interface ContactCardProps {
 export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [avatarFailed, setAvatarFailed] = useState(false)
 
   // Local state untuk form edit
   const [formData, setFormData] = useState({
@@ -23,6 +33,7 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
     mobile: '',
     email: '',
     address: '',
+    avatarUrl: '',
     identityType: 'KTP' as 'KTP' | 'SIM' | 'Passport',
     identityNumber: '',
   })
@@ -39,9 +50,11 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
       mobile: lead.mobile || '',
       email: lead.email || '',
       address: lead.address || '',
+      avatarUrl: lead.avatarUrl || '',
       identityType: lead.identityType || 'KTP',
       identityNumber: lead.identityNumber || '',
     })
+    setAvatarFailed(false)
     setIsEditing(false) // Reset mode edit saat ganti customer
   }, [lead])
 
@@ -67,6 +80,7 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
       mobile: formData.mobile,
       email: formData.email,
       address: formData.address,
+      avatarUrl: formData.avatarUrl,
       identityType: formData.identityType,
       identityNumber: formData.identityNumber,
     })
@@ -85,16 +99,39 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
       mobile: lead.mobile || '',
       email: lead.email || '',
       address: lead.address || '',
+      avatarUrl: lead.avatarUrl || '',
       identityType: lead.identityType || 'KTP',
       identityNumber: lead.identityNumber || '',
     })
     setIsEditing(false)
   }
 
+  const initials =
+    lead.name
+      ?.trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'C'
+
   return (
     <div className={`space-y-4 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md transition-all ${className}`}>
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-slate-900">Contact</h3>
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-xs font-bold text-slate-500">
+            {lead.avatarUrl && !avatarFailed ? (
+              <img
+                src={lead.avatarUrl}
+                alt={`Foto ${lead.name || 'kontak'}`}
+                onError={() => setAvatarFailed(true)}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              initials
+            )}
+          </div>
+          <h3 className="truncate text-lg font-bold text-slate-900">Contact</h3>
+        </div>
         {!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}
@@ -134,7 +171,7 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
               placeholder="Masukkan topik..."
               value={formData.topic}
               onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+              className={underlineInputClass}
             />
           )}
         </div>
@@ -159,7 +196,7 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                className={underlineInputClass}
               />
             </div>
             <div>
@@ -168,7 +205,7 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                className={underlineInputClass}
               />
             </div>
           </div>
@@ -189,7 +226,7 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
                 placeholder="Misal: Purchasing Manager"
                 value={formData.jobTitle}
                 onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                className={underlineInputWithIconClass}
               />
             </div>
           )}
@@ -225,7 +262,7 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
               <select
                 value={formData.identityType}
                 onChange={(e) => setFormData({ ...formData, identityType: e.target.value as 'KTP' | 'SIM' | 'Passport' })}
-                className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                className={underlineSelectClass}
               >
                 <option value="KTP">KTP</option>
                 <option value="SIM">SIM</option>
@@ -239,7 +276,7 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
                   placeholder="Nomor identitas..."
                   value={formData.identityNumber}
                   onChange={(e) => setFormData({ ...formData, identityNumber: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                  className={underlineInputWithIconClass}
                 />
               </div>
             </div>
@@ -279,7 +316,7 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+              className={underlineInputClass}
             />
           )}
         </div>
@@ -299,10 +336,25 @@ export function ContactCard({ lead, onSave, className = '' }: ContactCardProps) 
               type="text"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+              className={underlineInputClass}
             />
           )}
         </div>
+
+        {isEditing && (
+          <div>
+            <span className="block font-medium text-slate-400">Foto Client (URL)</span>
+            <div className="mt-1">
+              <ImageUrlField
+                label="Foto Client (URL)"
+                placeholder="https://contoh.com/foto.jpg"
+                value={formData.avatarUrl}
+                onChange={(value) => setFormData({ ...formData, avatarUrl: value })}
+                Icon={Globe}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

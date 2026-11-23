@@ -13,6 +13,13 @@ import {
 } from 'lucide-react'
 import type { TaskItem } from './types'
 
+const underlineInputClass =
+  'w-full border-0 border-b border-slate-200 bg-transparent py-2 pl-0 pr-0 font-semibold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-[#0096C2] focus:outline-none focus:ring-0'
+const underlineInputMediumClass =
+  'w-full border-0 border-b border-slate-200 bg-transparent py-2 pl-0 pr-0 font-medium text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:border-[#0096C2] focus:outline-none focus:ring-0'
+const underlineSelectClass =
+  'w-full border-0 border-b border-slate-200 bg-transparent py-2 pl-0 pr-0 font-semibold text-slate-800 focus:border-[#0096C2] focus:outline-none focus:ring-0'
+
 interface UpNextCardProps {
   tasks?: TaskItem[]
   onAddTask: (task: { title: string; type: TaskItem['type']; dueDate: string; description: string }) => void | Promise<void>
@@ -145,7 +152,7 @@ export function UpNextCard({
               placeholder="Misal: Follow up via Whatsapp"
               value={newTask.title}
               onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+              className={underlineInputClass}
             />
           </div>
 
@@ -155,7 +162,7 @@ export function UpNextCard({
               <select
                 value={newTask.type}
                 onChange={(e) => setNewTask({ ...newTask, type: e.target.value as TaskItem['type'] })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                className={underlineSelectClass}
               >
                 <option value="call">Phone Call</option>
                 <option value="email">Email</option>
@@ -171,7 +178,7 @@ export function UpNextCard({
                 placeholder="Due 8/10/26 4:00 pm"
                 value={newTask.dueDate}
                 onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                className={underlineInputClass}
               />
             </div>
           </div>
@@ -183,7 +190,7 @@ export function UpNextCard({
               placeholder="Detail kebutuhan aktivitas..."
               value={newTask.description}
               onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+              className={underlineInputMediumClass}
             />
           </div>
 

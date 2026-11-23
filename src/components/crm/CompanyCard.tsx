@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Edit2, Check, X, Building, Globe } from 'lucide-react'
 import type { LeadItem } from './types'
+import { ImageUrlField } from './ImageUrlField'
+
+const underlineInputWithIconClass =
+  'w-full border-0 border-b border-slate-200 bg-transparent py-2 pl-0 pr-8 text-xs font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-[#0096C2] focus:outline-none focus:ring-0'
 
 interface CompanyCardProps {
   lead: LeadItem
@@ -10,16 +14,20 @@ interface CompanyCardProps {
 
 export function CompanyCard({ lead, onSave, className = '' }: CompanyCardProps) {
   const [isEditing, setIsEditing] = useState(false)
+  const [logoFailed, setLogoFailed] = useState(false)
   const [formData, setFormData] = useState({
     company: '',
     website: '',
+    logoUrl: '',
   })
 
   useEffect(() => {
     setFormData({
       company: lead.company || '',
       website: lead.website || '',
+      logoUrl: lead.logoUrl || '',
     })
+    setLogoFailed(false)
     setIsEditing(false)
   }, [lead])
 
@@ -27,6 +35,7 @@ export function CompanyCard({ lead, onSave, className = '' }: CompanyCardProps) 
     onSave({
       company: formData.company,
       website: formData.website,
+      logoUrl: formData.logoUrl,
     })
     setIsEditing(false)
   }
@@ -35,6 +44,7 @@ export function CompanyCard({ lead, onSave, className = '' }: CompanyCardProps) 
     setFormData({
       company: lead.company || '',
       website: lead.website || '',
+      logoUrl: lead.logoUrl || '',
     })
     setIsEditing(false)
   }
@@ -42,7 +52,21 @@ export function CompanyCard({ lead, onSave, className = '' }: CompanyCardProps) 
   return (
     <div className={`space-y-3 rounded-3xl border border-white/80 bg-white/80 p-5 shadow-xs backdrop-blur-md transition-all ${className}`}>
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-slate-900">Company</h3>
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white text-[#0096C2]">
+            {lead.logoUrl && !logoFailed ? (
+              <img
+                src={lead.logoUrl}
+                alt={`Logo ${lead.company || 'perusahaan'}`}
+                onError={() => setLogoFailed(true)}
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <Building className="h-4 w-4" />
+            )}
+          </div>
+          <h3 className="truncate text-lg font-bold text-slate-900">Company</h3>
+        </div>
         {!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}
@@ -83,7 +107,7 @@ export function CompanyCard({ lead, onSave, className = '' }: CompanyCardProps) 
                 placeholder="Nama perusahaan..."
                 value={formData.company}
                 onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                className={underlineInputWithIconClass}
               />
             </div>
           )}
@@ -112,11 +136,27 @@ export function CompanyCard({ lead, onSave, className = '' }: CompanyCardProps) 
                 placeholder="domain.com"
                 value={formData.website}
                 onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                className={underlineInputWithIconClass}
               />
             </div>
           )}
         </div>
+
+        {isEditing && (
+          <div>
+            <span className="block font-medium text-slate-400">Logo Perusahaan (URL)</span>
+            <div className="mt-1">
+              <ImageUrlField
+                label="Logo Perusahaan (URL)"
+                placeholder="https://contoh.com/logo.png"
+                value={formData.logoUrl}
+                onChange={(value) => setFormData({ ...formData, logoUrl: value })}
+                Icon={Building}
+                fit="contain"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

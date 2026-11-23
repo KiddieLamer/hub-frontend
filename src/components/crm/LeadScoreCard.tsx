@@ -261,26 +261,26 @@ export function LeadScoreCard({
         </svg>
 
         {/* Center Content Inside Stadium Ring — klik untuk buka rincian cara naik grade */}
-        <div className="absolute inset-0 flex items-center justify-center px-6">
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-10">
           <button
             type="button"
             onClick={onGradeClick}
             disabled={!onGradeClick}
             aria-label="Lihat rincian skor dan cara mencapai grade terbaik"
             title={onGradeClick ? 'Klik untuk lihat cara mencapai Grade A' : undefined}
-            className={`flex items-center justify-center gap-3.5 rounded-2xl px-3 py-1.5 transition-colors ${onGradeClick ? 'cursor-pointer hover:bg-white/50' : 'cursor-default'}`}
+            className={`pointer-events-auto flex max-w-full items-center justify-center gap-2.5 rounded-2xl px-2.5 py-1 transition-colors ${onGradeClick ? 'cursor-pointer hover:bg-white/50' : 'cursor-default'}`}
           >
             {/* Big Score Text */}
-            <span className="text-5xl font-black leading-none tracking-tight text-slate-900 md:text-6xl">
+            <span className="shrink-0 text-4xl font-black leading-none tracking-tight text-slate-900 md:text-5xl">
               {score}
             </span>
 
             {/* Grade & Status Badge */}
-            <span className="flex flex-col items-start gap-1">
-              <span className="text-sm font-bold tracking-wide text-slate-800">
+            <span className="flex min-w-0 flex-col items-start gap-1">
+              <span className="truncate text-sm font-bold tracking-wide text-slate-800">
                 {grade}
               </span>
-              <span className="flex items-center gap-1 rounded-full border border-[#D0EE7C] bg-[#E2F896] px-2.5 py-0.5 text-xs font-bold text-slate-900 shadow-2xs">
+              <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#D0EE7C] bg-[#E2F896] px-2.5 py-0.5 text-xs font-bold text-slate-900 shadow-2xs">
                 <span className="text-[11px]">{arrowSymbol}</span>
                 <span>{status}</span>
               </span>

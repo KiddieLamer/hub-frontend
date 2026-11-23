@@ -1,21 +1,28 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import ProgressHeatmapCard, { type ProgressEvent } from './company/ProgressHeatmapCard'
 import {
-  BarChart3,
-  Cloud,
-  Settings,
+  LayoutGrid,
+  Rows3,
   MoreHorizontal,
-  RotateCw,
   Users,
-  Calendar,
   ChevronDown,
   ChevronUp,
   Folder,
+  Building2,
   TrendingUp,
   Wallet,
   Loader2,
   Plus,
   X,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  SlidersHorizontal,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Flag,
+  Calendar,
 } from 'lucide-react';
 import { projectsApi, tasksApi, membersApi, clientsApi, tagsApi } from '../lib/endpoints'
 import { isPlatformMode } from '../lib/api'
@@ -72,6 +79,8 @@ interface ProjectItem {
   /** Enrichment backend untuk platform view (X-Platform-Scope: all) */
   tenantName?: string | null;
   clientName?: string | null;
+  /** Raw status untuk filter chips (planning/active/on_hold/...) */
+  rawStatus: string;
 }
 
 /* ============ Data layer (API nyata) ============ */
@@ -96,8 +105,8 @@ interface ProjectMemberRow { id: string; projectId: string; userId: string; role
 interface MilestoneRow { id: string; projectId: string; title: string; dueDate: string | null; status: string }
 interface TaskAssigneeRow { id: string; taskId: string; userId: string }
 interface TaskCommentRow { id: string; taskId: string; userId: string; comment: string; createdAt: string }
-interface MemberListRow { userId: string; userFullName: string; userAvatarUrl: string | null }
-interface ClientListRow { id: string; name: string }
+interface MemberListRow { userId: string; userFullName: string; userAvatarUrl: string | null; userEmail?: string | null }
+interface ClientListRow { id: string; name: string; logoUrl?: string | null; company?: string | null }
 interface ProjectDetail { columns: ColumnRow[]; members: ProjectMemberRow[]; milestones: MilestoneRow[] }
 interface Stats {
   total: number; planning: number; active: number; onHold: number
@@ -108,6 +117,8 @@ const STATUS_LABEL: Record<string, string> = {
   planning: 'Perencanaan', active: 'Aktif', on_hold: 'Ditunda',
   completed: 'Selesai', cancelled: 'Dibatalkan',
 }
+// Pagination daftar project di tab Project (card & table)
+const PROJECT_PAGE_SIZE = 20
 
 // Palet kelas bg — literal sama dengan mock f17bc08 supaya Tailwind
 // menghasilkan class yang persis sama.
@@ -142,16 +153,22 @@ function Avatar({ name, url, size = 28 }: { name?: string; url?: string | null; 
   )
 }
 
-function Modal({ title, onClose, width = 440, children }: { title: string; onClose: () => void; width?: number; children: React.ReactNode }) {
+function Modal({ title, onClose, width = 440, children, hideHeader = false, hideScrollbar = false }: { title: string; onClose: () => void; width?: number; children: React.ReactNode; hideHeader?: boolean; hideScrollbar?: boolean }) {
   return (
     <div className="absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-2xl w-full p-6 max-h-[90%] overflow-y-auto" style={{ maxWidth: width, fontFamily: SF }} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-bold text-zinc-900">{title}</h2>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-500">
-            <X size={14} />
-          </button>
-        </div>
+      <div
+        className={`bg-white rounded-3xl shadow-2xl w-full p-4 sm:p-6 max-h-[90%] overflow-hidden ${hideScrollbar ? '[&::-webkit-scrollbar]:hidden' : ''}`}
+        style={{ maxWidth: width, fontFamily: SF, ...(hideScrollbar ? { scrollbarWidth: 'none' as const } : {}) }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {!hideHeader && (
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-bold text-zinc-900">{title}</h2>
+            <button onClick={onClose} className="w-7 h-7 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-500">
+              <X size={14} />
+            </button>
+          </div>
+        )}
         {children}
       </div>
     </div>
@@ -169,6 +186,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = 'w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-[13px] text-zinc-900 outline-none focus:border-zinc-900 bg-white box-border'
 const selectCls = 'w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-[13px] text-zinc-900 outline-none focus:border-zinc-900 bg-white'
+// Khusus form Create Project: field garis bawah (konsisten dengan CRM).
+const underlineInputCls = 'w-full border-0 border-b border-zinc-200 bg-transparent py-2 text-[13px] font-semibold text-zinc-900 placeholder:font-normal placeholder:text-zinc-400 outline-none focus:border-zinc-900 focus:ring-0 box-border'
+const underlineSelectCls = 'w-full border-0 border-b border-zinc-200 bg-transparent py-2 text-[13px] font-semibold text-zinc-900 outline-none focus:border-zinc-900 focus:ring-0 box-border'
 
 function GhostBtn({ onClick, children }: { onClick?: () => void; children: React.ReactNode }) {
   return (
@@ -192,9 +212,15 @@ function SolidBtn({ onClick, disabled, children }: { onClick?: () => void; disab
 
 export function TasksBoardContent() {
   const [activeTab, setActiveTab] = useState<'Project' | 'Task' | 'Report'>('Task');
+  // Tab Project: 'card' = grid kartu, 'table' = list table
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+  // Filter status + halaman aktif daftar project
+  const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [projectPage, setProjectPage] = useState(1);
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [access, setAccess] = useState<AccessCtx>(FALLBACK_ACCESS)
   const isPlatform = isPlatformMode()
   // Platform view tidak punya tenant context — backend menolak create.
@@ -235,9 +261,48 @@ export function TasksBoardContent() {
   const [milestoneErr, setMilestoneErr] = useState('')
 
   const [showCreateProject, setShowCreateProject] = useState(false)
-  const [createProjForm, setCreateProjForm] = useState({ name: '', projectCode: '', projectManagerId: '', clientId: '', status: 'planning', budget: '', startDate: '', endDate: '', description: '' })
+  const [createStep, setCreateStep] = useState(1)
+  const [createProjForm, setCreateProjForm] = useState({ name: '', projectCode: '', projectManagerId: '', clientId: '', status: 'planning', priority: 'medium', billingType: 'fixed', budget: '', startDate: '', endDate: '', description: '', teamMemberIds: [] as string[] })
   const [createProjError, setCreateProjError] = useState('')
   const [creatingProject, setCreatingProject] = useState(false)
+  // Client autocomplete: query diketik user, hasil di-lazy-load setelah 2,5 detik idle.
+  const [clientQuery, setClientQuery] = useState('')
+  const [clientSuggestions, setClientSuggestions] = useState<ClientListRow[]>([])
+  const [clientSearching, setClientSearching] = useState(false)
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
+  const [selectedClient, setSelectedClient] = useState<ClientListRow | null>(null)
+  const skipClientSearch = useRef('')
+  // Project Manager autocomplete — pola sama dengan client, tapi pakai avatar member.
+  const [managerQuery, setManagerQuery] = useState('')
+  const [managerSuggestions, setManagerSuggestions] = useState<MemberListRow[]>([])
+  const [managerSearching, setManagerSearching] = useState(false)
+  const [managerDropdownOpen, setManagerDropdownOpen] = useState(false)
+  const [selectedManager, setSelectedManager] = useState<MemberListRow | null>(null)
+  const skipManagerSearch = useRef('')
+  // Team Members autocomplete — multi-select, pakai pola member yang sama.
+  const [teamQuery, setTeamQuery] = useState('')
+  const [teamSuggestions, setTeamSuggestions] = useState<MemberListRow[]>([])
+  const [teamSearching, setTeamSearching] = useState(false)
+  const [teamDropdownOpen, setTeamDropdownOpen] = useState(false)
+  const [selectedTeam, setSelectedTeam] = useState<MemberListRow[]>([])
+  const skipTeamSearch = useRef('')
+  const startDateRef = useRef<HTMLInputElement>(null)
+  const endDateRef = useRef<HTMLInputElement>(null)
+  const [heatmapHover, setHeatmapHover] = useState<string | null>(null)
+  const priorityDraggingRef = useRef(false)
+  const [prioritySliderValue, setPrioritySliderValue] = useState(0)
+  const priorityLevels = [
+    { value: 'low', label: 'Rendah', color: 'text-zinc-400' },
+    { value: 'medium', label: 'Sedang', color: 'text-blue-500' },
+    { value: 'high', label: 'Tinggi', color: 'text-amber-500' },
+    { value: 'urgent', label: 'Mendesak', color: 'text-red-500' },
+  ]
+  useEffect(() => {
+    if (!priorityDraggingRef.current) {
+      const idx = Math.max(0, priorityLevels.findIndex((l) => l.value === createProjForm.priority))
+      setPrioritySliderValue(idx)
+    }
+  }, [createProjForm.priority])
 
   const [detailProject, setDetailProject] = useState<(ProjectRow & { members: ProjectMemberRow[]; milestones: MilestoneRow[]; columns: ColumnRow[] }) | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -261,6 +326,8 @@ export function TasksBoardContent() {
 
   const memberName = (userId: string) => members.find((m) => m.userId === userId)?.userFullName
   const memberAvatar = (userId: string) => members.find((m) => m.userId === userId)?.userAvatarUrl || null
+  const memberInitials = (name?: string | null) =>
+    name?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'M'
 
   const loadData = async () => {
     const [projRes, statRes, taskRes, memRes, cliRes] = await Promise.all([
@@ -308,6 +375,114 @@ export function TasksBoardContent() {
     return () => { alive = false }
   }, [])
 
+  // Client autocomplete: baru query ke server setelah user berhenti mengetik 2,5 detik.
+  useEffect(() => {
+    const q = clientQuery.trim()
+    if (skipClientSearch.current && skipClientSearch.current === q) {
+      skipClientSearch.current = ''
+      setClientSuggestions([])
+      setClientSearching(false)
+      return
+    }
+    if (!q) {
+      setClientSuggestions([])
+      setClientSearching(false)
+      return
+    }
+
+    setClientSearching(true)
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      clientsApi.list(q, 8, 1)
+        .then((res: any) => {
+          if (!cancelled) setClientSuggestions(res?.clients || [])
+        })
+        .catch(() => {
+          if (!cancelled) setClientSuggestions([])
+        })
+        .finally(() => {
+          if (!cancelled) setClientSearching(false)
+        })
+    }, 2500)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [clientQuery])
+
+  // Project Manager autocomplete: query server setelah 2,5 detik idle.
+  useEffect(() => {
+    const q = managerQuery.trim()
+    if (skipManagerSearch.current && skipManagerSearch.current === q) {
+      skipManagerSearch.current = ''
+      setManagerSuggestions([])
+      setManagerSearching(false)
+      return
+    }
+    if (!q) {
+      setManagerSuggestions([])
+      setManagerSearching(false)
+      return
+    }
+
+    setManagerSearching(true)
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      membersApi.list({ search: q, limit: 8, page: 1 })
+        .then((res: any) => {
+          if (!cancelled) setManagerSuggestions(res?.members || [])
+        })
+        .catch(() => {
+          if (!cancelled) setManagerSuggestions([])
+        })
+        .finally(() => {
+          if (!cancelled) setManagerSearching(false)
+        })
+    }, 2500)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [managerQuery])
+
+  // Team Members autocomplete: query server setelah 2,5 detik idle.
+  useEffect(() => {
+    const q = teamQuery.trim()
+    if (skipTeamSearch.current && skipTeamSearch.current === q) {
+      skipTeamSearch.current = ''
+      setTeamSuggestions([])
+      setTeamSearching(false)
+      return
+    }
+    if (!q) {
+      setTeamSuggestions([])
+      setTeamSearching(false)
+      return
+    }
+
+    setTeamSearching(true)
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      membersApi.list({ search: q, limit: 8, page: 1 })
+        .then((res: any) => {
+          if (!cancelled) setTeamSuggestions(res?.members || [])
+        })
+        .catch(() => {
+          if (!cancelled) setTeamSuggestions([])
+        })
+        .finally(() => {
+          if (!cancelled) setTeamSearching(false)
+        })
+    }, 2500)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [teamQuery])
+
   // Ganti tenant / platform view → window reload datanya.
   useEffect(() => {
     const onTenantChange = () => { setLoading(true); loadData().finally(() => setLoading(false)) }
@@ -346,8 +521,25 @@ export function TasksBoardContent() {
       tenantName: p.tenantName ?? null,
       // Client yang di-handle (opsional — project bisa tanpa client).
       clientName: clients.find((c) => c.id === p.clientId)?.name ?? null,
+      rawStatus: p.status,
     }
   })
+
+  // Filter status + pagination 20/halaman — tab Project (card & table)
+  const filteredProjectItems = useMemo(
+    () => (projectFilter === 'all' ? items : items.filter((i) => i.rawStatus === projectFilter)),
+    [items, projectFilter]
+  )
+  const projectPageCount = Math.max(1, Math.ceil(filteredProjectItems.length / PROJECT_PAGE_SIZE))
+  const safeProjectPage = Math.min(projectPage, projectPageCount)
+  const pageProjectItems = filteredProjectItems.slice(
+    (safeProjectPage - 1) * PROJECT_PAGE_SIZE,
+    safeProjectPage * PROJECT_PAGE_SIZE
+  )
+  const applyProjectFilter = (s: string) => {
+    setProjectFilter(s)
+    setProjectPage(1)
+  }
 
   // Event heatmap untuk tab Report: aktivitas project & task (dibuat/diperbarui)
   // — pola sama dengan Progress Tracker di window Company, tapi fokus project.
@@ -542,15 +734,75 @@ export function TasksBoardContent() {
   /* ---------- project actions ---------- */
 
   const openCreateProject = () => {
-    const fallbackManager = members[0]?.userId || ''
-    setCreateProjForm({ name: '', projectCode: '', projectManagerId: fallbackManager, clientId: '', status: 'planning', budget: '', startDate: '', endDate: '', description: '' })
+    const fallbackManager = members[0] || null
+    const fallbackManagerId = fallbackManager?.userId || ''
+    const fallbackManagerName = fallbackManager?.userFullName || ''
+    setCreateStep(1)
+    setCreateProjForm({ name: '', projectCode: '', projectManagerId: fallbackManagerId, clientId: '', status: 'planning', priority: 'medium', billingType: 'fixed', budget: '', startDate: '', endDate: '', description: '', teamMemberIds: [] })
+    setManagerQuery(fallbackManagerName)
+    setManagerSuggestions([])
+    setManagerSearching(false)
+    setManagerDropdownOpen(false)
+    setSelectedManager(fallbackManager)
+    skipManagerSearch.current = fallbackManagerName
+    setClientQuery('')
+    setClientSuggestions([])
+    setClientSearching(false)
+    setClientDropdownOpen(false)
+    setSelectedClient(null)
+    skipClientSearch.current = ''
+    setTeamQuery('')
+    setTeamSuggestions([])
+    setTeamSearching(false)
+    setTeamDropdownOpen(false)
+    setSelectedTeam([])
+    skipTeamSearch.current = ''
     setCreateProjError('')
+    setNotice('')
     setShowCreateProject(true)
   }
 
+  // Validasi per step — error tidak menutup modal.
+  const validateCreateStep = (step: number) => {
+    if (step === 1 && (!createProjForm.name.trim() || !createProjForm.projectCode.trim())) {
+      setCreateProjError('Name dan Project Code wajib diisi')
+      return false
+    }
+    if (step === 2 && !createProjForm.projectManagerId) {
+      setCreateProjError('Project Manager wajib dipilih')
+      return false
+    }
+    setCreateProjError('')
+    return true
+  }
+
+  const goNextStep = () => {
+    if (!validateCreateStep(createStep)) return
+    setCreateStep((prev) => Math.min(4, prev + 1))
+  }
+
+  const toggleTeamMember = (member: MemberListRow) => {
+    if (member.userId === createProjForm.projectManagerId) return // PM sudah otomatis jadi lead
+    const already = createProjForm.teamMemberIds.includes(member.userId)
+    setCreateProjForm({
+      ...createProjForm,
+      teamMemberIds: already
+        ? createProjForm.teamMemberIds.filter((id) => id !== member.userId)
+        : [...createProjForm.teamMemberIds, member.userId],
+    })
+    setSelectedTeam((prev) => already
+      ? prev.filter((m) => m.userId !== member.userId)
+      : [...prev, member])
+    setTeamQuery('')
+    setTeamSuggestions([])
+    setTeamDropdownOpen(false)
+    skipTeamSearch.current = ''
+    setCreateProjError('')
+  }
+
   const submitCreateProject = async () => {
-    if (!createProjForm.name || !createProjForm.projectCode || !createProjForm.projectManagerId) {
-      setCreateProjError('Name, Project Code, dan Project Manager wajib diisi')
+    if (!validateCreateStep(1) || !validateCreateStep(2)) {
+      setCreateStep(!createProjForm.projectManagerId ? 2 : 1)
       return
     }
     setCreatingProject(true); setCreateProjError('')
@@ -558,16 +810,33 @@ export function TasksBoardContent() {
       const res: any = await projectsApi.create({
         name: createProjForm.name,
         projectCode: createProjForm.projectCode,
+        description: createProjForm.description || undefined,
+        priority: createProjForm.priority,
         projectManagerId: createProjForm.projectManagerId,
         clientId: createProjForm.clientId || undefined,
         status: createProjForm.status,
+        billingType: createProjForm.billingType,
         budget: Number(createProjForm.budget || 0),
         startDate: createProjForm.startDate || undefined,
         endDate: createProjForm.endDate || undefined,
-        description: createProjForm.description || undefined,
       })
       if (res?.error) { setCreateProjError(String(res.error)); return }
+
+      const projectId = res?.project?.id
+      const extra = createProjForm.teamMemberIds.filter((uid) => uid !== createProjForm.projectManagerId)
+      let failedMembers = 0
+      if (projectId && extra.length) {
+        // Best-effort: project sudah tersimpan, jadi kegagalan add member
+        // tidak boleh menandai seluruh create sebagai gagal.
+        const results = await Promise.allSettled(extra.map((uid) =>
+          projectsApi.addMember(projectId, { userId: uid, roleInProject: 'viewer' })
+        ))
+        failedMembers = results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && (r.value as any)?.error)).length
+      }
       setShowCreateProject(false)
+      setNotice(failedMembers > 0
+        ? `Project berhasil dibuat, tapi ${failedMembers} team member gagal ditambahkan. Buka detail project untuk menambahkannya lagi.`
+        : 'Project berhasil dibuat.')
       await loadData()
     } catch (e: any) {
       setCreateProjError(e?.message || 'Gagal membuat project')
@@ -745,6 +1014,32 @@ export function TasksBoardContent() {
     )
   }
 
+  // Toggle Card/Table view — KHUSUS tab Project: daftar project sebagai grid kartu atau list table
+  const viewToggle = (
+    <div className="flex items-center gap-1 bg-zinc-200/80 p-1 rounded-full border border-zinc-300/40">
+      <button
+        onClick={() => setViewMode('card')}
+        title="Card view"
+        aria-label="Card view"
+        className={`w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer ${
+          viewMode === 'card' ? 'bg-zinc-900 text-white shadow-md' : 'text-zinc-600 hover:bg-white/50'
+        }`}
+      >
+        <LayoutGrid className="w-3.5 h-3.5" />
+      </button>
+      <button
+        onClick={() => setViewMode('table')}
+        title="Table view"
+        aria-label="Table view"
+        className={`w-8 h-8 rounded-full flex items-center justify-center transition cursor-pointer ${
+          viewMode === 'table' ? 'bg-zinc-900 text-white shadow-md' : 'text-zinc-600 hover:bg-white/50'
+        }`}
+      >
+        <Rows3 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+
   return (
     <div className="h-full overflow-y-auto bg-[#F6F5F2] text-zinc-900 p-6 md:p-8 font-sans">
 
@@ -796,11 +1091,14 @@ export function TasksBoardContent() {
           )}
 
 
-          {activeTab === 'Project' && canWrite && (
-            <div className="flex items-center gap-2">
-              <button onClick={openCreateProject} className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-sm hover:bg-zinc-800 transition">
-                <Plus size={13} /> New Project
-              </button>
+          {activeTab === 'Project' && (
+            <div className="flex items-center gap-3">
+              {viewToggle}
+              {canWrite && (
+                <button onClick={openCreateProject} className="flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-sm hover:bg-zinc-800 transition">
+                  <Plus size={13} /> New Project
+                </button>
+              )}
             </div>
           )}
 
@@ -819,13 +1117,6 @@ export function TasksBoardContent() {
               <p className="text-2xl font-bold text-zinc-900">{contributors.length}</p>
             </div>
           </div>
-
-
-          <div className="flex items-center gap-1.5 border-l border-zinc-300 pl-4">
-            <IconButton icon={<BarChart3 className="w-4 h-4" />} />
-            <IconButton icon={<Cloud className="w-4 h-4" />} />
-            <IconButton icon={<Settings className="w-4 h-4" />} />
-          </div>
         </div>
       </header>
 
@@ -834,27 +1125,109 @@ export function TasksBoardContent() {
           {error}
         </div>
       )}
+      {notice && (
+        <div className="mb-4 flex items-start gap-2 rounded-2xl border border-[#F2D00D]/60 bg-[#F2D00D]/15 px-4 py-3 text-xs text-zinc-800">
+          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#B89400]" />
+          <span className="flex-1">{notice}</span>
+          <button onClick={() => setNotice('')} aria-label="Tutup notifikasi" className="shrink-0 rounded-full p-0.5 text-zinc-500 transition-colors hover:bg-white/60 hover:text-zinc-800">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
-      {/* TAB CONTENT: PROJECT VIEW */}
+      {/* TAB CONTENT: PROJECT VIEW — filter status + Card (grid kartu) / Table (list) */}
       {activeTab === 'Project' && (
-        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {items.map((proj) => (
-            <ProjectCard key={proj.id} project={proj} onOpen={() => openProjectDetail(proj.id)} />
-          ))}
+        <>
+          {items.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 mb-5">
+              <button
+                onClick={() => applyProjectFilter('all')}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition cursor-pointer ${
+                  projectFilter === 'all'
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
+                }`}
+              >
+                Semua <span className="opacity-60">· {items.length}</span>
+              </button>
+              {Object.entries(STATUS_LABEL).map(([k, label]) => {
+                const n = items.filter((i) => i.rawStatus === k).length
+                return (
+                  <button
+                    key={k}
+                    onClick={() => applyProjectFilter(k)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition cursor-pointer ${
+                      projectFilter === k
+                        ? 'bg-zinc-900 text-white border-zinc-900'
+                        : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
+                    }`}
+                  >
+                    {label} <span className="opacity-60">· {n}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
+          {items.length > 0 && filteredProjectItems.length === 0 && (
+            <div className="bg-white rounded-3xl border border-zinc-200/60 px-5 py-10 text-center text-xs text-zinc-400">
+              Tidak ada project dengan status {STATUS_LABEL[projectFilter] ?? projectFilter}.
+            </div>
+          )}
 
-          {/* New Project Dotted Card */}
-          {canWrite && (
-            <div
-              onClick={openCreateProject}
-              className="h-64 rounded-3xl p-6 border-2 border-dashed border-zinc-300/80 hover:border-zinc-500 transition flex flex-col items-center justify-center gap-3 cursor-pointer group bg-white/30"
-            >
-              <div className="w-12 h-12 rounded-full bg-white shadow-xs border border-zinc-200 flex items-center justify-center group-hover:scale-110 transition duration-200">
-                <Folder className="w-5 h-5 text-zinc-600" />
+          {viewMode === 'card' ? (
+            <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {pageProjectItems.map((proj) => (
+                <ProjectCard key={proj.id} project={proj} onOpen={() => openProjectDetail(proj.id)} />
+              ))}
+
+              {/* New Project Dotted Card */}
+              {canWrite && (
+                <div
+                  onClick={openCreateProject}
+                  className="h-64 rounded-3xl p-6 border-2 border-dashed border-zinc-300/80 hover:border-zinc-500 transition flex flex-col items-center justify-center gap-3 cursor-pointer group bg-white/30"
+                >
+                  <div className="w-12 h-12 rounded-full bg-white shadow-xs border border-zinc-200 flex items-center justify-center group-hover:scale-110 transition duration-200">
+                    <Folder className="w-5 h-5 text-zinc-600" />
+                  </div>
+                </div>
+              )}
+            </main>
+          ) : (
+            <ProjectTable items={pageProjectItems} onOpen={openProjectDetail} />
+          )}
+
+          {filteredProjectItems.length > PROJECT_PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-5">
+              <p className="text-xs text-zinc-400">
+                Menampilkan {(safeProjectPage - 1) * PROJECT_PAGE_SIZE + 1}–
+                {Math.min(safeProjectPage * PROJECT_PAGE_SIZE, filteredProjectItems.length)} dari{' '}
+                {filteredProjectItems.length} project
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setProjectPage((p) => Math.max(1, p - 1))}
+                  disabled={safeProjectPage === 1}
+                  aria-label="Halaman sebelumnya"
+                  className="w-8 h-8 rounded-full border border-zinc-200 bg-white flex items-center justify-center text-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50 transition cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-semibold text-zinc-600 px-2">
+                  {safeProjectPage} / {projectPageCount}
+                </span>
+                <button
+                  onClick={() => setProjectPage((p) => Math.min(projectPageCount, p + 1))}
+                  disabled={safeProjectPage === projectPageCount}
+                  aria-label="Halaman berikutnya"
+                  className="w-8 h-8 rounded-full border border-zinc-200 bg-white flex items-center justify-center text-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50 transition cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}
-        </main>
+        </>
       )}
 
 
@@ -1008,8 +1381,8 @@ export function TasksBoardContent() {
                       resolveAvatar={memberAvatar}
                     />
                   ))}
-                  {/* Hatched widget — di f17bc08 dekoratif; di sini trigger New Task */}
-                  {colIdx === 3 && canWrite && (
+                  {/* Hatched widget — trigger New Task, hanya di kolom Backlog */}
+                  {col.name.toLowerCase() === 'backlog' && canWrite && (
                     <div
                       onClick={openCreateTask}
                       title="Tambah task"
@@ -1019,10 +1392,8 @@ export function TasksBoardContent() {
                       }}
                     >
                       <div className="flex items-center gap-2 bg-white/90 backdrop-blur-xs px-3 py-2 rounded-full shadow-md border border-zinc-100">
-                        <button className="p-2 rounded-full hover:bg-zinc-100 transition"><RotateCw className="w-3.5 h-3.5 text-zinc-600" /></button>
-                        <button className="p-2 rounded-full hover:bg-zinc-100 transition"><Cloud className="w-3.5 h-3.5 text-zinc-600" /></button>
-                        <button className="p-2 rounded-full hover:bg-zinc-100 transition"><Users className="w-3.5 h-3.5 text-zinc-600" /></button>
-                        <button className="p-2 rounded-full hover:bg-zinc-100 transition"><Calendar className="w-3.5 h-3.5 text-zinc-600" /></button>
+                        <Plus size={14} className="text-zinc-600" />
+                        <span className="text-xs font-medium text-zinc-600">Tambah task</span>
                       </div>
                     </div>
                   )}
@@ -1111,52 +1482,622 @@ export function TasksBoardContent() {
 
       {/* ============ MODAL: CREATE PROJECT ============ */}
       {showCreateProject && (
-        <Modal title="New Project" onClose={() => setShowCreateProject(false)} width={480}>
+        <Modal title="New Project" onClose={() => setShowCreateProject(false)} width={520} hideHeader hideScrollbar>
+          {/* Banner visual — triple bullseye, judul & close ditaruh di dalam gambar. */}
+          <div className="relative mb-2 sm:mb-3 h-24 sm:h-32 overflow-hidden rounded-2xl bg-zinc-950">
+            <img
+              src="/bg/project-banner.jpg"
+              alt="Tiga anak panah mengenai sasaran"
+              className="absolute inset-0 h-full w-full object-contain object-right"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/30 to-transparent" />
+            <div className="absolute inset-y-0 left-4 flex items-center">
+              <div className="flex flex-col gap-2">
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white drop-shadow-sm">New Project</h2>
+                <div className="group flex items-center gap-1.5 w-24 sm:w-28">
+                  {[
+                    { step: 1, Icon: FileText },
+                    { step: 2, Icon: Users },
+                    { step: 3, Icon: SlidersHorizontal },
+                    { step: 4, Icon: Calendar },
+                  ].map(({ step, Icon }) => (
+                    <div key={step} className="relative h-5 flex-1">
+                      <div
+                        className={`absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full transition-opacity duration-200 group-hover:opacity-0 ${
+                          createStep >= step ? 'bg-[#F2D00D]' : 'bg-zinc-200'
+                        }`}
+                      />
+                      <div
+                        className={`absolute inset-0 flex items-center justify-center rounded-full border opacity-0 transition-opacity duration-200 group-hover:opacity-100 ${
+                          createStep === step
+                            ? 'border-[#F2D00D] bg-[#F2D00D] text-zinc-900'
+                            : createStep > step
+                              ? 'border-[#F2D00D]/40 bg-[#F2D00D]/10 text-[#B89400]'
+                              : 'border-zinc-200 bg-white text-zinc-400'
+                        }`}
+                      >
+                        <Icon className="h-3 w-3" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowCreateProject(false)}
+              aria-label="Tutup"
+              className="absolute left-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/30 text-white transition-colors hover:bg-black/50"
+            >
+              <X size={14} />
+            </button>
+          </div>
           {createProjError && <div className="rounded-xl bg-red-50 px-3 py-2 text-[12px] text-red-600 mb-3">{createProjError}</div>}
-          <Field label="Name">
-            <input className={inputCls} value={createProjForm.name} onChange={(e) => setCreateProjForm({ ...createProjForm, name: e.target.value })} placeholder="Nama project" />
-          </Field>
-          <Field label="Project Code">
-            <input className={inputCls} value={createProjForm.projectCode} onChange={(e) => setCreateProjForm({ ...createProjForm, projectCode: e.target.value.toUpperCase() })} placeholder="ISO-001" />
-          </Field>
+          {/* Tinggi area konten tetap supaya modal tidak naik-turun. */}
+          <div className="min-h-0">
+            {createStep === 1 && (
+            <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3">
+            <Field label="Name">
+              <input className={underlineInputCls} value={createProjForm.name} onChange={(e) => setCreateProjForm({ ...createProjForm, name: e.target.value })} placeholder="Nama project" />
+            </Field>
+            <Field label="Project Code">
+              <input className={underlineInputCls} value={createProjForm.projectCode} onChange={(e) => setCreateProjForm({ ...createProjForm, projectCode: e.target.value.toUpperCase() })} placeholder="PRJ-001" />
+            </Field>
+            <Field label="Priority">
+              {(() => {
+                const idx = Math.min(priorityLevels.length - 1, Math.max(0, Math.round(prioritySliderValue)))
+                const current = priorityLevels[idx]
+                return (
+                  <div className="pt-1">
+                    <div className="mb-2 flex items-center gap-2 transition-all duration-200">
+                      <Flag className={`h-4 w-4 transition-colors duration-200 ${current.color}`} />
+                      <span className="text-[13px] font-semibold text-zinc-900 transition-all duration-200">{current.label}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={priorityLevels.length - 1}
+                      step="any"
+                      value={prioritySliderValue}
+                      onPointerDown={() => { priorityDraggingRef.current = true }}
+                      onPointerUp={() => {
+                        priorityDraggingRef.current = false
+                        const snapIdx = Math.min(priorityLevels.length - 1, Math.max(0, Math.round(prioritySliderValue)))
+                        setPrioritySliderValue(snapIdx)
+                        const snapPriority = priorityLevels[snapIdx].value
+                        if (snapPriority !== createProjForm.priority) {
+                          setCreateProjForm({ ...createProjForm, priority: snapPriority })
+                        }
+                      }}
+                      onChange={(e) => {
+                        const v = Number(e.target.value)
+                        setPrioritySliderValue(v)
+                        const newIdx = Math.min(priorityLevels.length - 1, Math.max(0, Math.round(v)))
+                        const newPriority = priorityLevels[newIdx].value
+                        if (newPriority !== createProjForm.priority) {
+                          setCreateProjForm({ ...createProjForm, priority: newPriority })
+                        }
+                      }}
+                      className="w-full accent-zinc-900"
+                    />
+                    <div className="mt-1 flex justify-between text-[10px] font-medium text-zinc-400">
+                      {priorityLevels.map((l) => (
+                        <span key={l.value}>{l.label}</span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+            </Field>
+            <Field label="Description">
+              <textarea className={`${underlineInputCls} !py-1.5`} rows={1} value={createProjForm.description} onChange={(e) => setCreateProjForm({ ...createProjForm, description: e.target.value })} placeholder="Deskripsi singkat" />
+            </Field>
+          </div>
+            </>
+            )}
+            {createStep === 2 && (
+            <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3">
+          <div className="col-start-1 row-start-1">
           <Field label="Project Manager">
-            <select className={selectCls} value={createProjForm.projectManagerId} onChange={(e) => setCreateProjForm({ ...createProjForm, projectManagerId: e.target.value })}>
-              <option value="">— pilih member —</option>
-              {members.map((m) => <option key={m.userId} value={m.userId}>{m.userFullName}</option>)}
-            </select>
+            <div className="relative">
+              <div className="relative">
+                {selectedManager && (
+                  <span className="absolute left-2.5 top-1/2 z-10 grid h-6 w-6 -translate-y-1/2 place-items-center overflow-hidden rounded-full border border-zinc-200 bg-zinc-100 text-[10px] font-bold text-zinc-500">
+                    {selectedManager.userAvatarUrl ? (
+                      <img
+                        src={selectedManager.userAvatarUrl}
+                        alt=""
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      memberInitials(selectedManager.userFullName)
+                    )}
+                  </span>
+                )}
+                <input
+                  className={`${underlineInputCls} ${selectedManager ? '!pl-11' : ''}`}
+                  value={managerQuery}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setManagerQuery(value)
+                    setSelectedManager(null)
+                    setCreateProjForm({ ...createProjForm, projectManagerId: '' })
+                    setManagerDropdownOpen(true)
+                  }}
+                  onFocus={() => setManagerDropdownOpen(true)}
+                  onBlur={() => window.setTimeout(() => setManagerDropdownOpen(false), 120)}
+                  placeholder="Cari nama member..."
+                />
+                {managerSearching && (
+                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400" />
+                )}
+                {!managerSearching && (managerQuery || createProjForm.projectManagerId) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManagerQuery('')
+                      setManagerSuggestions([])
+                      setSelectedManager(null)
+                      setCreateProjForm({ ...createProjForm, projectManagerId: '' })
+                      skipManagerSearch.current = ''
+                    }}
+                    aria-label="Hapus project manager"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {managerDropdownOpen && managerQuery.trim() && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+                  {managerSearching && (
+                    <div className="px-3 py-2 text-[12px] text-zinc-400">Mencari member…</div>
+                  )}
+                  {!managerSearching && managerSuggestions.length === 0 && (
+                    <div className="px-3 py-2 text-[12px] text-zinc-400">Member tidak ditemukan.</div>
+                  )}
+                  {managerSuggestions.map((m) => (
+                    <button
+                      type="button"
+                      key={m.userId}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        skipManagerSearch.current = m.userFullName
+                        setManagerQuery(m.userFullName)
+                        setSelectedManager(m)
+                        setCreateProjForm({ ...createProjForm, projectManagerId: m.userId })
+                        setManagerSuggestions([])
+                        setManagerDropdownOpen(false)
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-zinc-50"
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-zinc-200 bg-zinc-100 text-[11px] font-bold text-zinc-500">
+                        {m.userAvatarUrl ? (
+                          <img
+                            src={m.userAvatarUrl}
+                            alt=""
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          memberInitials(m.userFullName)
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-medium text-zinc-900">{m.userFullName}</span>
+                        {m.userEmail && (
+                          <span className="block truncate text-[11px] text-zinc-400">{m.userEmail}</span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </Field>
+          </div>
+          <div className="col-start-2 row-start-1">
           <Field label="Client (opsional)">
-            <select className={selectCls} value={createProjForm.clientId} onChange={(e) => setCreateProjForm({ ...createProjForm, clientId: e.target.value })}>
-              <option value="">— tanpa client —</option>
-              {clients.map((cl) => <option key={cl.id} value={cl.id}>{cl.name}</option>)}
-            </select>
+            <div className="relative">
+              <div className="relative">
+                {selectedClient && (
+                  <span className="absolute left-2.5 top-1/2 z-10 grid h-6 w-6 -translate-y-1/2 place-items-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-50">
+                    {selectedClient.logoUrl ? (
+                      <img
+                        src={selectedClient.logoUrl}
+                        alt=""
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <Building2 className="h-3.5 w-3.5 text-zinc-400" />
+                    )}
+                  </span>
+                )}
+                <input
+                  className={`${underlineInputCls} ${selectedClient ? '!pl-11' : ''}`}
+                  value={clientQuery}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setClientQuery(value)
+                    setSelectedClient(null)
+                    setCreateProjForm({ ...createProjForm, clientId: '' })
+                    setClientDropdownOpen(true)
+                  }}
+                  onFocus={() => setClientDropdownOpen(true)}
+                  onBlur={() => window.setTimeout(() => setClientDropdownOpen(false), 120)}
+                  placeholder="Cari nama client..."
+                />
+                {clientSearching && (
+                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400" />
+                )}
+                {!clientSearching && (clientQuery || createProjForm.clientId) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClientQuery('')
+                      setClientSuggestions([])
+                      setSelectedClient(null)
+                      setCreateProjForm({ ...createProjForm, clientId: '' })
+                      skipClientSearch.current = ''
+                    }}
+                    aria-label="Hapus client"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {clientDropdownOpen && clientQuery.trim() && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+                  {clientSearching && (
+                    <div className="px-3 py-2 text-[12px] text-zinc-400">Mencari client…</div>
+                  )}
+                  {!clientSearching && clientSuggestions.length === 0 && (
+                    <div className="px-3 py-2 text-[12px] text-zinc-400">Client tidak ditemukan.</div>
+                  )}
+                  {clientSuggestions.map((cl) => (
+                    <button
+                      type="button"
+                      key={cl.id}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        skipClientSearch.current = cl.name
+                        setClientQuery(cl.name)
+                        setSelectedClient(cl)
+                        setCreateProjForm({ ...createProjForm, clientId: cl.id })
+                        setClientSuggestions([])
+                        setClientDropdownOpen(false)
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-zinc-50"
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
+                        {cl.logoUrl ? (
+                          <img
+                            src={cl.logoUrl}
+                            alt=""
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <Building2 className="h-4 w-4 text-zinc-400" />
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-medium text-zinc-900">{cl.name}</span>
+                        {cl.company && (
+                          <span className="block truncate text-[11px] text-zinc-400">{cl.company}</span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          </div>
+          <div className="col-span-2 row-start-2">
+          <Field label="Team Members (opsional)">
+            {selectedTeam.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {selectedTeam.map((m) => (
+                  <button
+                    type="button"
+                    key={m.userId}
+                    onClick={() => toggleTeamMember(m)}
+                    title="Klik untuk hapus"
+                    className="flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 py-1 pl-1 pr-2 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-100"
+                  >
+                    <span className="grid h-5 w-5 place-items-center overflow-hidden rounded-full bg-zinc-200 text-[9px] font-bold text-zinc-600">
+                      {m.userAvatarUrl ? (
+                        <img src={m.userAvatarUrl} alt="" onError={(e) => { e.currentTarget.style.display = 'none' }} className="h-full w-full object-cover" />
+                      ) : memberInitials(m.userFullName)}
+                    </span>
+                    <span className="max-w-[110px] truncate">{m.userFullName}</span>
+                    <X className="h-3 w-3 text-zinc-400" />
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="relative">
+              <div className="relative">
+                <input
+                  className={underlineInputCls}
+                  value={teamQuery}
+                  onChange={(e) => {
+                    setTeamQuery(e.target.value)
+                    setTeamDropdownOpen(true)
+                  }}
+                  onFocus={() => setTeamDropdownOpen(true)}
+                  onBlur={() => window.setTimeout(() => setTeamDropdownOpen(false), 120)}
+                  placeholder="Cari member untuk ditambahkan..."
+                />
+                {teamSearching && (
+                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400" />
+                )}
+              </div>
+              {teamDropdownOpen && teamQuery.trim() && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg">
+                  {teamSearching && (
+                    <div className="px-3 py-2 text-[12px] text-zinc-400">Mencari member…</div>
+                  )}
+                  {!teamSearching && teamSuggestions.length === 0 && (
+                    <div className="px-3 py-2 text-[12px] text-zinc-400">Member tidak ditemukan.</div>
+                  )}
+                  {teamSuggestions.map((m) => {
+                    const picked = createProjForm.teamMemberIds.includes(m.userId)
+                    const isPM = m.userId === createProjForm.projectManagerId
+                    return (
+                      <button
+                        type="button"
+                        key={m.userId}
+                        disabled={isPM}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => toggleTeamMember(m)}
+                        className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${isPM ? 'cursor-not-allowed opacity-50' : 'hover:bg-zinc-50'}`}
+                      >
+                        <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-zinc-200 bg-zinc-100 text-[11px] font-bold text-zinc-500">
+                          {m.userAvatarUrl ? (
+                            <img src={m.userAvatarUrl} alt="" onError={(e) => { e.currentTarget.style.display = 'none' }} className="h-full w-full object-cover" />
+                          ) : memberInitials(m.userFullName)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium text-zinc-900">{m.userFullName}</span>
+                          {m.userEmail && <span className="block truncate text-[11px] text-zinc-400">{m.userEmail}</span>}
+                        </span>
+                        {isPM ? (
+                          <span className="shrink-0 text-[10px] font-semibold text-[#B89400]">Lead</span>
+                        ) : picked ? (
+                          <Check className="h-4 w-4 shrink-0 text-[#B89400]" />
+                        ) : null}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </Field>
+          </div>
+          </div>
+            </>
+            )}
+            {createStep === 3 && (
+            <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Status">
-              <select className={selectCls} value={createProjForm.status} onChange={(e) => setCreateProjForm({ ...createProjForm, status: e.target.value })}>
+              <select className={underlineSelectCls} value={createProjForm.status} onChange={(e) => setCreateProjForm({ ...createProjForm, status: e.target.value })}>
                 {Object.entries(STATUS_LABEL).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
               </select>
             </Field>
-            <Field label="Budget (Rp)">
-              <input className={inputCls} type="number" min="0" value={createProjForm.budget} onChange={(e) => setCreateProjForm({ ...createProjForm, budget: e.target.value })} placeholder="0" />
+            <Field label="Billing Type">
+              <select className={underlineSelectCls} value={createProjForm.billingType} onChange={(e) => setCreateProjForm({ ...createProjForm, billingType: e.target.value })}>
+                <option value="fixed">Fixed price</option>
+                <option value="hourly">Hourly</option>
+                <option value="retainer">Retainer</option>
+                <option value="internal">Internal (tanpa tagihan)</option>
+              </select>
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Start Date">
-              <input className={inputCls} type="date" value={createProjForm.startDate} onChange={(e) => setCreateProjForm({ ...createProjForm, startDate: e.target.value })} />
-            </Field>
-            <Field label="End Date">
-              <input className={inputCls} type="date" value={createProjForm.endDate} onChange={(e) => setCreateProjForm({ ...createProjForm, endDate: e.target.value })} />
-            </Field>
-          </div>
-          <Field label="Description">
-            <textarea className={inputCls} rows={2} value={createProjForm.description} onChange={(e) => setCreateProjForm({ ...createProjForm, description: e.target.value })} placeholder="Deskripsi singkat" />
+          <Field label="Budget (Rp)">
+            <input className={underlineInputCls} type="number" min="0" value={createProjForm.budget} onChange={(e) => setCreateProjForm({ ...createProjForm, budget: e.target.value })} placeholder="0" />
           </Field>
-          <div className="flex justify-end gap-2 mt-5">
-            <GhostBtn onClick={() => setShowCreateProject(false)}>Batal</GhostBtn>
-            <SolidBtn onClick={submitCreateProject} disabled={creatingProject}>
-              {creatingProject ? 'Creating…' : 'Create'}
-            </SolidBtn>
+            </>
+            )}
+          {createStep === 4 && (
+            <>
+          <div className="flex flex-col gap-3">
+            {/* Heatmap kalender: 1 tahun penuh (53 minggu) */}
+            <div className="w-full rounded-xl border border-zinc-100 bg-zinc-50/50 p-2">
+              {(() => {
+                const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                const today = new Date()
+                const rangeStart = new Date(today)
+                rangeStart.setDate(rangeStart.getDate() - 364)
+                // Minggu dimulai Senin
+                rangeStart.setDate(rangeStart.getDate() - ((rangeStart.getDay() + 6) % 7))
+                const rangeEnd = new Date(rangeStart)
+                rangeEnd.setDate(rangeEnd.getDate() + 370) // 53 minggu penuh
+                const days: Date[] = []
+                for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+                  days.push(new Date(d))
+                }
+                const weeks: Date[][] = []
+                for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7))
+                const selStart = createProjForm.startDate ? new Date(createProjForm.startDate + 'T00:00:00') : null
+                const selEnd = createProjForm.endDate ? new Date(createProjForm.endDate + 'T00:00:00') : null
+                const hoverParsed = heatmapHover ? new Date(heatmapHover + 'T00:00:00') : null
+                const handleDay = (ds: string) => {
+                  const clicked = new Date(ds + 'T00:00:00')
+                  if (!selStart || (selStart && selEnd)) {
+                    setCreateProjForm({ ...createProjForm, startDate: ds, endDate: '' })
+                  } else if (clicked >= selStart) {
+                    setCreateProjForm({ ...createProjForm, endDate: ds })
+                  } else {
+                    setCreateProjForm({ ...createProjForm, startDate: ds, endDate: '' })
+                  }
+                }
+                return (
+                  <>
+                    {/* Label bulan (atas) */}
+                    <div className="mb-1 text-[10px] font-medium text-zinc-500">
+                      {createProjForm.startDate
+                        ? `${new Date(createProjForm.startDate + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} → ${createProjForm.endDate ? new Date(createProjForm.endDate + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'pilih tanggal akhir'}`
+                        : 'Klik tanggal untuk mulai pilih range'}
+                    </div>
+                    {/* Quick select */}
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      {[
+                        { label: '7H', days: 7 },
+                        { label: '30H', days: 30 },
+                        { label: 'Bulan ini', days: null },
+                      ].map((q) => (
+                        <button
+                          key={q.label}
+                          type="button"
+                          onClick={() => {
+                            const today = new Date()
+                            const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                            if (q.days) {
+                              const s = new Date(today); s.setDate(s.getDate() - q.days)
+                              setCreateProjForm({ ...createProjForm, startDate: fmt(s), endDate: fmt(today) })
+                            } else {
+                              const s = new Date(today.getFullYear(), today.getMonth(), 1)
+                              const e = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+                              setCreateProjForm({ ...createProjForm, startDate: fmt(s), endDate: fmt(e) })
+                            }
+                          }}
+                          className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[9px] font-semibold text-zinc-600 transition-colors hover:border-zinc-900 hover:bg-zinc-900 hover:text-white"
+                        >
+                          {q.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setCreateProjForm({ ...createProjForm, startDate: '', endDate: '' })}
+                        className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[9px] font-semibold text-zinc-400 transition-colors hover:border-red-400 hover:bg-red-50 hover:text-red-500"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <div
+                      className="grid gap-0"
+                      style={{
+                        gridTemplateColumns: `16px repeat(${weeks.length}, minmax(0, 1fr))`,
+                        gridTemplateRows: `12px repeat(7, auto)`,
+                      }}
+                    >
+                      {/* Header kosong + label bulan (spasi di awal bulan) */}
+                      <div />
+                      {weeks.map((week, wi) => {
+                        const labelDay = week.find((d) => d.getDate() === 1)
+                        const label = labelDay ? labelDay.toLocaleDateString('id-ID', { month: 'short' }) : ''
+                        return (
+                          <div
+                            key={`m${wi}`}
+                            className="text-center text-[8px] font-medium leading-none text-zinc-400"
+                            style={{ marginLeft: wi > 0 && labelDay ? 5 : 0 }}
+                          >
+                            {label}
+                          </div>
+                        )
+                      })}
+                      {/* 7 baris hari: label + 53 kolom minggu */}
+                      {Array.from({ length: 7 }).flatMap((_, r) => [
+                        <div key={`l${r}`} className="flex items-center justify-end whitespace-nowrap pr-0.5 text-[8px] font-medium leading-none text-zinc-400">
+                          {['Sn', 'Sl', 'Rb', 'Km', 'Jm', 'Sb', 'Mn'][r]}
+                        </div>,
+                        ...weeks.map((week, wi) => {
+                          const day = week[r]
+                          const ds = fmt(day)
+                          const monthStart = week.some((d) => d.getDate() === 1)
+                          const inRange = selStart && selEnd && day >= selStart && day <= selEnd
+                          const isStart = selStart && ds === createProjForm.startDate
+                          const isEnd = selEnd && ds === createProjForm.endDate
+                          const isToday = fmt(today) === ds
+                          const previewRange = selStart && !selEnd && hoverParsed && hoverParsed >= selStart
+                          const inPreview = previewRange && day >= selStart! && day <= hoverParsed!
+                          return (
+                            <button
+                              key={`c${r}-${wi}`}
+                              type="button"
+                              onClick={() => handleDay(ds)}
+                              onMouseEnter={() => setHeatmapHover(ds)}
+                              onMouseLeave={() => setHeatmapHover(null)}
+                              title={new Date(ds + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                              style={{ marginLeft: wi > 0 && monthStart ? 5 : 0 }}
+                              className={`aspect-square w-full rounded-[2px] transition-all duration-150 hover:scale-125 ${
+                                isStart || isEnd
+                                  ? 'bg-zinc-900'
+                                  : inRange
+                                    ? 'bg-amber-300'
+                                    : inPreview
+                                      ? 'bg-amber-200'
+                                      : isToday
+                                        ? 'bg-blue-400'
+                                        : 'bg-zinc-200 hover:bg-zinc-300'
+                              }`}
+                            />
+                          )
+                        }),
+                      ])}
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+            {/* Field tanggal */}
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Start Date">
+                <div className="relative">
+                  <input ref={startDateRef} className={`${underlineInputCls} pr-8`} type="date" value={createProjForm.startDate} onChange={(e) => setCreateProjForm({ ...createProjForm, startDate: e.target.value })} />
+                  <button type="button" onClick={() => startDateRef.current?.showPicker?.()} className="absolute right-0 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">
+                    <Calendar className="h-4 w-4" />
+                  </button>
+                </div>
+              </Field>
+              <Field label="End Date">
+                <div className="relative">
+                  <input ref={endDateRef} className={`${underlineInputCls} pr-8`} type="date" value={createProjForm.endDate} onChange={(e) => setCreateProjForm({ ...createProjForm, endDate: e.target.value })} />
+                  <button type="button" onClick={() => endDateRef.current?.showPicker?.()} className="absolute right-0 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">
+                    <Calendar className="h-4 w-4" />
+                  </button>
+                </div>
+              </Field>
+            </div>
+          </div>
+            </>
+            )}
+          </div>
+          <div className="mt-5 flex items-center justify-end gap-2 sticky bottom-0 bg-white/95 backdrop-blur-sm py-2 -mx-4 sm:-mx-6 px-4 sm:px-6">
+            {createStep > 1 && (
+              <button
+                type="button"
+                onClick={() => { setCreateStep((prev) => prev - 1); setCreateProjError('') }}
+                aria-label="Kembali"
+                className="group flex h-9 w-9 items-center justify-center rounded-full bg-[#F2D00D] text-zinc-900 transition-colors hover:bg-[#e0bd00]"
+              >
+                <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={createStep < 4 ? goNextStep : submitCreateProject}
+              disabled={creatingProject}
+              aria-label={createStep < 4 ? 'Lanjut' : 'Buat project'}
+              className="group flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900 text-white shadow-md transition-colors hover:bg-[#F2D00D] hover:text-zinc-900 disabled:opacity-50"
+            >
+              {creatingProject && createStep === 3 ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : createStep < 4 ? (
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+              ) : (
+                <Check className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+              )}
+            </button>
           </div>
         </Modal>
       )}
@@ -1528,14 +2469,89 @@ export function TasksBoardContent() {
 }
 
 
-function IconButton({ icon, active = false }: { icon: React.ReactNode; active?: boolean }) {
+/* List table daftar project — mode kedua toggle Card/Table di tab Project */
+function ProjectTable({ items, onOpen }: { items: ProjectItem[]; onOpen: (id: string) => void }) {
   return (
-    <button className={`w-8 h-8 rounded-full flex items-center justify-center transition ${
-      active ? 'bg-black text-white' : 'bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-100'
-    }`}>
-      {icon}
-    </button>
-  );
+    <div className="bg-white rounded-3xl border border-zinc-200/60 shadow-xs overflow-hidden">
+      <table className="w-full text-left">
+        <thead>
+          <tr className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold bg-zinc-50/80">
+            <th className="px-5 py-3.5 font-semibold">Project</th>
+            <th className="px-5 py-3.5 font-semibold">Status</th>
+            <th className="px-5 py-3.5 font-semibold hidden md:table-cell">Progress</th>
+            <th className="px-5 py-3.5 font-semibold hidden lg:table-cell">Team</th>
+            <th className="px-5 py-3.5 font-semibold text-right">Due</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((p) => {
+            const pct = p.totalTasks > 0 ? Math.round((p.completedTasks / p.totalTasks) * 100) : 0
+            return (
+              <tr
+                key={p.id}
+                onClick={() => onOpen(p.id)}
+                title="Buka detail project"
+                className="border-t border-zinc-100 cursor-pointer hover:bg-zinc-50 transition"
+              >
+                <td className="px-5 py-3.5">
+                  <p className="text-sm font-semibold text-zinc-900">{p.name}</p>
+                  <p className="text-[11px] text-zinc-400 font-medium truncate max-w-[220px]">
+                    {p.category}
+                    {p.clientName ? ` · ${p.clientName}` : ''}
+                    {p.tenantName ? ` · ${p.tenantName}` : ''}
+                  </p>
+                </td>
+                <td className="px-5 py-3.5">
+                  <span className="text-[10px] font-semibold text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-full whitespace-nowrap">
+                    {p.status}
+                  </span>
+                </td>
+                <td className="px-5 py-3.5 hidden md:table-cell min-w-[150px]">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 rounded-full bg-zinc-900/10 overflow-hidden">
+                      <div className="h-full bg-zinc-900 rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-xs font-semibold text-zinc-600 w-9 text-right">{pct}%</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 mt-1">
+                    {p.completedTasks}/{p.totalTasks} tasks
+                  </p>
+                </td>
+                <td className="px-5 py-3.5 hidden lg:table-cell">
+                  <div className="flex -space-x-2">
+                    {p.team.map((m) => (
+                      <div
+                        key={m.userId}
+                        title={m.name}
+                        className="w-6 h-6 rounded-full border-2 border-white overflow-hidden bg-gradient-to-br from-[#667eea] to-[#764ba2] text-white flex items-center justify-center text-[9px] font-bold shrink-0"
+                      >
+                        {m.url ? (
+                          <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
+                        ) : (
+                          m.name?.charAt(0) || '?'
+                        )}
+                      </div>
+                    ))}
+                    {p.team.length === 0 && (
+                      <span className="text-[10px] text-zinc-400 italic">belum ada member</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-5 py-3.5 text-right">
+                  <span className="text-[10px] font-bold text-zinc-600 bg-zinc-50 px-2.5 py-1 rounded-full border border-zinc-100 whitespace-nowrap">
+                    {p.dueDate ? `Due ${p.dueDate}` : 'Due -'}
+                  </span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      {items.length === 0 && (
+        <p className="px-5 py-8 text-center text-xs text-zinc-400">Belum ada project.</p>
+      )}
+    </div>
+  )
 }
 
 

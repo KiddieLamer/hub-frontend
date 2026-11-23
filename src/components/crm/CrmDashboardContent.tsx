@@ -38,6 +38,7 @@ import { WarrantyCard } from './WarrantyCard'
 import { LeadSidebar } from './LeadSidebar'
 import CustomersTableCard from './CustomersTableCard'
 import { CustomerModal, type MemberOption } from './CustomerModal'
+import { customerFormIsland } from '../island/customerFormIsland'
 import { LocationMapCard } from './LocationMapCard'
 import { ContactCard } from './ContactCard'
 import { CompanyCard } from './CompanyCard'
@@ -100,6 +101,17 @@ export function CrmDashboardContent() {
   const [actionError, setActionError] = useState<string | null>(null)
   // Id user login — dipakai ActivityLogCard untuk menampilkan tombol hapus pada catatan sendiri.
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined)
+
+  // Dynamic Island: klik "Tersimpan" dalam 5 detik membuka edit customer terakhir.
+  useEffect(() => {
+    const unregister = customerFormIsland.registerEditHandler(() => {
+      setModalConfig({ isOpen: true, mode: 'edit' })
+    })
+    return () => {
+      unregister()
+      customerFormIsland.clear()
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -300,10 +312,10 @@ export function CrmDashboardContent() {
           company: customerData.company,
           website: customerData.website,
           avatarUrl: customerData.avatarUrl,
+          logoUrl: customerData.logoUrl,
           topic: customerData.topic,
           leadSource: customerData.leadSource,
           rating: customerData.rating,
-          budget: customerData.budget,
           industry: customerData.industry,
           taxId: customerData.taxId,
           billingEmail: customerData.billingEmail,
@@ -332,10 +344,10 @@ export function CrmDashboardContent() {
             company: customerData.company,
             website: customerData.website,
             avatarUrl: customerData.avatarUrl,
+            logoUrl: customerData.logoUrl,
             topic: customerData.topic,
             leadSource: customerData.leadSource,
             rating: customerData.rating,
-            budget: customerData.budget,
             industry: customerData.industry,
             taxId: customerData.taxId,
             billingEmail: customerData.billingEmail,

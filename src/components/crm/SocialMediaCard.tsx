@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Share2, Edit2, Check, X } from 'lucide-react'
 import type { SocialHandles } from './types'
 
+const underlineInputClass =
+  'mt-1 w-full border-0 border-b border-slate-200 bg-transparent py-2 pl-0 pr-0 text-xs font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-[#0096C2] focus:outline-none focus:ring-0'
+
 // lucide-react v1.x tidak lagi menyediakan brand icon — pakai SVG inline
 // supaya tampilan tetap sama dengan mockup.
 const InstagramIcon = ({ className }: { className?: string }) => (
@@ -135,7 +138,7 @@ export function SocialMediaCard({ customerName, socials, onSave, className = '' 
                 value={form[field.key] || ''}
                 onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
                 placeholder={field.placeholder}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+                className={underlineInputClass}
               />
             </div>
           ))}

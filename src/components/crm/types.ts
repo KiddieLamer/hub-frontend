@@ -78,6 +78,7 @@ export interface LeadItem {
   company: string
   website: string
   avatarUrl?: string
+  logoUrl?: string
   leadSource: string
   rating: string
   statusTag: string

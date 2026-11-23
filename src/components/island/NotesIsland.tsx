@@ -4,6 +4,11 @@ import {
   Bell, Bold, Check, ChevronUp, Code, FilePlus, Link2, List, ListTodo,
   Loader2, PackageCheck, PanelRightOpen, Pin, Sparkles, Video, X,
 } from "lucide-react";
+import {
+  customerFormIsland,
+  useCustomerFormIsland,
+  type CustomerFormIslandState,
+} from "./customerFormIsland";
 
 /* ───────── types ───────── */
 
@@ -17,7 +22,7 @@ export type IslandAlert = {
   module?: string;        // modul tujuan saat check ditekan (id dock, mis. "finance")
 };
 
-type Mode = "pill" | "editor" | "alert" | "greeting";
+type Mode = "pill" | "editor" | "alert" | "greeting" | "customerForm";
 type Note = { id: string; title: string; body: string; ctx: string | null; updatedAt: number };
 
 export type IslandGreeting = { fullName: string; avatarUrl: string | null };
@@ -65,6 +70,7 @@ const SIZES: Record<Mode, { width: number; height: number; borderRadius: number 
   editor: { width: 400, height: 292, borderRadius: 24 },
   alert: { width: 372, height: 56, borderRadius: 28 },
   greeting: { width: 356, height: 72, borderRadius: 36 },
+  customerForm: { width: 320, height: 44, borderRadius: 22 },
 };
 
 const SPRING: Record<Mode, Transition> = {
@@ -72,6 +78,7 @@ const SPRING: Record<Mode, Transition> = {
   alert: { type: "spring", stiffness: 460, damping: 26, mass: 1 },     // alert arrival
   pill: { type: "spring", stiffness: 480, damping: 36, mass: 1 },      // collapse
   greeting: { type: "spring", stiffness: 380, damping: 30, mass: 0.9 }, // sapaan login
+  customerForm: { type: "spring", stiffness: 440, damping: 32, mass: 0.85 },
 };
 
 // konten muncul setelah container ~45% ekspansi, hilang lebih dulu saat menutup
@@ -134,10 +141,26 @@ type Props = {
 export function NotesIsland({ moduleKey, badge = 0, greeting = null, onGreetingDone, onOpenAlert }: Props) {
   const { queue, missed } = useAlerts();
   const notes = useNotes();
+  const formState = useCustomerFormIsland();
   const [open, setOpen] = useState(false);
   const [curId, setCurId] = useState<string | null>(null);
 
-  const mode: Mode = open ? "editor" : greeting ? "greeting" : queue.length ? "alert" : "pill";
+  // Status "Tersimpan" hanya bertahan 5 detik, lalu island kembali ke pill.
+  useEffect(() => {
+    if (!formState.active || formState.status !== "saved" || !formState.savedAt) return;
+    const timer = window.setTimeout(() => customerFormIsland.clear(), 5000);
+    return () => window.clearTimeout(timer);
+  }, [formState.active, formState.status, formState.savedAt]);
+
+  const mode: Mode = open
+    ? "editor"
+    : greeting
+      ? "greeting"
+      : formState.active
+        ? "customerForm"
+        : queue.length
+          ? "alert"
+          : "pill";
   const cur = notes.list.find((n) => n.id === curId) ?? notes.list[0];
   const head = queue[0];
 
@@ -179,6 +202,11 @@ export function NotesIsland({ moduleKey, badge = 0, greeting = null, onGreetingD
               <PillView badge={badge} onOpen={() => setOpen(true)} />
             </Layer>
           )}
+          {mode === "customerForm" && (
+            <Layer key="customerForm" width={SIZES.customerForm.width}>
+              <CustomerFormView state={formState} onEdit={() => customerFormIsland.edit()} />
+            </Layer>
+          )}
           {mode === "editor" && cur && (
             <Layer key="editor" width={SIZES.editor.width}>
               <EditorView
@@ -206,7 +234,7 @@ export function NotesIsland({ moduleKey, badge = 0, greeting = null, onGreetingD
 
       {/* banner tipis: alert masuk saat user sedang menulis, tidak menggeser isi editor */}
       <AnimatePresence>
-        {open && head && (
+        {(open || mode === "customerForm") && head && (
           <motion.div
             key={head.id}
             initial={{ opacity: 0, scale: 0.96, y: -4 }}
@@ -316,6 +344,118 @@ function PillView({ badge, onOpen }: { badge: number; onOpen: () => void }) {
         transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
       />
       {badge > 0 && <span className="text-[11px] font-medium text-neutral-300">{badge}</span>}
+    </button>
+  );
+}
+
+function CustomerFormAvatar({ src, alt }: { src: string | null; alt: string }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFailedSrc(null);
+  }, [src]);
+
+  if (!src?.trim() || failedSrc === src) return null;
+
+  return (
+    <motion.img
+      key={src}
+      src={src}
+      alt={alt}
+      draggable={false}
+      initial={{ opacity: 0, scale: 0.7, width: 0 }}
+      animate={{ opacity: 1, scale: 1, width: 24 }}
+      exit={{ opacity: 0, scale: 0.7, width: 0 }}
+      transition={{ type: "spring", stiffness: 420, damping: 30 }}
+      onError={() => setFailedSrc(src)}
+      className="h-6 rounded-full border-2 border-neutral-950 bg-neutral-800 object-cover"
+    />
+  );
+}
+
+function CustomerFormView({
+  state,
+  onEdit,
+}: {
+  state: CustomerFormIslandState;
+  onEdit: () => void;
+}) {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (state.status !== "saved") return;
+    const timer = window.setInterval(() => setTick((value) => value + 1), 200);
+    return () => window.clearInterval(timer);
+  }, [state.status]);
+
+  const countdown =
+    state.status === "saved" && state.savedAt
+      ? Math.max(0, 5 - Math.floor((Date.now() - state.savedAt) / 1000))
+      : 0;
+  const displayName =
+    state.status === "saving"
+      ? "Menyimpan…"
+      : state.name.trim() || state.avatarUrl
+        ? state.name.trim() || "Client baru"
+        : "Client baru";
+  const progress = Math.min(100, Math.max(0, state.progress));
+  const isSaved = state.status === "saved";
+
+  return (
+    <button
+      onClick={isSaved ? onEdit : undefined}
+      aria-label={isSaved ? "Edit customer tersimpan" : "Progres form customer"}
+      title={isSaved ? "Klik untuk edit lagi" : undefined}
+      className={`flex h-[44px] w-full items-center gap-2.5 rounded-full px-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300 ${
+        isSaved ? "cursor-pointer hover:bg-white/5" : "cursor-default"
+      }`}
+    >
+      <div className="flex shrink-0 items-center -space-x-2">
+        <AnimatePresence initial={false}>
+          <CustomerFormAvatar key="avatar" src={state.avatarUrl} alt="Foto client" />
+          <CustomerFormAvatar key="logo" src={state.logoUrl} alt="Logo perusahaan" />
+        </AnimatePresence>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        {isSaved ? (
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-100">
+            <Check size={13} className="text-[#34c759]" />
+            <span>Tersimpan</span>
+            <motion.span
+              key={countdown}
+              initial={{ opacity: 0.35, y: -2 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-neutral-400"
+            >
+              {countdown}s
+            </motion.span>
+          </div>
+        ) : (
+          <>
+            <div className="mb-1 flex items-center gap-2">
+              <span className="truncate text-[11px] font-medium text-neutral-100">{displayName}</span>
+              <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums text-neutral-400">
+                {progress}%
+              </span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+              <motion.div
+                className="relative h-full overflow-hidden rounded-full bg-[#34c759]"
+                initial={false}
+                animate={{ width: `${progress}%` }}
+                transition={{ type: "spring", stiffness: 240, damping: 30, mass: 0.7 }}
+              >
+                <motion.span
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/45 to-transparent"
+                  animate={{ x: ["-100%", "100%"] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
+                />
+              </motion.div>
+            </div>
+          </>
+        )}
+      </div>
     </button>
   );
 }

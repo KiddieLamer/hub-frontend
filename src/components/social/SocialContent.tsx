@@ -190,11 +190,9 @@ const SOCIAL_PLATFORM_LABELS: Record<string, string> = {
   facebook: 'Facebook',
 }
 
-// Tinggi iframe embed per platform (proporsi kontennya beda-beda)
-const EMBED_HEIGHTS: Record<string, number> = {
-  instagram: 560, tiktok: 620, youtube: 260, youtube_shorts: 260,
-  facebook: 380, x: 420, threads: 480,
-}
+// Tinggi iframe preview embed — sengaja compact (klik preview = buka tab baru,
+// bukan interaksi di dalam embed), modal gak kebawah.
+const EMBED_PREVIEW_HEIGHT = 260
 
 // URL konten → URL iframe embed per platform (null = tidak bisa diembed)
 function embedUrlFor(platform: string, url: string): string | null {
@@ -494,6 +492,10 @@ export function SocialContent() {
   const [heatYear, setHeatYear] = useState(() => new Date().getFullYear())
   const [heatFilterOpen, setHeatFilterOpen] = useState(false)
   const [openDayKey, setOpenDayKey] = useState<string | null>(null)
+  // Tipe konten yang bloknya di-hover/klik di kartu Content Mix (info chip)
+  const [hoveredMixType, setHoveredMixType] = useState<string | null>(null)
+  // Nama project per projectId (untuk row Project di modal detail task)
+  const [projectNameById, setProjectNameById] = useState<Record<string, string>>({})
   // Hasil resolve short link (vt.tiktok.com dll) per `${taskId}:${channel}`
   const [resolvedLinks, setResolvedLinks] = useState<Record<string, string>>({})
   const [queueTasks, setQueueTasks] = useState<QueueTask[]>([])
@@ -572,15 +574,18 @@ export function SocialContent() {
         const tasks: any[] = res?.tasks ?? []
         const projectIds = [...new Set(tasks.map((t: any) => t.projectId).filter(Boolean))].slice(0, 5)
         const doneColByProject: Record<string, string> = {}
+        const nameById: Record<string, string> = {}
         await Promise.all(
           projectIds.map(async (pid: string) => {
             const res: any = await projectsApi.get(pid)
             const cols: { id: string; name: string }[] = res?.project?.columns ?? []
             columnsByProjectRef.current[pid] = cols
+            if (res?.project?.name) nameById[pid] = res.project.name
             const done = cols.find((c) => c.name.toLowerCase() === 'done')
             if (done) doneColByProject[pid] = done.id
           })
         )
+        if (alive) setProjectNameById(nameById)
         const mapped: QueueTask[] = tasks
           .filter((t: any) => t.projectId && doneColByProject[t.projectId] && t.taskType === 'social_media')
           .map((t: any) => ({
@@ -681,16 +686,21 @@ export function SocialContent() {
       if (t.contentType) counts[t.contentType] = (counts[t.contentType] ?? 0) + 1
     }
     const typedTotal = Object.values(counts).reduce((a, b) => a + b, 0)
+    let acc = 0
     const segments = Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([type, count]) => {
         const pct = typedTotal > 0 ? (count / typedTotal) * 100 : 0
+        // Titik tengah segmen (clamp 10-90%) — posisi chip info saat hover
+        const centerPct = Math.min(Math.max(acc + pct / 2, 10), 90)
+        acc += pct
         return {
           type,
           label: CONTENT_TYPE_LABELS[type] ?? type,
           count,
           percent: Math.round(pct),
           widthPct: pct,
+          centerPct,
           color: mixColorFor(type),
         }
       })
@@ -1461,38 +1471,46 @@ export function SocialContent() {
                       No content types recorded for this month yet.
                     </p>
                   ) : (
-                    <>
-                      <div className="flex gap-1.5 mb-4">
+                    <div className="relative mb-7">
+                      {/* Chip info muncul di bawah bar saat blok di-hover/klik */}
+                      {(() => {
+                        const hovered = contentMix.segments.find((s) => s.type === hoveredMixType)
+                        if (!hovered) return null
+                        return (
+                          <div
+                            className="absolute top-full mt-1 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-neutral-900 px-2.5 py-0.5 text-[10px] font-medium text-white shadow-lg pointer-events-none"
+                            style={{ left: `${hovered.centerPct}%` }}
+                          >
+                            {hovered.label} · {hovered.count} task{hovered.count > 1 ? 's' : ''} ·{' '}
+                            {hovered.percent}%
+                          </div>
+                        )
+                      })()}
+                      <div className="flex gap-1.5">
                         {contentMix.segments.map((seg) => (
-                          <div key={seg.type} style={{ width: `${seg.widthPct}%` }}>
+                          <div
+                            key={seg.type}
+                            style={{ width: `${seg.widthPct}%` }}
+                            className="cursor-pointer"
+                            onMouseEnter={() => setHoveredMixType(seg.type)}
+                            onMouseLeave={() =>
+                              setHoveredMixType((prev) => (prev === seg.type ? null : prev))
+                            }
+                            onClick={() => setHoveredMixType(seg.type)}
+                          >
                             <div className="text-xs font-semibold text-black mb-1.5">
                               {seg.percent}%
                             </div>
                             <div
-                              className="h-11 rounded-xl transition-all duration-300"
+                              className={`h-11 rounded-xl transition-all duration-300 ${
+                                hoveredMixType === seg.type ? 'opacity-80' : ''
+                              }`}
                               style={{ backgroundColor: seg.color }}
-                              title={`${seg.label}: ${seg.count} task${seg.count > 1 ? 's' : ''} · ${seg.percent}%`}
                             />
                           </div>
                         ))}
                       </div>
-                      <div className="space-y-1.5 mb-6">
-                        {contentMix.segments.map((seg) => (
-                          <div key={seg.type} className="flex items-center gap-2 min-w-0">
-                            <span
-                              className="w-2.5 h-2.5 rounded-[4px] shrink-0"
-                              style={{ backgroundColor: seg.color }}
-                            />
-                            <span className="text-[11px] text-neutral-700 truncate">
-                              {seg.label}
-                            </span>
-                            <span className="ml-auto text-[11px] text-neutral-400 shrink-0">
-                              {seg.count}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </>
+                    </div>
                   )}
                 </div>
 
@@ -1586,9 +1604,16 @@ export function SocialContent() {
                 </div>
               </div>
 
-              {/* Active Social Channels — hitungan nyata: sosmed yang terisi di company */}
-              <div className="bg-white rounded-[28px] p-6 border border-neutral-100 shadow-2xs flex items-center justify-between">
-                <div>
+              {/* Active Social Channels — hitungan nyata + background megafon */}
+              <div className="bg-white rounded-[28px] p-6 border border-neutral-100 shadow-2xs flex items-center justify-between relative overflow-hidden">
+                {/* Megafon di kanan — object-contain biar utuh gak kepotong di layar lebar */}
+                <img
+                  src="/bg/social-megaphone.jpeg"
+                  alt=""
+                  draggable={false}
+                  className="absolute right-0 bottom-0 h-full w-auto object-contain pointer-events-none select-none [mask-image:linear-gradient(to_right,transparent_0%,black_35%)]"
+                />
+                <div className="relative z-10">
                   <p className="text-sm font-medium text-neutral-700 mb-2">
                     Active Social Channels
                   </p>
@@ -1597,13 +1622,6 @@ export function SocialContent() {
                     <span className="text-sm font-normal text-neutral-400">connected</span>
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setActivePlatform('overview')}
-                  className="px-4 py-2 rounded-full bg-[#8F6CFC] hover:bg-[#7D5BE8] text-white text-xs font-medium flex items-center gap-1.5 transition cursor-pointer"
-                >
-                  View All <ArrowRight className="w-3.5 h-3.5" />
-                </button>
               </div>
             </div>
 
@@ -1636,17 +1654,7 @@ export function SocialContent() {
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-[28px] p-6 max-w-md w-full max-h-[92%] overflow-y-auto shadow-xl border border-neutral-100 space-y-4"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                {scopedTaskChannels.map((ch) => (
-                  <img
-                    key={ch}
-                    src={`/icons/social/${ch === 'youtube_shorts' ? 'youtube-shorts' : ch}.png`}
-                    alt={ch}
-                    className="h-5 w-5 object-contain"
-                  />
-                ))}
-              </div>
+            <div className="flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setSelectedTask(null)}
@@ -1658,17 +1666,29 @@ export function SocialContent() {
 
             <div>
               <h3 className="text-lg font-semibold text-black">{selectedTask.title}</h3>
-              <p className="text-xs text-neutral-500 flex items-center gap-1.5 mt-1">
-                <Calendar className="w-3.5 h-3.5 text-neutral-400" />
-                <span>
-                  {selectedTask.dueDate
-                    ? `Due ${new Date(selectedTask.dueDate).toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
-                      })}`
-                    : 'No due date'}
-                </span>
-              </p>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-xs text-neutral-500 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-neutral-400" />
+                  <span>
+                    {selectedTask.dueDate
+                      ? `Due ${new Date(selectedTask.dueDate).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                        })}`
+                      : 'No due date'}
+                  </span>
+                </p>
+                <div className="flex items-center gap-1.5">
+                  {scopedTaskChannels.map((ch) => (
+                    <img
+                      key={ch}
+                      src={`/icons/social/${ch === 'youtube_shorts' ? 'youtube-shorts' : ch}.png`}
+                      alt={ch}
+                      className="h-4 w-4 object-contain"
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
             {selectedTask.description && (
@@ -1679,7 +1699,7 @@ export function SocialContent() {
 
             {/* Preview embed dari link konten per channel */}
             {scopedTaskChannels.some((ch) => selectedTask.channelLinks[ch]) && (
-              <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1">
+              <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {scopedTaskChannels.map((ch) => {
                   const url = selectedTask.channelLinks[ch]
                   if (!url) return null
@@ -1690,8 +1710,17 @@ export function SocialContent() {
                   return (
                     <div
                       key={ch}
-                      className="w-full shrink-0 snap-center rounded-2xl overflow-hidden border border-neutral-200 bg-neutral-50"
+                      className="relative w-[86%] shrink-0 snap-start rounded-2xl overflow-hidden border border-neutral-200 bg-neutral-50 cursor-pointer"
                     >
+                      {/* Klik di mana saja = buka konten di tab baru — iframe
+                          menelan klik, jadi interaksi dilewatkan overlay ini */}
+                      <a
+                        href={resolved ?? url}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Buka konten di ${p.label ?? ch}`}
+                        className="absolute inset-0 z-10"
+                      />
                       <div className="flex items-center gap-1.5 px-3 py-1.5">
                         <img
                           src={`/icons/social/${ch === 'youtube_shorts' ? 'youtube-shorts' : ch}.png`}
@@ -1701,6 +1730,7 @@ export function SocialContent() {
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                           {p.label ?? ch}
                         </span>
+                        <ArrowUpRight className="w-3 h-3 ml-auto text-neutral-400" />
                       </div>
                       {embed ? (
                         <iframe
@@ -1708,19 +1738,13 @@ export function SocialContent() {
                           title={`Preview ${p.label ?? ch}`}
                           loading="lazy"
                           frameBorder="0"
-                          allowFullScreen
                           className="w-full bg-white"
-                          style={{ height: EMBED_HEIGHTS[ch] ?? 400 }}
+                          style={{ height: EMBED_PREVIEW_HEIGHT }}
                         />
                       ) : (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block px-3 pb-2 text-[11px] font-medium text-[#8F6CFC] break-all hover:underline"
-                        >
+                        <div className="px-3 pb-2 text-[11px] font-medium text-[#8F6CFC] break-all">
                           Buka di {p.label ?? ch} ↗
-                        </a>
+                        </div>
                       )}
                     </div>
                   )
@@ -1729,6 +1753,12 @@ export function SocialContent() {
             )}
 
             <div className="bg-neutral-50 rounded-2xl p-3.5 space-y-1.5 text-xs border border-neutral-100">
+              <div className="flex justify-between gap-3">
+                <span className="text-neutral-500 shrink-0">Project</span>
+                <span className="font-medium text-black truncate text-right">
+                  {projectNameById[selectedTask.projectId] ?? '—'}
+                </span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-neutral-500">Status</span>
                 <span

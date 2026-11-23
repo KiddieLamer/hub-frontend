@@ -10,6 +10,9 @@ interface PhoneActionRowProps {
   onChange?: (value: string) => void
 }
 
+const underlineInputClass =
+  'mt-1 w-full border-0 border-b border-slate-200 bg-transparent py-2 pl-0 pr-0 text-xs font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-[#0096C2] focus:outline-none focus:ring-0'
+
 // Logo SVG Resmi WhatsApp
 const WhatsAppLogo = () => (
   <svg className="h-3.5 w-3.5 fill-emerald-600" viewBox="0 0 24 24">
@@ -36,7 +39,7 @@ export function PhoneActionRow({ label, phoneNumber, isEditing = false, value, o
           type="text"
           value={value ?? ''}
           onChange={(e) => onChange?.(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-inner focus:outline-none focus:ring-2 focus:ring-[#0d9488]/40"
+          className={underlineInputClass}
         />
       </div>
     )
